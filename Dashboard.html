@@ -1,0 +1,648 @@
+import React, { useState, useMemo } from 'react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, ComposedChart, ScatterChart, Scatter, Cell,
+  PieChart, Pie, Sector, ReferenceLine, RadialBarChart, RadialBar, ZAxis
+} from 'recharts';
+import { 
+  Globe, TrendingUp, TrendingDown, Users, Factory, Activity, Box, ArrowRight, 
+  Droplets, Scale, AlertCircle, Coffee, Wallet, Layers, Info
+} from 'lucide-react';
+
+// --- CONFIGURATION & CONSTANTS ---
+const METRIC_TONS_PER_LOT_ARABICA = 17.01; // 37,500 lbs
+const MARGIN_OUTRIGHT = 6000; // Approx margin for outright (mock $)
+const MARGIN_SPREAD = 1200;   // Approx margin for spread (mock $)
+
+// --- DATA GENERATION ENGINE ---
+const generateComplexData = () => {
+  const weeks = 104; // 2 years
+  const data = [];
+  
+  // Initial states
+  let priceNY = 160.00;
+  let oiNY = 220000;
+  
+  for (let i = 0; i < weeks; i++) {
+    const date = new Date(2023, 0, 1 + (i * 7));
+    const isRecent = i > weeks - 2; 
+    const isMonth = i > weeks - 5; 
+    const isYear = i > weeks - 53; 
+
+    // Random Walks
+    priceNY += (Math.random() - 0.48) * 6;
+    
+    // OI Components
+    const oiChangeNY = (Math.random() - 0.5) * 5000;
+    oiNY += oiChangeNY;
+    
+    // Spreading Logic
+    const spreadingOI = Math.floor(oiNY * (0.15 + (Math.random() * 0.05))); 
+    const outrightOI = oiNY - spreadingOI;
+    
+    // --- Money Flow Calculations ---
+    const prevOI = i > 0 ? data[i-1].rawOI : oiNY;
+    const prevSpread = i > 0 ? data[i-1].spreading : spreadingOI;
+    
+    // 1. Standard Notional Flow
+    const deltaTotalOI = oiNY - prevOI;
+    const notionalFlow = (deltaTotalOI * priceNY * 375) / 1000000; // In Millions
+
+    // 2. Margin Adjusted Flow
+    const deltaOutright = (oiNY - spreadingOI) - (prevOI - prevSpread);
+    const deltaSpread = spreadingOI - prevSpread;
+    const marginFlow = ((deltaOutright * MARGIN_OUTRIGHT) + (deltaSpread * MARGIN_SPREAD)) / 1000000;
+
+    // PMPU (Producer/Merchant)
+    const pmpuGrossShort = 100000 + (Math.random() * 10000) - (priceNY * 50); 
+    const pmpuGrossLong = 30000 + (Math.random() * 5000);
+    
+    // EFP
+    const efpVolume = Math.random() > 0.8 ? Math.floor(Math.random() * 2000) : Math.floor(Math.random() * 200);
+
+    // Categories
+    const managedMoneyLong = 60000 + (priceNY * 200) + (Math.random() * 5000);
+    const managedMoneyShort = 20000 + (Math.random() * 5000);
+    const swapDealersLong = 40000 + (Math.random() * 2000);
+    const swapDealersShort = 30000 + (Math.random() * 2000);
+    const otherReptLong = 20000 + (Math.random() * 1000);
+    const otherReptShort = 15000 + (Math.random() * 1000);
+    
+    // Normalize to match OI (Composition)
+    const totalPos = pmpuGrossLong + managedMoneyLong + swapDealersLong + otherReptLong;
+    const scaleFactor = oiNY / (totalPos || 1); // Avoid div by 0
+
+    // Calculated Gross OI contribution per category (approx)
+    const pmpuOI = ((pmpuGrossLong + pmpuGrossShort) / 2) * scaleFactor;
+    const mmOI = ((managedMoneyLong + managedMoneyShort) / 2) * scaleFactor;
+    const swapOI = ((swapDealersLong + swapDealersShort) / 2) * scaleFactor;
+    const otherOI = ((otherReptLong + otherReptShort) / 2) * scaleFactor;
+
+    data.push({
+      id: i,
+      date: date.toISOString().split('T')[0],
+      priceNY: priceNY,
+      rawOI: oiNY,
+      spreading: spreadingOI,
+      moneyFlowNotional: notionalFlow,
+      moneyFlowAdjusted: marginFlow,
+      moneyFlowCumulative: 0,
+      pmpuLong: pmpuGrossLong * scaleFactor,
+      pmpuShort: pmpuGrossShort * scaleFactor,
+      mmLong: managedMoneyLong * scaleFactor,
+      mmShort: managedMoneyShort * scaleFactor,
+      swapLong: swapDealersLong * scaleFactor,
+      swapShort: swapDealersShort * scaleFactor,
+      otherLong: otherReptLong * scaleFactor,
+      otherShort: otherReptShort * scaleFactor,
+      pmpuOI: pmpuOI,
+      mmOI: mmOI,
+      swapOI: swapOI,
+      otherOI: otherOI,
+      efp: efpVolume,
+      traderCount: 250 + Math.floor(Math.random() * 100) + (Math.abs(oiChangeNY) / 100),
+      timeframe: isRecent ? 'current' : isMonth ? 'month' : isYear ? 'year' : 'historical'
+    });
+  }
+
+  // Post-process
+  let runningFlow = 0;
+  const rollingWindow = 52;
+  
+  return data.map((d, i) => {
+    runningFlow += d.moneyFlowNotional;
+    
+    const startIdx = Math.max(0, i - rollingWindow);
+    const slice = data.slice(startIdx, i + 1);
+    
+    const maxPrice = Math.max(...slice.map(s => s.priceNY));
+    const minPrice = Math.min(...slice.map(s => s.priceNY));
+    
+    // Net OI Calculation
+    const netOI = (d.mmLong - d.mmShort); 
+    const maxNet = Math.max(...slice.map(s => s.mmLong - s.mmShort));
+    const minNet = Math.min(...slice.map(s => s.mmLong - s.mmShort));
+
+    return {
+      ...d,
+      moneyFlowCumulative: runningFlow,
+      priceRank: ((d.priceNY - minPrice) / (maxPrice - minPrice)) * 100,
+      oiRank: ((netOI - minNet) / (maxNet - minNet)) * 100
+    };
+  });
+};
+
+// --- SUB-COMPONENTS ---
+
+const SectionHeader = ({ icon: Icon, title, subtitle }) => (
+  <div className="flex items-start gap-4 mb-6 border-b border-slate-800 pb-4">
+    <div className="p-3 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-slate-700 shadow-lg">
+      <Icon size={24} className="text-amber-500" />
+    </div>
+    <div>
+      <h2 className="text-xl font-bold text-slate-100">{title}</h2>
+      <p className="text-sm text-slate-400 max-w-2xl">{subtitle}</p>
+    </div>
+  </div>
+);
+
+const MetricCard = ({ label, value, subValue, trend }) => (
+  <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">{label}</p>
+    <div className="flex items-baseline gap-2">
+      <h3 className="text-2xl font-mono text-slate-200">{value}</h3>
+      {subValue && <span className="text-xs text-slate-500">{subValue}</span>}
+    </div>
+    {trend && (
+      <div className={`flex items-center gap-1 text-xs mt-2 ${trend > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+        {trend > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+        <span>{Math.abs(trend)}% vs Prev</span>
+      </div>
+    )}
+  </div>
+);
+
+// Step 1: Dual Money Flow
+const MoneyFlowChart = ({ data }) => (
+  <div className="h-[350px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(val) => val.slice(2, 7)} />
+        <YAxis stroke="#475569" fontSize={10} tickFormatter={(val) => `$${val.toFixed(0)}M`} />
+        <Tooltip 
+          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }}
+          itemStyle={{ fontSize: '12px' }}
+        />
+        <Legend />
+        <Bar dataKey="moneyFlowNotional" name="Money Flow (Notional)" fill="#3b82f6" opacity={0.5} barSize={10} />
+        <Line 
+          type="monotone" 
+          dataKey="moneyFlowAdjusted" 
+          name="Margin Flow (Risk Adj)" 
+          stroke="#f97316" 
+          strokeWidth={2} 
+          dot={false} 
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+// Step 2: Structural Integrity
+const StructuralIntegritySection = ({ data }) => (
+  <div className="space-y-6">
+    {/* Chart A: Gross OI vs Price */}
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 h-[350px]">
+      <h4 className="text-xs font-bold text-slate-400 uppercase mb-4">A. Total Open Interest vs Price</h4>
+      <ResponsiveContainer width="100%" height="90%">
+        <ComposedChart data={data.slice(-52)}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(val) => val.slice(2, 7)} />
+          <YAxis yAxisId="left" stroke="#475569" fontSize={10} />
+          <YAxis yAxisId="right" orientation="right" stroke="#475569" fontSize={10} domain={['auto', 'auto']} />
+          <Tooltip contentStyle={{ backgroundColor: '#0f172a' }} />
+          <Legend />
+          <Bar yAxisId="left" dataKey="rawOI" name="Total Open Interest" fill="#3b82f6" barSize={15} opacity={0.3} />
+          <Line yAxisId="right" type="monotone" dataKey="priceNY" name="Price" stroke="#f59e0b" strokeWidth={2} dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+
+    {/* Chart B: Breakdown by Category */}
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 h-[350px]">
+      <h4 className="text-xs font-bold text-slate-400 uppercase mb-4">B. OI Structure: Participation by Category</h4>
+      <ResponsiveContainer width="100%" height="90%">
+        <AreaChart data={data.slice(-52)}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(val) => val.slice(2, 7)} />
+          <YAxis stroke="#475569" fontSize={10} />
+          <Tooltip contentStyle={{ backgroundColor: '#0f172a' }} />
+          <Legend />
+          <Area type="monotone" dataKey="pmpuOI" stackId="1" name="PMPU (Industry)" stroke="#3b82f6" fill="#3b82f6" />
+          <Area type="monotone" dataKey="mmOI" stackId="1" name="Managed Money" stroke="#f59e0b" fill="#f59e0b" />
+          <Area type="monotone" dataKey="swapOI" stackId="1" name="Swap Dealers" stroke="#10b981" fill="#10b981" />
+          <Area type="monotone" dataKey="otherOI" stackId="1" name="Other/Non-Rep" stroke="#64748b" fill="#64748b" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+);
+
+// Step 3: Counterparty Radial
+const CounterpartyRadial = ({ data }) => {
+  const latest = data[data.length - 1];
+  
+  const longData = [
+    { name: 'PMPU (Industry)', value: Math.abs(latest.pmpuLong), fill: '#3b82f6' },
+    { name: 'Managed Money', value: Math.abs(latest.mmLong), fill: '#f59e0b' },
+    { name: 'Swap Dealers', value: Math.abs(latest.swapLong), fill: '#10b981' },
+    { name: 'Other', value: Math.abs(latest.otherLong), fill: '#64748b' },
+  ];
+  
+  const shortData = [
+    { name: 'PMPU (Industry)', value: Math.abs(latest.pmpuShort), fill: '#3b82f6' },
+    { name: 'Managed Money', value: Math.abs(latest.mmShort), fill: '#f59e0b' },
+    { name: 'Swap Dealers', value: Math.abs(latest.swapShort), fill: '#10b981' },
+    { name: 'Other', value: Math.abs(latest.otherShort), fill: '#64748b' },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[320px] w-full">
+      <div className="relative h-full w-full bg-slate-800/20 rounded-xl p-2 border border-slate-800">
+        <h4 className="text-center text-emerald-400 font-bold mb-2 text-xs uppercase tracking-widest">LONGS (Buying)</h4>
+        <ResponsiveContainer width="100%" height="90%">
+          <PieChart>
+            <Pie data={longData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+              {longData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+            </Pie>
+            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} />
+            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      
+      <div className="relative h-full w-full bg-slate-800/20 rounded-xl p-2 border border-slate-800">
+        <h4 className="text-center text-red-400 font-bold mb-2 text-xs uppercase tracking-widest">SHORTS (Selling)</h4>
+        <ResponsiveContainer width="100%" height="90%">
+          <PieChart>
+            <Pie data={shortData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+              {shortData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+            </Pie>
+            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} />
+             <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// Step 4: Industry Coverage
+const IndustryCoverageChart = ({ data }) => {
+  if (!data || data.length < 2) return <div className="p-4 text-red-400">Data Unavailable</div>;
+
+  const latest = data[data.length - 1];
+  const prev = data[data.length - 2];
+  
+  const pmpuShort = latest.pmpuShort || 0;
+  const prevPmpuShort = prev.pmpuShort || 0;
+  const efp = latest.efp || 0;
+
+  const shortMT = (pmpuShort * METRIC_TONS_PER_LOT_ARABICA).toFixed(0);
+  const changeMT = ((pmpuShort - prevPmpuShort) * METRIC_TONS_PER_LOT_ARABICA).toFixed(0);
+  const efpMT = (efp * METRIC_TONS_PER_LOT_ARABICA).toFixed(0);
+  
+  const commentary = `Producers' coverage (Gross Short) is at ${parseInt(shortMT).toLocaleString()} MT. Weekly change: ${parseInt(changeMT).toLocaleString()} MT. EFP Conversion: ${parseInt(efpMT).toLocaleString()} MT.`;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+        <div className="flex items-start gap-3">
+          <Info className="text-blue-400 mt-1 flex-shrink-0" size={18} />
+          <p className="text-sm text-slate-300 font-mono leading-relaxed">
+            "{commentary}"
+          </p>
+        </div>
+      </div>
+      <div className="h-[350px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+            <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(val) => val.slice(2, 7)} />
+            <YAxis yAxisId="left" stroke="#475569" fontSize={10} label={{ value: 'Lots', angle: -90, position: 'insideLeft', fill: '#475569' }}/>
+            <YAxis yAxisId="right" orientation="right" stroke="#475569" fontSize={10} label={{ value: 'Price', angle: 90, position: 'insideRight', fill: '#475569' }}/>
+            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
+            <Legend />
+            <Area 
+              yAxisId="left" 
+              type="monotone" 
+              dataKey="pmpuShort" 
+              name="PMPU Short Hedges" 
+              stroke="#3b82f6" 
+              fill="#3b82f6" 
+              fillOpacity={0.2} 
+            />
+            <Line 
+              yAxisId="right" 
+              type="monotone" 
+              dataKey="priceNY" 
+              name="Price (¢/lb)" 
+              stroke="#f59e0b" 
+              strokeWidth={2} 
+              dot={false} 
+            />
+            <Bar 
+              yAxisId="left" 
+              dataKey="efp" 
+              name="Physical Delivery (EFP)" 
+              fill="#10b981" 
+              opacity={0.8}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// Step 5: Dry Powder
+const DryPowderScatter = ({ data }) => {
+  const getColor = (timeframe) => {
+    switch(timeframe) {
+      case 'current': return '#ef4444';
+      case 'month': return '#f97316';
+      case 'year': return '#3b82f6';
+      default: return '#475569';
+    }
+  };
+
+  return (
+    <div className="h-[400px] w-full bg-slate-900 rounded-xl p-4 border border-slate-800">
+       <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis 
+            type="number" 
+            dataKey="traderCount" 
+            name="Traders" 
+            stroke="#94a3b8"
+            label={{ value: 'Active Traders (Count)', position: 'bottom', offset: 0, fill: '#64748b', fontSize: 12 }} 
+          />
+          <YAxis 
+            type="number" 
+            dataKey="rawOI" 
+            name="Volume" 
+            stroke="#94a3b8"
+            label={{ value: 'Open Interest (Lots)', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 12 }}
+          />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="bg-slate-800 p-2 border border-slate-700 rounded text-xs text-white">
+                  <p>Date: {payload[0].payload.date}</p>
+                  <p>Traders: {payload[0].value}</p>
+                  <p>OI: {payload[1].value.toLocaleString()}</p>
+                </div>
+              );
+            }
+            return null;
+          }} />
+          <Scatter name="Market Participation" data={data} fill="#8884d8">
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={getColor(entry.timeframe)} />
+            ))}
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
+      <div className="flex justify-center gap-4 mt-2 text-xs text-slate-400">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Current Week</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span> Last Month</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Last Year</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-600"></span> Historical</span>
+      </div>
+    </div>
+  );
+};
+
+// Step 6: Matrix
+const OBOSMatrix = ({ data }) => {
+  return (
+    <div className="h-[400px] w-full bg-slate-900 rounded-xl p-4 border border-slate-800 relative">
+      <div className="absolute inset-0 m-12 pointer-events-none opacity-20">
+         <div className="w-full h-1/2 flex">
+            <div className="w-1/2 bg-slate-500/20"></div> 
+            <div className="w-1/2 bg-red-500/30"></div> 
+         </div>
+         <div className="w-full h-1/2 flex">
+            <div className="w-1/2 bg-emerald-500/30"></div> 
+            <div className="w-1/2 bg-slate-500/20"></div> 
+         </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis 
+            type="number" 
+            dataKey="oiRank" 
+            name="Net OI Rank" 
+            domain={[0, 100]}
+            stroke="#94a3b8"
+            label={{ value: '1-Yr Net OI Rank (%)', position: 'bottom', offset: 0, fill: '#64748b', fontSize: 12 }} 
+          />
+          <YAxis 
+            type="number" 
+            dataKey="priceRank" 
+            name="Price Rank" 
+            domain={[0, 100]}
+            stroke="#94a3b8"
+            label={{ value: '1-Yr Price Rank (%)', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 12 }}
+          />
+          <ReferenceLine x={50} stroke="#475569" strokeDasharray="3 3" />
+          <ReferenceLine y={50} stroke="#475569" strokeDasharray="3 3" />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="bg-slate-800 p-2 border border-slate-700 rounded text-xs text-white">
+                  <p>Date: {payload[0].payload.date}</p>
+                  <p>OI Rank: {payload[0].value.toFixed(1)}%</p>
+                  <p>Price Rank: {payload[1].value.toFixed(1)}%</p>
+                </div>
+              );
+            }
+            return null;
+          }} />
+          <Scatter name="Cycle State" data={data.slice(-52)} fill="#8884d8">
+             {data.slice(-52).map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={index === data.slice(-52).length - 1 ? '#ef4444' : '#64748b'} 
+                fillOpacity={index === data.slice(-52).length - 1 ? 1 : 0.3 + (index/100)} 
+              />
+            ))}
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
+       <div className="absolute top-6 right-6 text-red-400 text-[10px] font-bold bg-slate-900/80 px-2 py-1 rounded border border-red-500/50">OVERBOUGHT</div>
+       <div className="absolute bottom-10 left-10 text-emerald-400 text-[10px] font-bold bg-slate-900/80 px-2 py-1 rounded border border-emerald-500/50">OVERSOLD</div>
+    </div>
+  );
+};
+
+
+export default function App() {
+  const [activeStep, setActiveStep] = useState(1);
+  const data = useMemo(() => generateComplexData(), []);
+  const latest = data[data.length - 1];
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+      {/* Navigation Rail */}
+      <nav className="fixed top-0 left-0 w-20 h-full bg-slate-900 border-r border-slate-800 flex flex-col items-center py-8 z-50">
+        <div className="mb-8 p-3 bg-amber-600 rounded-xl shadow-lg shadow-amber-900/50">
+          <Coffee size={24} className="text-white" />
+        </div>
+        <div className="flex flex-col gap-6 w-full">
+          {[
+            { id: 1, icon: Globe, label: "Flow" },
+            { id: 2, icon: Activity, label: "Struct" },
+            { id: 3, icon: Users, label: "Players" },
+            { id: 4, icon: Factory, label: "Industry" },
+            { id: 5, icon: Droplets, label: "Powder" },
+            { id: 6, icon: Scale, label: "Cycle" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveStep(item.id)}
+              className={`w-full flex flex-col items-center gap-1 py-2 transition-all relative ${
+                activeStep === item.id ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <item.icon size={20} />
+              <span className="text-[10px] font-bold uppercase">{item.label}</span>
+              {activeStep === item.id && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
+              )}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="pl-20">
+        <div className="max-w-6xl mx-auto p-8">
+          
+          <header className="flex justify-between items-end mb-12">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">
+                Coffee Intelligence Unit
+              </h1>
+              <p className="text-slate-400 mt-2">Week 42 Report • Global Coffee Complex (NY + LDN)</p>
+            </div>
+            <div className="text-right">
+               <div className="text-2xl font-mono font-bold text-emerald-400">{latest.priceNY.toFixed(2)} ¢/lb</div>
+               <div className="text-xs text-slate-500 uppercase tracking-wider">Arabica Spot</div>
+            </div>
+          </header>
+
+          {/* Dynamic Content Rendering */}
+          <div className="space-y-12 min-h-[500px]">
+            
+            {activeStep === 1 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Globe} 
+                  title="1. Global Money Flow Analysis" 
+                  subtitle="Comparing Headline Notional Flow (Total OI x Price) vs. Margin-Adjusted Flow (Risk Capital). A divergence where Notional > Margin suggests speculative spreading rather than directional conviction." 
+                />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    <MoneyFlowChart data={data} />
+                  </div>
+                  <div className="space-y-4">
+                    <MetricCard label="Notional Flow" value={`$${latest.moneyFlowNotional.toFixed(1)}M`} trend={12.4} />
+                    <MetricCard label="Margin-Adj Flow" value={`$${latest.moneyFlowAdjusted.toFixed(1)}M`} trend={8.2} />
+                    <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
+                      <h4 className="text-blue-400 font-bold text-sm mb-2">Flow Signal</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        The gap between the Blue Bar (Notional) and Orange Line (Margin) indicates that ~20% of recent volume is likely low-conviction spreading or HFT activity, reducing the bullish impact of the headline number.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeStep === 2 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Activity} 
+                  title="2. Structural Integrity (Gross OI)" 
+                  subtitle="Analyzing participation quality. Chart A shows the raw trend. Chart B reveals the specific categories driving the change in participation." 
+                />
+                <StructuralIntegritySection data={data} />
+              </section>
+            )}
+
+            {activeStep === 3 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Users} 
+                  title="3. The Counterparty Map" 
+                  subtitle="Who owns the Longs vs Who owns the Shorts? Visualizing the liquidity handshake." 
+                />
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                  <CounterpartyRadial data={data} />
+                  <div className="grid grid-cols-2 gap-6 mt-6">
+                    <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                      <div className="text-amber-400 font-bold mb-1">Managed Money</div>
+                      <p className="text-xs text-slate-400">Dominant on Long side ({((latest.mmLong / (latest.mmLong + latest.pmpuLong + latest.swapLong))*100).toFixed(0)}%)</p>
+                    </div>
+                    <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                      <div className="text-blue-400 font-bold mb-1">Industry (PMPU)</div>
+                      <p className="text-xs text-slate-400">Dominant on Short side ({((latest.pmpuShort / (latest.mmShort + latest.pmpuShort + latest.swapShort))*100).toFixed(0)}%)</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeStep === 4 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Factory} 
+                  title="4. Industry Coverage (PMPU)" 
+                  subtitle="Translating Producer Hedges into Physical Reality (Metric Tons & EFP)." 
+                />
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                  <IndustryCoverageChart data={data} />
+                </div>
+              </section>
+            )}
+
+            {activeStep === 5 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Droplets} 
+                  title="5. 'Dry Powder' Analysis" 
+                  subtitle="Volume (Vertical) vs Number of Traders (Horizontal). Identifying crowding and potential energy." 
+                />
+                <DryPowderScatter data={data} />
+              </section>
+            )}
+
+            {activeStep === 6 && (
+              <section className="animate-in fade-in duration-500">
+                <SectionHeader 
+                  icon={Scale} 
+                  title="6. Cycle Location (OB/OS)" 
+                  subtitle="1-Year Rolling Rank Matrix. High Price + High Net Long = Overbought." 
+                />
+                <OBOSMatrix data={data} />
+              </section>
+            )}
+
+          </div>
+
+          <div className="mt-12 pt-8 border-t border-slate-800 flex justify-between text-slate-500 text-xs">
+             <button 
+               onClick={() => setActiveStep(Math.max(1, activeStep - 1))}
+               className="hover:text-amber-400 transition-colors flex items-center gap-2"
+               disabled={activeStep === 1}
+             >
+               Previous Step
+             </button>
+             <button 
+               onClick={() => setActiveStep(Math.min(6, activeStep + 1))}
+               className="hover:text-amber-400 transition-colors flex items-center gap-2"
+               disabled={activeStep === 6}
+             >
+               Next Step <ArrowRight size={14} />
+             </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
