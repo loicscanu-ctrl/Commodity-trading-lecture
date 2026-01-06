@@ -10,17 +10,29 @@ This dashboard transforms static CFTC/ICE report data into a six-step analytical
 
 cot-coffee-dashboard/
 ├── public/                 # Static assets
+
 ├── src/
+
 │   ├── components/         # React components
+
 │   │   ├── layout/         # Navigation, Sidebar, Header
+
 │   │   ├── charts/         # Specific chart implementations
+
 │   │   └── ui/             # Reusable metric cards and indicators
+
 │   ├── hooks/              # Custom hooks for data management
+
 │   ├── services/           # Data fetching and parsing logic
+
 │   ├── utils/              # Calculation helpers (Margin adjustment, MT conversions)
+
 │   ├── constants/          # Market specs (Lots to MT, Margin requirements)
+
 │   ├── App.jsx             # Main application entry and routing
+
 │   └── main.jsx            # React mounting point
+
 
 📈 The Analytical Journey
 
