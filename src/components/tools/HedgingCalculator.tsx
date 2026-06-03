@@ -73,7 +73,7 @@ export default function HedgingCalculator() {
       </div>
       <div className="bg-slate-800 rounded-xl p-6 space-y-3">
         <Row label="Total exposure (MT)" value={`${totalMT.toLocaleString()} MT`} />
-        <Row label="Total exposure (USD)" value={`$${Math.round(totalUSD / 1000).toLocaleString('en-US')}k`} />
+        <Row label="Total exposure (USD)" value={fmtUSD(totalUSD)} />
         <div className="border-t border-slate-700 pt-3 space-y-3">
           <Row label="Covered" value={fmtUSD(coveredUSD)} color="text-green-400" />
           <Row label="Uncovered" value={fmtUSD(uncoveredUSD)} color="text-red-400" />

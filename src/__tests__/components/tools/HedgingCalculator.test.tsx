@@ -25,6 +25,7 @@ test('changing lots updates output reactively', () => {
 test('changing hedge ratio to 100% shows full exposure as covered', () => {
   render(<HedgingCalculator />)
   fireEvent.change(screen.getByLabelText(/Hedge ratio/i), { target: { value: '100' } })
-  // 100 × 10 × 2450 × 100% = $2,450,000 covered
-  expect(screen.getByText(/2,450,000/)).toBeInTheDocument()
+  // Both "Total exposure (USD)" and "Covered" show $2,450,000 when hedged 100%
+  const matches = screen.getAllByText(/2,450,000/)
+  expect(matches.length).toBeGreaterThanOrEqual(2)
 })
