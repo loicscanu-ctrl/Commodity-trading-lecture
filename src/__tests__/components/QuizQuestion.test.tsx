@@ -17,10 +17,12 @@ beforeEach(() => onAnswer.mockClear())
 test('renders question and all 4 options', () => {
   render(<QuizQuestion question={question} questionNumber={1} total={5} onAnswer={onAnswer} />)
   expect(screen.getByText('What is 2 + 2?')).toBeInTheDocument()
-  expect(screen.getByText(/3/)).toBeInTheDocument()
-  expect(screen.getByText(/4/)).toBeInTheDocument()
-  expect(screen.getByText(/5/)).toBeInTheDocument()
-  expect(screen.getByText(/6/)).toBeInTheDocument()
+  const buttons = screen.getAllByRole('button')
+  expect(buttons).toHaveLength(4)
+  expect(buttons[0]).toHaveTextContent('3')
+  expect(buttons[1]).toHaveTextContent('4')
+  expect(buttons[2]).toHaveTextContent('5')
+  expect(buttons[3]).toHaveTextContent('6')
 })
 
 test('calls onAnswer(true) when correct option clicked', () => {

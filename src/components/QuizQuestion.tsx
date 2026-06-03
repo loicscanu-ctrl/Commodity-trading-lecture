@@ -22,12 +22,8 @@ export default function QuizQuestion({ question, questionNumber, total, onAnswer
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <p
-        className="text-slate-500 text-sm mb-4"
-        aria-label={`Question ${questionNumber} of ${total}`}
-        data-total={total}
-      >
-        Question {questionNumber}
+      <p className="text-slate-500 text-sm mb-4">
+        Question {questionNumber} / {total}
       </p>
       <h2 className="text-xl font-semibold text-white mb-8 leading-snug">{question.question}</h2>
       <div className="flex flex-col gap-3">
