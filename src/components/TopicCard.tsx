@@ -12,6 +12,7 @@ const TYPE_BADGE: Record<Topic['type'], { label: string; className: string }> = 
 function getHref(topic: Topic, moduleId: number): string {
   if (topic.type === 'quiz') return `/module/${moduleId}/quiz/${topic.id}`
   if (topic.type === 'tool') return `/module/${moduleId}/tool/${topic.id}`
+  if (topic.type === 'simulation') return '#'
   return `/module/${moduleId}/section/${topic.id}`
 }
 

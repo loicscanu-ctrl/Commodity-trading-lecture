@@ -6,8 +6,8 @@ import TopicCard from '@/components/TopicCard'
 type Props = { params: { id: string } }
 
 export default function ModulePage({ params }: Props) {
-  const moduleId = parseInt(params.id)
-  if (isNaN(moduleId) || moduleId < 1 || moduleId > 3) notFound()
+  const moduleId = parseInt(params.id, 10)
+  if (isNaN(moduleId) || moduleId < 1 || moduleId > modules.length) notFound()
 
   const mod = modules[moduleId - 1]
 
