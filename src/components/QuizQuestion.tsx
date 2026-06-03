@@ -21,34 +21,32 @@ export default function QuizQuestion({ question, questionNumber, total, onAnswer
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <p className="text-slate-500 text-sm mb-4">
-        Question {questionNumber} / {total}
-      </p>
-      <h2 className="text-xl font-semibold text-white mb-8 leading-snug">{question.question}</h2>
-      <div className="flex flex-col gap-3">
+    <div className="max-w-2xl mx-auto px-6 py-8">
+      <p className="text-zinc-500 text-xs font-mono mb-4 tracking-wider">QUESTION {questionNumber} / {total}</p>
+      <h2 className="text-lg font-semibold text-white mb-8 leading-snug">{question.question}</h2>
+      <div className="flex flex-col gap-2">
         {question.options.map((option, i) => {
-          let cls = 'bg-slate-800 border-slate-700 text-slate-200 hover:border-amber-500'
+          let cls = 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-amber-500 hover:text-white'
           if (answered) {
-            if (i === question.correctIndex) cls = 'bg-green-900 border-green-600 text-green-100'
-            else if (i === selected) cls = 'bg-red-900 border-red-700 text-red-100'
-            else cls = 'bg-slate-800 border-slate-700 text-slate-500'
+            if (i === question.correctIndex) cls = 'bg-green-950 border-green-600 text-green-300'
+            else if (i === selected) cls = 'bg-red-950 border-red-700 text-red-300'
+            else cls = 'bg-zinc-900 border-zinc-800 text-zinc-600'
           }
           return (
             <button
               key={i}
               onClick={() => handleSelect(i)}
               disabled={answered}
-              className={`border rounded-lg px-5 py-4 text-left transition-colors ${cls} disabled:cursor-default`}
+              className={`border px-4 py-3 text-left text-sm transition-colors ${cls} disabled:cursor-default`}
             >
-              <span className="font-medium mr-3 text-sm">{['A', 'B', 'C', 'D'][i]}.</span>
+              <span className="font-mono font-bold mr-3 text-xs">{['A', 'B', 'C', 'D'][i]}.</span>
               {option}
             </button>
           )
         })}
       </div>
       {answered && question.explanation && (
-        <p className="mt-6 text-slate-400 text-sm border-l-2 border-amber-500 pl-4 leading-relaxed">
+        <p className="mt-6 text-zinc-400 text-sm border-l-2 border-amber-500 pl-4 leading-relaxed font-mono text-xs">
           {question.explanation}
         </p>
       )}

@@ -4,16 +4,17 @@ type Props = { score: number; total: number; moduleId: number }
 
 export default function QuizSummary({ score, total, moduleId }: Props) {
   const pct = Math.round((score / total) * 100)
-  const message = pct >= 80 ? 'Excellent!' : pct >= 60 ? 'Good effort!' : 'Keep reviewing.'
+  const color = pct >= 80 ? 'text-green-400' : pct >= 60 ? 'text-amber-400' : 'text-red-400'
+  const message = pct >= 80 ? 'PASS' : pct >= 60 ? 'REVIEW' : 'FAIL'
 
   return (
     <div className="max-w-md mx-auto px-6 py-20 text-center">
-      <div className="text-6xl font-bold text-amber-400 mb-2">{pct}%</div>
-      <p className="text-slate-300 mb-1">{score} / {total} correct</p>
-      <p className="text-slate-500 text-sm mb-10">{message}</p>
+      <div className={`text-7xl font-mono font-bold mb-2 ${color}`}>{pct}%</div>
+      <div className={`text-xs font-mono tracking-widest mb-2 ${color}`}>{message}</div>
+      <p className="text-zinc-500 text-sm font-mono mb-10">{score} / {total} correct</p>
       <Link
         href={`/module/${moduleId}`}
-        className="block px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg transition-colors"
+        className="block px-6 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm font-mono uppercase tracking-widest transition-colors"
       >
         Back to Module
       </Link>
