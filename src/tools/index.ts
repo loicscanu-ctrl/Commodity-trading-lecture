@@ -1,4 +1,8 @@
 import type { ComponentType } from 'react'
+import HedgingCalculator from '@/components/tools/HedgingCalculator'
+import BasisCalculator from '@/components/tools/BasisCalculator'
 
-// Populated in Task 12 when calculator components are built.
-export const toolRegistry: Record<string, ComponentType> = {}
+export const toolRegistry: Record<string, ComponentType> = {
+  'hedging-calculator': HedgingCalculator,
+  'basis-calculator': BasisCalculator,
+}
