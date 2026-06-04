@@ -15,6 +15,8 @@ import PriceFactorsGrid from './PriceFactorsGrid'
 import TankerTypes from './TankerTypes'
 import WorldscaleExample from './WorldscaleExample'
 import SqueezeSimulator from './SqueezeSimulator'
+import MandateReveal from './MandateReveal'
+import CommodityDonutChart from './CommodityDonutChart'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -33,4 +35,6 @@ export const visualRegistry: Record<string, ComponentType> = {
   'tanker-types': TankerTypes,
   'worldscale-example': WorldscaleExample,
   'squeeze-simulator': SqueezeSimulator,
+  'mandate-reveal': MandateReveal,
+  'commodity-donut-chart': CommodityDonutChart,
 }

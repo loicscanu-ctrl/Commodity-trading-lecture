@@ -37,74 +37,24 @@ No political power. No taxes. No marriage for money. No inheritance. You operate
     {
       id: 'dead-ends',
       title: 'The Dead Ends',
-      body: `With Rule 3 in place — what happens?
+      body: `With the 3 Laws in place — what fails?
 
-**Buy land all over the world** (an ETF of Antiquity)? Land is not consumed. It's a fixed asset. At the first change of empire, you are expropriated.
+Almost everything we call "wealth preservation" collapses under at least one rule. Conventional assets, institutions, and even flow-based strategies all hit a wall.
 
-**Buy gold?** Gold feeds no one. It sleeps. You violate the vow of utility.
-
-**Pure banking?** The Pope excommunicates you for usury — money cannot make money without taking real physical risk.`,
+*Open **Notes** for the full analysis of each dead end.*`,
       visual: 'dead-ends',
     },
     {
-      id: 'flow-traps',
-      title: 'The Flow Traps',
-      body: `Even the "flow-based" approaches collapse under the rules.
-
-**Own ships?** As soon as there's a war, the King requisitions your vessels. You've just violated Rule 3 — fixed assets.
-
-**Pure currency arbitrage?** The Church condemns it. No physical risk, no moral justification. Grounds for excommunication and seizure.
-
-*Everything collapses.*`,
-      visual: 'flow-traps',
-    },
-    {
-      id: 'multiplier',
-      title: 'The Mathematical Shock',
+      id: 'revelation',
+      title: 'The Revelation',
       body: `So — what is the **only calculation** that holds up over 2,000 years?
 
-To go from **$1.50** to **$100 Trillion** — the estimated cost of the current global energy transition — you didn't need a 20% yield. You didn't need genius. You didn't need luck.
+$1.50 → $100 Trillion. A net **1.61%** annually. Uninterrupted. Shielded from every empire.
 
-You just needed a net **1.61%**. That's it.
+The vehicle: **Physical Commodity Trading**. The trader owns the temporary title to wheat, salt, oil — goods consumed and reborn as liquidity. If Rome burns, the flow reroutes to Byzantium.
 
-But an uninterrupted 1.61% — *shielded from wars, from inflation, from the collapse of every empire that tried to steal it.*`,
-      visual: 'geometric-multiplier',
-    },
-    {
-      id: 'vehicle',
-      title: 'The Vehicle: Physical Commodity Trading',
-      body: `The only vehicle capable of respecting the Vow of Ephemeral Utility is **Physical Commodities Trading**.
-
-The trader owns neither the field nor the ship. They own the **temporary title** to the wheat, the salt, the oil. Goods that are consumed and reborn as liquidity.
-
-They arbitrage **time and space**. If Rome burns, they have no factories to lose — they simply divert their flow to Byzantium.
-
-- **Ephemeral & Useful:** The asset is consumed, reborn as cash for the next voyage
-- **Ethical:** Rewards real logistical service against the risk of loss
-- **Agile:** No fixed assets. If an empire collapses, the flow reroutes`,
-      visual: 'vehicle-scene',
-    },
-    {
-      id: 'metamorphosis',
-      title: 'The Resolution',
-      body: `Look at the curve.
-
-In **500 AD**, after five centuries of this shadow work, they have earned only 6 gold coins. Just enough to buy a horse. It is the ultimate test of patience.
-
-In **1300 AD**, the exponential curve takes over. They are richer than Kings.
-
-And today — the mandate is fulfilled. The climate money is here.
-
-| Era | Commodity Flow | Value Accumulated |
-|-----|---------------|-------------------|
-| 500 AD (Byzantium) | Grain & Salt | 6 gold Solidi — price of a horse |
-| 1300 AD (Venice) | Spices & Wool | 6 million gold Florins |
-| 1700 AD (London) | Coffee & Copper | Billions of Pounds Sterling |
-| 2026 (World) | Energy & Data | $100 Trillion |
-
-**The lesson is clear:** Physical trading is not a financial anomaly. It is the ultimate arbiter of time.
-
-*This is what you are about to learn.*`,
+**The lesson:** Physical trading is not a financial anomaly. It is the ultimate arbiter of time. *This is what you are about to learn.*`,
+      visual: 'mandate-reveal',
     },
   ],
 }

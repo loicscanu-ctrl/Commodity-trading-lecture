@@ -4,7 +4,7 @@ type Category = { header: string; color: string; tiles: Tile[] }
 const CATEGORIES: Category[] = [
   {
     header: 'Conventional Dead Ends',
-    color: 'border-red-800',
+    color: 'border-red-900',
     tiles: [
       {
         label: 'FINANCE & PAPER',
@@ -24,11 +24,11 @@ const CATEGORIES: Category[] = [
   },
   {
     header: 'Institutional Dead Ends',
-    color: 'border-orange-800',
+    color: 'border-orange-900',
     tiles: [
       {
         label: 'THE INSTITUTION',
-        verdict: 'TOO VISIBLE — RULE 3',
+        verdict: 'TOO VISIBLE',
         body: 'Too visible. The Templars learned this at their expense: the State always ends up expropriating super-institutional powers.',
       },
       {
@@ -43,6 +43,22 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
+  {
+    header: 'Dynamic Dead Ends — The Flow Traps',
+    color: 'border-yellow-900',
+    tiles: [
+      {
+        label: 'PURE FX — CURRENCY ARBITRAGE',
+        verdict: 'AUDIT FAILURE',
+        body: 'For 1,000 years, the Church condemned money making money without real physical risk. Usury — grounds for excommunication and seizure.',
+      },
+      {
+        label: 'PURE LOGISTICS — OWNING SHIPS',
+        verdict: 'RISK FAILURE — RULE 3',
+        body: 'Heavy fixed assets (ship, cart) are systematically requisitioned by the State in times of war. The shipowner loses everything. The trader simply changes ships.',
+      },
+    ],
+  },
 ]
 
 export default function DeadEnds() {
@@ -53,7 +69,7 @@ export default function DeadEnds() {
           <div className={`text-zinc-500 text-xs font-mono uppercase tracking-widest border-b ${cat.color} pb-1 mb-3`}>
             {cat.header}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${cat.tiles.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
             {cat.tiles.map(tile => (
               <div key={tile.label} className="bg-zinc-900 border border-zinc-800 p-4">
                 <div className="text-zinc-500 font-mono text-xs tracking-wider mb-1">{tile.label}</div>
