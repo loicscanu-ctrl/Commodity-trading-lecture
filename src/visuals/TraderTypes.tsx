@@ -201,13 +201,16 @@ export default function TraderTypes() {
                           key={c.name}
                           onClick={() => INFO[c.name] ? setSelected(c.name) : undefined}
                           disabled={!INFO[c.name]}
-                          className={`group px-3 py-2 border transition-all text-left ${tier.chipColor} ${INFO[c.name] ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
+                          className={`group relative px-3 py-2 border transition-all text-left ${tier.chipColor} ${INFO[c.name] ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
                         >
+                          {/* Floating tooltip */}
+                          {INFO[c.name] && (
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 border border-zinc-600 text-white text-xs font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
+                              info →
+                            </div>
+                          )}
                           <div className="text-white text-xs font-semibold leading-tight whitespace-nowrap">{c.name}</div>
                           {c.note && <div className="text-zinc-500 text-xs mt-0.5">{c.note}</div>}
-                          {INFO[c.name] && (
-                            <div className={`text-xs mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${LABEL_COLOR[tier.color]}`}>tap for info →</div>
-                          )}
                         </button>
                       ))}
                     </div>
