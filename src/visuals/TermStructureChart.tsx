@@ -1,6 +1,24 @@
+// WTI contract codes starting from July 2026 (nearest month)
+// F=Jan G=Feb H=Mar J=Apr K=May M=Jun N=Jul Q=Aug U=Sep V=Oct X=Nov Z=Dec
+const CONTRACTS = [
+  'CL N26', // Jul 2026
+  'CL Q26', // Aug 2026
+  'CL U26', // Sep 2026
+  'CL V26', // Oct 2026
+  'CL X26', // Nov 2026
+  'CL Z26', // Dec 2026
+  'CL F27', // Jan 2027
+  'CL G27', // Feb 2027
+  'CL H27', // Mar 2027
+  'CL J27', // Apr 2027
+  'CL K27', // May 2027
+  'CL M27', // Jun 2027
+  'CL N27', // Jul 2027
+]
+
 export default function TermStructureChart() {
-  const W = 560, H = 290
-  const ml = 48, mr = 24, mt = 20, mb = 44
+  const W = 580, H = 330
+  const ml = 48, mr = 24, mt = 20, mb = 76
   const pw = W - ml - mr
   const ph = H - mt - mb
 
@@ -11,70 +29,99 @@ export default function TermStructureChart() {
   const x = (m: number) => ml + (m / MONTHS) * pw
   const y = (p: number) => mt + (1 - (p - PMIN) / (PMAX - PMIN)) * ph
 
+  const contangoPrice = (t: number) => SPOT + 48 * (1 - Math.exp(-t / 3.5))
+  const backwardPrice = (t: number) => SPOT - 55 * (1 - Math.exp(-t / 3.5))
+
   const N = 80
   const contangoPath = Array.from({ length: N }, (_, i) => {
     const t = (i / (N - 1)) * MONTHS
-    const p = SPOT + 48 * (1 - Math.exp(-t / 3.5))
-    return `${i === 0 ? 'M' : 'L'}${x(t).toFixed(1)},${y(p).toFixed(1)}`
+    return `${i === 0 ? 'M' : 'L'}${x(t).toFixed(1)},${y(contangoPrice(t)).toFixed(1)}`
   }).join(' ')
 
   const backwardPath = Array.from({ length: N }, (_, i) => {
     const t = (i / (N - 1)) * MONTHS
-    const p = SPOT - 55 * (1 - Math.exp(-t / 3.5))
-    return `${i === 0 ? 'M' : 'L'}${x(t).toFixed(1)},${y(p).toFixed(1)}`
+    return `${i === 0 ? 'M' : 'L'}${x(t).toFixed(1)},${y(backwardPrice(t)).toFixed(1)}`
   }).join(' ')
 
-  const spotX = x(0), spotY = y(SPOT)
   const ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  const spotX = x(0), spotY = y(SPOT)
 
-  const tLabel = 8
-  const contangoLabelY = y(SPOT + 48 * (1 - Math.exp(-tLabel / 3.5)))
-  const backwardLabelY = y(SPOT - 55 * (1 - Math.exp(-tLabel / 3.5)))
+  const tLabel = 3
+  const contangoLabelY = y(contangoPrice(tLabel))
+  const backwardLabelY = y(backwardPrice(tLabel))
+
+  const axisBottom = mt + ph
 
   return (
     <div className="mt-6 bg-black border border-zinc-800 p-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '260px' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '300px' }}>
         {/* Grid lines */}
         {ticks.map(t => (
-          <line key={t} x1={x(t)} y1={mt} x2={x(t)} y2={mt + ph} stroke="#27272a" strokeWidth="1" />
+          <line key={t} x1={x(t)} y1={mt} x2={x(t)} y2={axisBottom} stroke="#27272a" strokeWidth="1" />
         ))}
 
         {/* Axes */}
-        <line x1={ml} y1={mt} x2={ml} y2={mt + ph} stroke="#3f3f46" strokeWidth="1" />
-        <line x1={ml} y1={mt + ph} x2={ml + pw} y2={mt + ph} stroke="#3f3f46" strokeWidth="1" />
+        <line x1={ml} y1={mt} x2={ml} y2={axisBottom} stroke="#3f3f46" strokeWidth="1" />
+        <line x1={ml} y1={axisBottom} x2={ml + pw} y2={axisBottom} stroke="#3f3f46" strokeWidth="1" />
 
         {/* Contango curve — amber */}
-        <path d={contangoPath} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={contangoPath} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Backwardation curve — green */}
-        <path d={backwardPath} fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={backwardPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Markers + tick lines on each contract */}
+        {ticks.map((t, i) => {
+          const cx = x(t)
+          const cyC = y(contangoPrice(t))
+          const cyB = y(backwardPrice(t))
+          const label = CONTRACTS[i]
+          const labelX = cx
+          const labelY = axisBottom + 10
+          return (
+            <g key={t}>
+              {/* Tick line */}
+              <line x1={cx} y1={axisBottom} x2={cx} y2={axisBottom + 5} stroke="#3f3f46" strokeWidth="1" />
+
+              {/* Contango marker */}
+              <circle cx={cx} cy={cyC} r="3.5" fill="#f59e0b" stroke="#78350f" strokeWidth="1" />
+
+              {/* Backwardation marker */}
+              <circle cx={cx} cy={cyB} r="3.5" fill="#22c55e" stroke="#14532d" strokeWidth="1" />
+
+              {/* Contract label — rotated -45° */}
+              <text
+                x={labelX}
+                y={labelY}
+                textAnchor="end"
+                fill="#71717a"
+                fontSize="8.5"
+                fontFamily="monospace"
+                transform={`rotate(-45 ${labelX} ${labelY})`}
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
 
         {/* Spot price dot */}
         <circle cx={spotX} cy={spotY} r="5.5" fill="#3b82f6" />
-        <circle cx={spotX} cy={spotY} r="9" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.4" />
+        <circle cx={spotX} cy={spotY} r="9" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3" />
 
-        {/* X axis ticks + labels */}
-        {ticks.map(t => (
-          <g key={t}>
-            <line x1={x(t)} y1={mt + ph} x2={x(t)} y2={mt + ph + 4} stroke="#3f3f46" strokeWidth="1" />
-            <text x={x(t)} y={mt + ph + 16} textAnchor="middle" fill="#52525b" fontSize="9" fontFamily="monospace">{t}</text>
-          </g>
-        ))}
-
-        {/* Axis labels */}
-        <text x={ml + pw / 2} y={H - 3} textAnchor="middle" fill="#52525b" fontSize="9" fontFamily="monospace" letterSpacing="1">MONTHS FROM EXPIRATION</text>
+        {/* Y-axis label */}
         <text x={11} y={mt + ph / 2} textAnchor="middle" fill="#52525b" fontSize="9" fontFamily="monospace" letterSpacing="1" transform={`rotate(-90 11 ${mt + ph / 2})`}>PRICE</text>
 
         {/* Spot label */}
-        <text x={spotX + 12} y={spotY - 6} fill="#60a5fa" fontSize="10" fontFamily="monospace" fontWeight="bold">SPOT PRICE</text>
+        <text x={spotX + 12} y={spotY - 6} fill="#60a5fa" fontSize="9.5" fontFamily="monospace" fontWeight="bold">SPOT</text>
 
-        {/* Contango label */}
-        <text x={x(tLabel) + 8} y={contangoLabelY - 6} fill="#f59e0b" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
-        <text x={x(tLabel) + 8} y={contangoLabelY + 7} fill="#78716c" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
+        {/* Contango label — above curve at t=tLabel */}
+        <text x={x(tLabel) + 8} y={contangoLabelY - 8} fill="#f59e0b" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
+        <text x={x(tLabel) + 8} y={contangoLabelY + 5} fill="#78716c" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
 
-        {/* Backwardation label */}
-        <text x={x(tLabel) + 8} y={backwardLabelY + 14} fill="#22c55e" fontSize="10" fontFamily="monospace" fontWeight="bold">BACKWARDATION</text>
-        <text x={x(tLabel) + 8} y={backwardLabelY + 27} fill="#78716c" fontSize="8" fontFamily="monospace">futures {'<'} spot</text>
+        {/* Backwardation label — below curve at t=tLabel */}
+        <text x={x(tLabel) + 8} y={backwardLabelY + 16} fill="#22c55e" fontSize="10" fontFamily="monospace" fontWeight="bold">BACKWARDATION</text>
+        <text x={x(tLabel) + 8} y={backwardLabelY + 29} fill="#78716c" fontSize="8" fontFamily="monospace">futures {'<'} spot</text>
       </svg>
     </div>
   )
