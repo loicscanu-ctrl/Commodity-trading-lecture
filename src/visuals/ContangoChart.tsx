@@ -34,7 +34,6 @@ export default function ContangoChart() {
   // Spread annotation at t=6
   const t6 = 6
   const p6 = contangoPrice(t6)
-  const spreadPx = spotY - y(p6)
 
   return (
     <div className="mt-6 bg-black border border-zinc-800 p-3">
