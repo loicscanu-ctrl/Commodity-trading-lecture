@@ -10,6 +10,7 @@ const topic: Topic = {
       id: 'term-structure',
       title: 'The Futures Term Structure',
       body: `The **term structure** (or forward curve) shows the price of a commodity at different future delivery dates.\n\nTwo fundamental shapes:\n\n**Contango:** Future price > Spot price\n- "Normal" for storable commodities\n- Reflects cost of carry: storage + insurance + financing\n- Signals adequate nearby supply\n\n**Backwardation:** Future price < Spot price\n- Spot commands a premium\n- Signals tight nearby supply or strong immediate demand\n- Common during supply disruptions or harvest seasons`,
+      visual: 'term-structure-chart',
     },
     {
       id: 'contango',
