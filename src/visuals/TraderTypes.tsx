@@ -1,113 +1,155 @@
-type Group = { name: string; desc: string; examples: string[] }
+type Company = { name: string; note?: string }
+type Group = { sub: string; companies: Company[] }
 
 type Tier = {
+  num: string
   label: string
-  sublabel: string
-  borderColor: string
+  sub: string
+  physical: boolean
+  numColor: string
   textColor: string
-  gridCols: string
+  chipBg: string
+  chipBorder: string
+  rowBg: string
   groups: Group[]
 }
 
 const TIERS: Tier[] = [
   {
-    label: 'TIER 1 — INDUSTRY',
-    sublabel: 'The Physical Economy — real supply & demand',
-    borderColor: 'border-amber-600',
+    num: '01',
+    label: 'INDUSTRY',
+    sub: 'The physical economy — real supply & demand',
+    physical: true,
+    numColor: 'text-amber-500/25',
     textColor: 'text-amber-400',
-    gridCols: 'grid-cols-1 sm:grid-cols-3',
+    chipBg: 'bg-amber-500/10',
+    chipBorder: 'border-amber-500/25',
+    rowBg: 'bg-amber-500/5',
     groups: [
       {
-        name: 'Integrated',
-        desc: '"Mag 5" — own production, refining & retail',
-        examples: ['Shell', 'BP', 'ExxonMobil', 'Chevron', 'TotalEnergies'],
+        sub: 'Integrated',
+        companies: [
+          { name: 'Shell' }, { name: 'BP' }, { name: 'ExxonMobil' },
+          { name: 'Chevron' }, { name: 'TotalEnergies', note: '"Mag 5"' },
+        ],
       },
       {
-        name: 'Producers',
-        desc: 'National oil companies, miners, farmers',
-        examples: ['Aramco', 'ADNOC', 'Codelco', 'Vale'],
+        sub: 'Producers',
+        companies: [
+          { name: 'Aramco' }, { name: 'ADNOC' }, { name: 'Codelco' },
+          { name: 'Vale' }, { name: 'BHP' },
+        ],
       },
       {
-        name: 'End Industry',
-        desc: 'Manufacturers & processors (the demand side)',
-        examples: ["Nestlé", "JDE Peet's", 'Panzani', 'Danone'],
+        sub: 'End Industry',
+        companies: [
+          { name: 'Nestlé' }, { name: 'JDE Peet\'s' }, { name: 'Panzani' },
+          { name: 'Danone' }, { name: 'AB InBev' },
+        ],
       },
     ],
   },
   {
-    label: 'TIER 2 — TRADING HOUSES',
-    sublabel: 'Physical intermediaries — buy, move, store, sell',
-    borderColor: 'border-blue-600',
+    num: '02',
+    label: 'TRADING HOUSES',
+    sub: 'Physical intermediaries — buy, move, store, sell',
+    physical: true,
+    numColor: 'text-blue-500/25',
     textColor: 'text-blue-400',
-    gridCols: 'grid-cols-2 sm:grid-cols-4',
+    chipBg: 'bg-blue-500/10',
+    chipBorder: 'border-blue-500/25',
+    rowBg: 'bg-blue-500/5',
     groups: [
       {
-        name: 'Agri Giants',
-        desc: 'Grains, oilseeds, softs',
-        examples: ['ADM', 'Bunge', 'Cargill', 'Dreyfus'],
+        sub: 'Agri Giants',
+        companies: [
+          { name: 'ADM' }, { name: 'Bunge' }, { name: 'Cargill' },
+          { name: 'Dreyfus' }, { name: 'COFCO', note: 'Chinese state' },
+        ],
       },
       {
-        name: 'Energy Giants',
-        desc: 'Crude, products, LNG',
-        examples: ['Vitol', 'Trafigura', 'Gunvor', 'Mercuria'],
+        sub: 'Energy Giants',
+        companies: [
+          { name: 'Vitol' }, { name: 'Trafigura' },
+          { name: 'Gunvor' }, { name: 'Mercuria' },
+        ],
       },
       {
-        name: 'Metals Giants',
-        desc: 'Base metals, minerals, coal',
-        examples: ['Glencore', 'Rio Tinto', 'Teck'],
+        sub: 'Metals Giants',
+        companies: [
+          { name: 'Glencore' }, { name: 'Rio Tinto' }, { name: 'Teck' },
+        ],
       },
       {
-        name: 'Specialists',
-        desc: 'Niche origins & processing',
-        examples: ['Olam', 'COFCO', 'Wilmar', 'Louis Dreyfus Softs'],
+        sub: 'Specialists',
+        companies: [
+          { name: 'Olam' }, { name: 'Wilmar' }, { name: 'Sucden' },
+        ],
       },
     ],
   },
   {
-    label: 'TIER 3 — IMPORTERS & EXPORTERS',
-    sublabel: 'Regional connectors — bridge origin to destination',
-    borderColor: 'border-emerald-600',
+    num: '03',
+    label: 'IMPORT / EXPORT',
+    sub: 'Regional connectors — bridge origin to destination market',
+    physical: true,
+    numColor: 'text-emerald-500/25',
     textColor: 'text-emerald-400',
-    gridCols: 'grid-cols-1 sm:grid-cols-2',
+    chipBg: 'bg-emerald-500/10',
+    chipBorder: 'border-emerald-500/25',
+    rowBg: 'bg-emerald-500/5',
     groups: [
       {
-        name: 'Exporters',
-        desc: 'Bridge local producers to international markets. Often origin-country specialists.',
-        examples: ['Origin agents', 'Local export companies', 'Cooperative exporters'],
+        sub: 'Coffee & Softs Specialists',
+        companies: [
+          { name: 'Efico' }, { name: 'Sopex' }, { name: 'Touton' },
+          { name: 'Neumann Gruppe' }, { name: 'Volcafé' },
+        ],
       },
       {
-        name: 'Importers',
-        desc: 'Distribute foreign commodity in domestic markets. Last mile before the factory.',
-        examples: ['Port agents', 'Local distributors', 'Roasters & processors'],
+        sub: 'Regional Exporters / Importers',
+        companies: [
+          { name: 'Origin agents' }, { name: 'Port agents' },
+          { name: 'Local roasters' }, { name: 'Cooperative exporters' },
+        ],
       },
     ],
   },
   {
-    label: 'TIER 4 — FINANCIAL TRADERS',
-    sublabel: 'Paper only — futures & derivatives, no physical delivery',
-    borderColor: 'border-violet-600',
+    num: '04',
+    label: 'FINANCIAL TRADERS',
+    sub: 'Paper only — futures & derivatives, no physical delivery',
+    physical: false,
+    numColor: 'text-violet-500/25',
     textColor: 'text-violet-400',
-    gridCols: 'grid-cols-2 sm:grid-cols-4',
+    chipBg: 'bg-violet-500/10',
+    chipBorder: 'border-violet-500/25',
+    rowBg: 'bg-violet-500/5',
     groups: [
       {
-        name: 'Quant Funds',
-        desc: 'Systematic, model-driven strategies across the forward curve',
-        examples: ['Renaissance', 'Two Sigma', 'AQR', 'Winton'],
+        sub: 'Quant Funds',
+        companies: [
+          { name: 'Squarepoint' }, { name: 'Renaissance' },
+          { name: 'Two Sigma' }, { name: 'AQR' }, { name: 'Winton' },
+        ],
       },
       {
-        name: 'Banks',
-        desc: 'Commodity index products, structured notes, prop desks',
-        examples: ['Goldman Sachs', 'Morgan Stanley', 'JP Morgan'],
+        sub: 'Investment Banks',
+        companies: [
+          { name: 'Goldman Sachs' }, { name: 'Morgan Stanley' }, { name: 'JP Morgan' },
+        ],
       },
       {
-        name: 'Chinese Prop',
-        desc: 'Proprietary trading on SHFE, DCE, ZCE — massive volumes',
-        examples: ['Zhejiang merchants', 'Shenzhen prop desks', 'COFCO Finance'],
+        sub: 'Chinese Prop Desks',
+        companies: [
+          { name: 'Zhejiang merchants' }, { name: 'Shenzhen desks' }, { name: 'COFCO Finance' },
+        ],
       },
       {
-        name: 'Retail',
-        desc: 'Individual speculators via futures platforms',
-        examples: ['CME retail', 'Interactive Brokers users', 'Robinhood traders'],
+        sub: 'Retail',
+        companies: [
+          { name: 'CME retail' }, { name: 'IB users' }, { name: 'Algo traders' },
+        ],
       },
     ],
   },
@@ -115,45 +157,66 @@ const TIERS: Tier[] = [
 
 export default function TraderTypes() {
   return (
-    <div className="mt-5 space-y-2">
+    <div className="mt-4 space-y-1">
       {TIERS.map((tier, ti) => (
-        <div key={tier.label}>
-          {/* Tier header */}
-          <div className={`border-l-2 ${tier.borderColor} pl-3 mb-2 flex items-baseline gap-3`}>
-            <span className={`text-xs font-mono font-bold ${tier.textColor} tracking-wider`}>{tier.label}</span>
-            <span className="text-zinc-600 text-xs font-mono">{tier.sublabel}</span>
-          </div>
+        <div key={tier.num}>
+          {/* Tier row */}
+          <div className={`${tier.rowBg} border border-zinc-800/60 p-4`}>
+            <div className="flex gap-4 items-start">
 
-          {/* Groups */}
-          <div className={`grid ${tier.gridCols} gap-2`}>
-            {tier.groups.map(group => (
-              <div key={group.name} className="bg-zinc-900 border border-zinc-800 p-3">
-                <div className={`text-xs font-mono font-bold ${tier.textColor} mb-1 uppercase tracking-wide`}>
-                  {group.name}
-                </div>
-                <div className="text-zinc-500 text-xs mb-2 leading-relaxed">{group.desc}</div>
-                <div className="flex flex-wrap gap-1">
-                  {group.examples.map(ex => (
-                    <span key={ex} className="text-zinc-400 text-xs bg-zinc-800 border border-zinc-700 px-1.5 py-0.5">
-                      {ex}
-                    </span>
+              {/* Left: number + label */}
+              <div className="shrink-0 w-32">
+                <div className={`font-mono font-black text-4xl leading-none ${tier.numColor}`}>{tier.num}</div>
+                <div className={`font-mono font-bold text-xs uppercase tracking-widest mt-1 ${tier.textColor}`}>{tier.label}</div>
+                <div className="text-zinc-600 font-mono text-xs mt-1 leading-tight">{tier.physical ? 'PHYSICAL' : 'PAPER ONLY'}</div>
+              </div>
+
+              {/* Right: groups */}
+              <div className="flex-1 min-w-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {tier.groups.map(group => (
+                    <div key={group.sub}>
+                      <div className="text-zinc-600 text-xs font-mono uppercase tracking-wider mb-2">{group.sub}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.companies.map(c => (
+                          <div
+                            key={c.name}
+                            className={`${tier.chipBg} border ${tier.chipBorder} px-2.5 py-1`}
+                          >
+                            <span className="text-white text-xs font-medium">{c.name}</span>
+                            {c.note && (
+                              <span className="text-zinc-500 text-xs ml-1">· {c.note}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
-          {/* Downward arrow between tiers */}
+          {/* Connector arrow */}
           {ti < TIERS.length - 1 && (
-            <div className="flex justify-center py-1">
-              <svg width="20" height="14" viewBox="0 0 20 14">
-                <line x1="10" y1="0" x2="10" y2="8" stroke="#3f3f46" strokeWidth="1.5" />
-                <polyline points="4,5 10,13 16,5" fill="none" stroke="#3f3f46" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
+            <div className="flex justify-center h-3">
+              <div className="w-px bg-zinc-700" />
             </div>
           )}
         </div>
       ))}
+
+      {/* Legend */}
+      <div className="flex gap-6 pt-2 border-t border-zinc-800 mt-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="text-zinc-500 text-xs font-mono">Physical participant</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-violet-400" />
+          <span className="text-zinc-500 text-xs font-mono">Paper only — no delivery</span>
+        </div>
+      </div>
     </div>
   )
 }
