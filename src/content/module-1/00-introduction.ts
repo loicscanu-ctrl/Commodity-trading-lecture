@@ -8,54 +8,86 @@ const topic: Topic = {
   sections: [
     {
       id: 'riddle',
-      title: 'The 2,000-Year Riddle',
-      body: `**Jerusalem, Year 33 AD.**
+      title: 'A Thought Experiment',
+      body: `Before diving into the technical aspects of trading, let's begin with a thought experiment.
 
-A mandate is sealed: to build a store of value capable of financing — 2,000 years later — the ecological restoration of the Earth.
+Imagine we are in the **year 33 AD**. The Magi entrust you with a sacred mandate: to finance the ecological restoration of the world — 2,000 years from now, meaning our current era.
 
-**The initial stake:** 1 copper Quadrans. Equivalent to **$1.50** today — the price of a Roman bath, or a filter coffee.
+Not with magic. With **pure material power**.
 
-**The objective:** $100,000,000,000,000 by 2026.
-
-But there are **three strict rules**. And they eliminate almost every investment vehicle ever invented.`,
+You have two millennia. You have no technology. You have one obligation: **do not fail**.`,
     },
     {
       id: 'three-laws',
-      title: 'The 3 Laws of the Mandate',
-      body: `Three laws govern how the capital must be managed. Fixed assets are strictly forbidden. Money cannot make money from nothing. And every generation must justify its growth.`,
+      title: 'Ground Zero & The 3 Laws',
+      body: `Your starting stake? **One Quadrans** — the price of a coffee. **$1.50**.
+
+But beware. You have strict rules.
+
+No usury. No theft. You must be auditable at all times. And above all: **Rule Number 3 — Ephemeral Utility.**
+
+The Sages forbid you from anchoring yourself. No fields, no castles, no chests of gold. Your capital must constantly meet a vital need, be consumed by humanity, and be **reborn in the next transaction**. Fixed assets are strictly forbidden.`,
       visual: 'three-laws',
     },
     {
       id: 'dead-ends',
-      title: 'The Wall of Dead Ends',
-      body: `With these three laws in place, what fails? Almost everything considered "wealth preservation" violates at least one rule.`,
+      title: 'The Dead Ends',
+      body: `With Rule 3 in place — what happens?
+
+**Buy land all over the world** (an ETF of Antiquity)? Land is not consumed. It's a fixed asset. At the first change of empire, you are expropriated.
+
+**Buy gold?** Gold feeds no one. It sleeps. You violate the vow of utility.
+
+**Pure banking?** The Pope excommunicates you for usury — money cannot make money without taking real physical risk.`,
       visual: 'dead-ends',
     },
     {
       id: 'flow-traps',
       title: 'The Flow Traps',
-      body: `Even the "flow-based" approaches fail — either on ethical grounds or because they require owning heavy fixed assets.`,
+      body: `Even the "flow-based" approaches collapse under the rules.
+
+**Own ships?** As soon as there's a war, the King requisitions your vessels. You've just violated Rule 3 — fixed assets.
+
+**Pure currency arbitrage?** The Church condemns it. No physical risk, no moral justification. Grounds for excommunication and seizure.
+
+*Everything collapses.*`,
       visual: 'flow-traps',
     },
     {
       id: 'multiplier',
-      title: 'The Geometric Multiplier',
-      body: `To turn $1.50 into $100 trillion over 1,993 years, there is exactly one mathematical path. Not 20% per year — just a steady, uninterrupted **1.61% net annually**.`,
+      title: 'The Mathematical Shock',
+      body: `So — what is the **only calculation** that holds up over 2,000 years?
+
+To go from **$1.50** to **$100 Trillion** — the estimated cost of the current global energy transition — you didn't need a 20% yield. You didn't need genius. You didn't need luck.
+
+You just needed a net **1.61%**. That's it.
+
+But an uninterrupted 1.61% — *shielded from wars, from inflation, from the collapse of every empire that tried to steal it.*`,
       visual: 'geometric-multiplier',
     },
     {
       id: 'vehicle',
-      title: 'The Answer: Physical Commodity Trading',
-      body: `Only one vehicle satisfies all three laws across 2,000 years of history: **the physical trade of raw materials**.
+      title: 'The Vehicle: Physical Commodity Trading',
+      body: `The only vehicle capable of respecting the Vow of Ephemeral Utility is **Physical Commodities Trading**.
 
-- **Ephemeral & Useful** *(Law 3)*: Wheat is consumed. Oil is burned. The asset does not sit — it is transformed and reborn as cash for the next voyage.
-- **Ethical** *(Law 1)*: The trader is compensated for a real logistical service — moving a commodity from where it is abundant to where it is scarce, bearing the physical risk.
-- **Agile** *(Law 2)*: The trader owns neither the field nor the ship. If an empire collapses, the flow reroutes. Capital survives because it is always moving.`,
+The trader owns neither the field nor the ship. They own the **temporary title** to the wheat, the salt, the oil. Goods that are consumed and reborn as liquidity.
+
+They arbitrage **time and space**. If Rome burns, they have no factories to lose — they simply divert their flow to Byzantium.
+
+- **Ephemeral & Useful:** The asset is consumed, reborn as cash for the next voyage
+- **Ethical:** Rewards real logistical service against the risk of loss
+- **Agile:** No fixed assets. If an empire collapses, the flow reroutes`,
     },
     {
       id: 'metamorphosis',
-      title: 'Capital Through the Ages',
-      body: `The mandate has been running for 2,000 years. The commodity changes — the logic doesn't.
+      title: 'The Resolution',
+      body: `Look at the curve.
+
+In **500 AD**, after five centuries of this shadow work, they have earned only 6 gold coins. Just enough to buy a horse. It is the ultimate test of patience.
+
+In **1300 AD**, the exponential curve takes over. They are richer than Kings.
+
+And today — the mandate is fulfilled. The climate money is here.
 
 | Era | Commodity Flow | Value Accumulated |
 |-----|---------------|-------------------|
@@ -64,9 +96,9 @@ But there are **three strict rules**. And they eliminate almost every investment
 | 1700 AD (London) | Coffee & Copper | Billions of Pounds Sterling |
 | 2026 (World) | Energy & Data | $100 Trillion |
 
-*Physical commodity trading is the guardian of the world's equilibrium.*
+**The lesson is clear:** Physical trading is not a financial anomaly. It is the ultimate arbiter of time.
 
-**This is what you are about to learn.**`,
+*This is what you are about to learn.*`,
     },
   ],
 }
