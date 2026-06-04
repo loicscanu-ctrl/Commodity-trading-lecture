@@ -40,6 +40,7 @@ export default function QuizRunner({ questions, moduleId, topicTitle }: Props) {
       <Breadcrumb moduleId={moduleId} topicTitle={topicTitle} />
       <ProgressBar current={currentIndex + 1} total={questions.length} />
       <QuizQuestion
+        key={currentIndex}
         question={questions[currentIndex]}
         questionNumber={currentIndex + 1}
         total={questions.length}
