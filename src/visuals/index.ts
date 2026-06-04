@@ -17,6 +17,7 @@ import WorldscaleExample from './WorldscaleExample'
 import SqueezeSimulator from './SqueezeSimulator'
 import MandateReveal from './MandateReveal'
 import CommodityDonutChart from './CommodityDonutChart'
+import TraderTypes from './TraderTypes'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -37,4 +38,5 @@ export const visualRegistry: Record<string, ComponentType> = {
   'squeeze-simulator': SqueezeSimulator,
   'mandate-reveal': MandateReveal,
   'commodity-donut-chart': CommodityDonutChart,
+  'trader-types': TraderTypes,
 }

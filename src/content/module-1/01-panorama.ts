@@ -14,8 +14,13 @@ const topic: Topic = {
     },
     {
       id: 'trader-types',
-      title: 'Types of Traders (ABCD & Beyond)',
-      body: `**The ABCD Trading Houses** — pure commodity merchants:\n- **A**rcher Daniels Midland (ADM)\n- **B**unge\n- **C**argill\n- **D**reyfus (Louis Dreyfus)\n\nThey buy from producers, transport, store, process and sell globally. They take price risk as part of their business model.\n\n**Industrial Traders** — companies that trade to supply their own operations:\n- Nestlé, Jacobs Douwe Egberts (coffee)\n- BP, Shell (energy)\n- Rio Tinto, Glencore (metals)\n\n**Financial Traders** — hedge funds, prop desks trading commodity derivatives for profit without taking physical delivery.\n\n**Importateurs / Exportateurs** — regional specialists who bridge local producers with international markets.`,
+      title: 'Who Are the Players? — The Trade Flow',
+      body: `The commodity world is structured in four tiers — from the physical producers at the top to the pure financial speculators at the bottom. Each tier has a distinct role, a distinct risk profile, and a distinct relationship with the physical commodity.
+
+**Key insight:** Only Tiers 1–3 interact with the physical commodity. Tier 4 trades paper — they provide liquidity and price signals but never take delivery.
+
+Understanding which tier a counterparty belongs to tells you immediately what their incentives and constraints are.`,
+      visual: 'trader-types',
     },
     {
       id: 'with-without-contract',
