@@ -43,15 +43,19 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
   }, [goNext, goPrev])
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="h-screen flex flex-col bg-zinc-950 text-white">
       <Breadcrumb moduleId={moduleId} topicTitle={topicTitle} />
       <ProgressBar current={current + 1} total={sections.length} />
-      <main className="max-w-3xl mx-auto px-6 py-8">
-        <h2 className="text-xl font-bold text-amber-400 mb-6 uppercase tracking-wide">{section.title}</h2>
-        <div className="prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed prose-headings:text-amber-400 prose-strong:text-white prose-code:text-amber-300 prose-code:bg-zinc-900 prose-code:font-mono">
-          <ReactMarkdown>{section.body}</ReactMarkdown>
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-6 py-8">
+          <h2 className="text-xl font-bold text-amber-400 mb-6 uppercase tracking-wide">{section.title}</h2>
+          <div className="prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed prose-headings:text-amber-400 prose-strong:text-white prose-code:text-amber-300 prose-code:bg-zinc-900 prose-code:font-mono">
+            <ReactMarkdown>{section.body}</ReactMarkdown>
+          </div>
         </div>
-        <div className="flex justify-between items-center mt-10 pt-4 border-t border-zinc-800">
+      </main>
+      <div className="border-t border-zinc-800 bg-zinc-950 px-6 py-4 shrink-0">
+        <div className="max-w-3xl mx-auto flex justify-between items-center">
           <button
             onClick={goPrev}
             disabled={isFirst}
@@ -67,7 +71,7 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
             {isLast ? 'Back to Module' : 'Continue →'}
           </button>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
