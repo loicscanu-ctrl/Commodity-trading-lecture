@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import type { Topic } from '@/types/content'
 
-const TYPE_BADGE: Record<Topic['type'], { label: string; className: string }> = {
-  lecture:      { label: 'Lecture',     className: 'text-cyan-400 border-cyan-800' },
-  'case-study': { label: 'Case',        className: 'text-purple-400 border-purple-800' },
-  quiz:         { label: 'Quiz',        className: 'text-green-400 border-green-800' },
-  tool:         { label: 'Tool',        className: 'text-amber-400 border-amber-800' },
-  simulation:   { label: 'Sim',         className: 'text-rose-400 border-rose-800' },
+const TYPE_STYLE: Record<Topic['type'], { label: string; bar: string; text: string }> = {
+  lecture:      { label: 'LECTURE',    bar: 'bg-blue-600',   text: 'text-blue-400' },
+  'case-study': { label: 'CASE',       bar: 'bg-violet-600', text: 'text-violet-400' },
+  quiz:         { label: 'QUIZ',       bar: 'bg-emerald-600',text: 'text-emerald-400' },
+  tool:         { label: 'TOOL',       bar: 'bg-cyan-600',   text: 'text-cyan-400' },
+  simulation:   { label: 'SIMULATION', bar: 'bg-rose-700',   text: 'text-rose-400' },
 }
 
 function getHref(topic: Topic, moduleId: number): string {
@@ -19,33 +19,35 @@ function getHref(topic: Topic, moduleId: number): string {
 type Props = { topic: Topic; moduleId: number }
 
 export default function TopicCard({ topic, moduleId }: Props) {
-  const badge = TYPE_BADGE[topic.type]
+  const style = TYPE_STYLE[topic.type]
 
   if (topic.v2) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 p-4 opacity-40 cursor-not-allowed">
-        <div className="flex items-start justify-between mb-3">
-          <span className={`text-xs font-mono border px-1.5 py-0.5 ${badge.className}`}>
-            {badge.label}
-          </span>
-          <span className="text-xs font-mono text-zinc-600 border border-zinc-700 px-1.5 py-0.5">Coming Soon</span>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden opacity-40 cursor-not-allowed">
+        <div className={`h-1 ${style.bar} opacity-30`} />
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-xs font-mono ${style.text}`}>{style.label}</span>
+            <span className="text-xs font-mono text-slate-600 border border-slate-700 px-2 py-0.5 rounded">SOON</span>
+          </div>
+          <h3 className="text-slate-500 font-semibold text-sm leading-snug">{topic.title}</h3>
+          <p className="text-slate-700 text-xs mt-2 font-mono">{topic.estimatedMinutes}m</p>
         </div>
-        <h3 className="text-zinc-400 font-semibold text-sm leading-snug">{topic.title}</h3>
-        <p className="text-zinc-600 text-xs mt-2 font-mono">{topic.estimatedMinutes}m</p>
       </div>
     )
   }
 
   return (
     <Link href={getHref(topic, moduleId)}>
-      <div className="bg-zinc-900 border border-zinc-800 hover:border-amber-500 hover:bg-zinc-900 p-4 transition-colors cursor-pointer h-full group">
-        <div className="flex items-start justify-between mb-3">
-          <span className={`text-xs font-mono border px-1.5 py-0.5 ${badge.className}`}>
-            {badge.label}
-          </span>
-          <span className="text-zinc-600 text-xs font-mono group-hover:text-zinc-400">{topic.estimatedMinutes}m</span>
+      <div className="bg-slate-900 border border-slate-800 hover:border-blue-700 rounded-xl overflow-hidden transition-all cursor-pointer group hover:bg-slate-800/60">
+        <div className={`h-1 ${style.bar}`} />
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-xs font-mono ${style.text}`}>{style.label}</span>
+            <span className="text-slate-600 text-xs font-mono group-hover:text-slate-400">{topic.estimatedMinutes}m</span>
+          </div>
+          <h3 className="text-white font-semibold text-sm leading-snug group-hover:text-blue-100">{topic.title}</h3>
         </div>
-        <h3 className="text-white font-semibold text-sm leading-snug group-hover:text-amber-100">{topic.title}</h3>
       </div>
     </Link>
   )

@@ -29,14 +29,14 @@ export default function QuizRunner({ questions, moduleId, topicTitle }: Props) {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white">
+      <div className="min-h-screen bg-slate-950 text-white">
         <QuizSummary score={score} total={questions.length} moduleId={moduleId} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-slate-950 text-white">
       <Breadcrumb moduleId={moduleId} topicTitle={topicTitle} />
       <ProgressBar current={currentIndex + 1} total={questions.length} />
       <QuizQuestion

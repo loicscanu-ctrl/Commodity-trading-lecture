@@ -17,7 +17,7 @@ export default function ToolPage({ params }: Props) {
   if (!Tool) notFound()
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-slate-950 text-white">
       <Breadcrumb moduleId={moduleId} topicTitle={topic.title} />
       <Tool />
     </div>

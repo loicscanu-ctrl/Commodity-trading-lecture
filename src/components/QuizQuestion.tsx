@@ -22,15 +22,15 @@ export default function QuizQuestion({ question, questionNumber, total, onAnswer
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-8">
-      <p className="text-zinc-500 text-xs font-mono mb-4 tracking-wider">QUESTION {questionNumber} / {total}</p>
+      <p className="text-slate-500 text-xs font-mono mb-4 tracking-wider">QUESTION {questionNumber} / {total}</p>
       <h2 className="text-lg font-semibold text-white mb-8 leading-snug">{question.question}</h2>
       <div className="flex flex-col gap-2">
         {question.options.map((option, i) => {
-          let cls = 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-amber-500 hover:text-white'
+          let cls = 'bg-slate-900 border-slate-700 text-slate-300 hover:border-blue-500 hover:text-white'
           if (answered) {
             if (i === question.correctIndex) cls = 'bg-green-950 border-green-600 text-green-300'
             else if (i === selected) cls = 'bg-red-950 border-red-700 text-red-300'
-            else cls = 'bg-zinc-900 border-zinc-800 text-zinc-600'
+            else cls = 'bg-slate-900 border-slate-800 text-slate-600'
           }
           return (
             <button
@@ -46,7 +46,7 @@ export default function QuizQuestion({ question, questionNumber, total, onAnswer
         })}
       </div>
       {answered && question.explanation && (
-        <p className="mt-6 text-zinc-400 text-sm border-l-2 border-amber-500 pl-4 leading-relaxed font-mono text-xs">
+        <p className="mt-6 text-slate-400 text-sm border-l-2 border-blue-500 pl-4 leading-relaxed font-mono text-xs">
           {question.explanation}
         </p>
       )}

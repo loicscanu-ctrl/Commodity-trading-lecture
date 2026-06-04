@@ -11,10 +11,10 @@ export default function QuizSummary({ score, total, moduleId }: Props) {
     <div className="max-w-md mx-auto px-6 py-20 text-center">
       <div className={`text-7xl font-mono font-bold mb-2 ${color}`}>{pct}%</div>
       <div className={`text-xs font-mono tracking-widest mb-2 ${color}`}>{message}</div>
-      <p className="text-zinc-500 text-sm font-mono mb-10">{score} / {total} correct</p>
+      <p className="text-slate-500 text-sm font-mono mb-10">{score} / {total} correct</p>
       <Link
         href={`/module/${moduleId}`}
-        className="block px-6 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm font-mono uppercase tracking-widest transition-colors"
+        className="block px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm font-mono uppercase tracking-widest transition-colors"
       >
         Back to Module
       </Link>
