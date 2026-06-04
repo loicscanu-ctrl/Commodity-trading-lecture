@@ -2,18 +2,18 @@ export default function ThreeLaws() {
   const laws = [
     {
       label: '01',
-      title: 'Ethics',
-      body: 'No predatory usury, no plunder. Gain must come from providing real utility to the economy.',
+      title: 'Absolute Ethics',
+      body: 'No stealing, no pillaging, no extortion. Your gain must be clean and actively contribute to the life of men. Building your fortune on the ruin or predatory usury of others is forbidden.',
     },
     {
       label: '02',
       title: 'The Papal Audit',
-      body: 'Secular validation — every generation. Must prove stable, non-speculative growth.',
+      body: 'At the end of each century, you present yourself before the Pope to have your accounts audited. You must prove that your growth was regular, stable — and that your fortune does not rest on speculative bubbles or ephemeral strokes of luck.',
     },
     {
       label: '03',
-      title: 'Ephemeral Utility',
-      body: 'No fixed assets (land, factories), no hoarding. Capital must meet a vital need, be consumed, and be reborn at each transaction.',
+      title: 'The Anonymity of the Servant',
+      body: 'You must operate in the shadows through the ages. No political power, no taxes, no marriage for money, no inheritances. Your only weapon is the starting quadrans.',
     },
   ]
   return (

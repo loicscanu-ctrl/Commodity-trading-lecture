@@ -24,9 +24,13 @@ You have two millennia. You have no technology. You have one obligation: **do no
 
 But beware. You have strict rules.
 
-No usury. No theft. You must be auditable at all times. And above all: **Rule Number 3 — Ephemeral Utility.**
+**No stealing. No pillaging.** Your gain must be clean and contribute to the life of men.
 
-The Sages forbid you from anchoring yourself. No fields, no castles, no chests of gold. Your capital must constantly meet a vital need, be consumed by humanity, and be **reborn in the next transaction**. Fixed assets are strictly forbidden.`,
+At the end of each century, you must present your accounts to the Pope. **Stable, auditable, non-speculative growth** — or you lose the mandate.
+
+And above all: **Rule Number 3 — The Anonymity of the Servant.**
+
+No political power. No taxes. No marriage for money. No inheritance. You operate in the shadows. Your only weapon is that starting quadrans. Fixed assets are strictly forbidden.`,
       visual: 'three-laws',
     },
     {
