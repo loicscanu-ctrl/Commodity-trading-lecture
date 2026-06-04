@@ -16,6 +16,7 @@ Imagine we are in the **year 33 AD**. The Magi entrust you with a sacred mandate
 Not with magic. With **pure material power**.
 
 You have two millennia. You have no technology. You have one obligation: **do not fail**.`,
+      visual: 'riddle-scene',
     },
     {
       id: 'three-laws',
@@ -81,6 +82,7 @@ They arbitrage **time and space**. If Rome burns, they have no factories to lose
 - **Ephemeral & Useful:** The asset is consumed, reborn as cash for the next voyage
 - **Ethical:** Rewards real logistical service against the risk of loss
 - **Agile:** No fixed assets. If an empire collapses, the flow reroutes`,
+      visual: 'vehicle-scene',
     },
     {
       id: 'metamorphosis',

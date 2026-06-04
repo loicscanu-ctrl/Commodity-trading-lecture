@@ -2,21 +2,21 @@ export default function FlowTraps() {
   const traps = [
     {
       label: 'PURE FX — CURRENCY ARBITRAGE',
-      verdict: 'FAILS THE AUDIT',
-      body: 'Making money from nothing, with no physical risk? The Church condemned it as usury. Grounds for excommunication and seizure.',
+      verdict: 'AUDIT FAILURE',
+      body: 'Arbitraging currencies? For 1,000 years, the Church condemned money making money without real physical risk. That is usury — grounds for excommunication and seizure of assets.',
     },
     {
       label: 'PURE LOGISTICS — OWNING SHIPS',
-      verdict: 'VIOLATES LAW 3',
-      body: 'Heavy fixed assets are systematically requisitioned by the State in wartime. The ship you own becomes the State\'s ship the moment war is declared.',
+      verdict: 'RISK FAILURE — RULE 3',
+      body: 'Owning the ships? Heavy fixed assets (ship, cart) are systematically requisitioned by the State in times of war. The shipowner loses everything. The trader simply changes ships.',
     },
   ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
       {traps.map(trap => (
         <div key={trap.label} className="border border-zinc-700 bg-zinc-900 p-5">
-          <div className="text-zinc-500 font-mono text-xs mb-2 tracking-widest">{trap.label}</div>
-          <div className="text-red-400 font-mono text-xs mb-3 tracking-wide">{trap.verdict}</div>
+          <div className="text-zinc-500 font-mono text-xs mb-1 tracking-widest">{trap.label}</div>
+          <div className="text-red-500 font-mono text-xs mb-3 tracking-wide">{trap.verdict}</div>
           <p className="text-zinc-400 text-sm leading-relaxed">{trap.body}</p>
         </div>
       ))}
