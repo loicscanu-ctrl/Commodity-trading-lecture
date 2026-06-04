@@ -22,9 +22,6 @@ const topic: Topic = {
       body: `The **hedge ratio** is the proportion of your physical exposure you choose to hedge with futures.\n\n**Hedge ratio = Lots hedged × Lot size ÷ Physical volume**\n\n- 100% hedge: perfect flat-price protection, but you retain full basis risk and opportunity cost if prices move favorably\n- 50% hedge: partial protection, some speculative exposure retained\n- 0%: fully speculative — not acceptable for commercial traders with real physical commitments\n\nCommercial traders typically target 70–100% hedge ratios on committed volumes. The exact ratio depends on contract terms, price views, and risk appetite approved by management.`,
     },
   ],
-  tool: {
-    componentKey: 'hedging-calculator',
-  },
 }
 
 export default topic

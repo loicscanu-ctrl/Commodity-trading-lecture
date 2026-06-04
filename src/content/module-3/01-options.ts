@@ -22,9 +22,6 @@ const topic: Topic = {
       body: `**Protective put (producer hedge):** Producer buys put options to set a price floor while retaining upside if prices rise. Cost = option premium.\n\n**Cap (consumer hedge):** Buyer purchases call options to cap their purchase price. Retains benefit if prices fall.\n\n**Collar:** Producer buys puts AND sells calls. Net premium is low or zero (zero-cost collar). Sets a price floor and ceiling. Most common in commercial hedging programs.\n\n**Straddle/Strangle:** Buy both call and put. Profits if prices move significantly in either direction. Used by traders expecting high volatility around a known event (WASDE release, harvest report).`,
     },
   ],
-  tool: {
-    componentKey: 'basis-calculator',
-  },
 }
 
 export default topic
