@@ -12,6 +12,7 @@ import UnitConversions from './UnitConversions'
 import PriceFactorsGrid from './PriceFactorsGrid'
 import TankerTypes from './TankerTypes'
 import WorldscaleExample from './WorldscaleExample'
+import SqueezeSimulator from './SqueezeSimulator'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -27,4 +28,5 @@ export const visualRegistry: Record<string, ComponentType> = {
   'price-factors-grid': PriceFactorsGrid,
   'tanker-types': TankerTypes,
   'worldscale-example': WorldscaleExample,
+  'squeeze-simulator': SqueezeSimulator,
 }
