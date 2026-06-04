@@ -21,6 +21,18 @@ const topic: Topic = {
       title: 'Vessel Acceptability',
       body: `Not every vessel can load coffee. Contracts specify acceptability criteria:\n\n**For coffee (bagged, green):**\n- Must be "clean, dry, free from odors, fit for the carriage of coffee"\n- Previous cargo restrictions: no fish meal, chemicals, fertilizers, or other odorous/contaminating cargoes\n- Age limits: many buyers reject vessels over 20–25 years old\n- P&I Club insurance required (Protection & Indemnity)\n\n**Inspection:**\n- Pre-loading inspection by an independent surveyor (SGS, Bureau Veritas, Intertek)\n- Surveyor checks hold cleanliness and condition before loading begins\n\nFailing vessel acceptability = force majeure or contract dispute.`,
     },
+    {
+      id: 'tanker-types',
+      title: 'Types of Oil Tankers',
+      body: `Tanker selection depends on route, cargo volume, port constraints (draft limits), and canal access (Suezmax = maximum size for Suez Canal, Aframax = average freight rate maximum).`,
+      visual: 'tanker-types',
+    },
+    {
+      id: 'worldscale',
+      title: 'Freight Pricing: Worldscale',
+      body: `Tanker freight is not quoted in dollars per route — it uses **Worldscale**, a standardised index that allows comparison across routes and vessel sizes. W100 is the flat rate; the market quotes a percentage of it.`,
+      visual: 'worldscale-example',
+    },
   ],
 }
 

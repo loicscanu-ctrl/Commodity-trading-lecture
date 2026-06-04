@@ -26,6 +26,12 @@ const topic: Topic = {
       title: 'Where to Find S&D Data',
       body: `Key data sources:\n\n**Coffee:**\n- ICO (International Coffee Organization) — monthly trade stats\n- USDA GAIN reports — origin-by-origin crop estimates\n\n**Energy:**\n- IEA (International Energy Agency) — monthly oil market report\n- EIA (US Energy Information Administration) — weekly inventory data\n\n**Grains/Oilseeds:**\n- USDA WASDE (World Agricultural Supply and Demand Estimates) — released monthly, market-moving event\n\nTraders build their own models by aggregating these sources and applying their own adjustments.`,
     },
+    {
+      id: 'price-factors',
+      title: 'Factors That Drive Price',
+      body: `The commodity price is not set by one variable. It emerges from the intersection of supply, demand, and a web of structural factors — each with different time horizons and magnitudes.`,
+      visual: 'price-factors-grid',
+    },
   ],
 }
 
