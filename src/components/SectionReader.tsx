@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import type { Section } from '@/types/content'
 import Breadcrumb from './Breadcrumb'
 import ProgressBar from './ProgressBar'
+import { visualRegistry } from '@/visuals'
 
 type Props = {
   sections: Section[]
@@ -20,6 +21,7 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
   const section = sections[current]
   const isLast = current === sections.length - 1
   const isFirst = current === 0
+  const Visual = section.visual ? (visualRegistry[section.visual] ?? null) : null
 
   const goNext = useCallback(() => {
     if (isLast) {
@@ -49,9 +51,12 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-8">
           <h2 className="text-xl font-bold text-amber-400 mb-6 uppercase tracking-wide">{section.title}</h2>
-          <div className="prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed prose-headings:text-amber-400 prose-strong:text-white prose-code:text-amber-300 prose-code:bg-zinc-900 prose-code:font-mono">
-            <ReactMarkdown>{section.body}</ReactMarkdown>
-          </div>
+          {section.body && (
+            <div className="prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed prose-headings:text-amber-400 prose-strong:text-white prose-code:text-amber-300 prose-code:bg-zinc-900 prose-code:font-mono">
+              <ReactMarkdown>{section.body}</ReactMarkdown>
+            </div>
+          )}
+          {Visual && <Visual />}
         </div>
       </main>
       <div className="border-t border-zinc-800 bg-zinc-950 px-6 py-4 shrink-0">
