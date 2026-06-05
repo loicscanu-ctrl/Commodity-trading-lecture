@@ -72,49 +72,49 @@ export default function ArbitrageExercise() {
       {CASES.map((c) => {
         const isRevealed = !!revealed[c.id]
         return (
-          <div key={c.id} className="bg-zinc-900 border border-zinc-700">
+          <div key={c.id} className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden transition-colors hover:border-white/20">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <div>
-                <span className="text-amber-400 font-mono text-xs mr-3">CASE {c.id}</span>
-                <span className="text-white font-semibold text-sm">{c.commodity}</span>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <span className="chip text-amber-300">CASE {c.id}</span>
+                <span className="text-slate-100 font-semibold text-sm">{c.commodity}</span>
               </div>
               <button
                 onClick={() => setRevealed(r => ({ ...r, [c.id]: !r[c.id] }))}
-                className="text-xs font-mono border border-zinc-600 px-3 py-1 text-zinc-400 hover:border-amber-500 hover:text-amber-400 transition-colors"
+                className="rounded-full text-xs font-mono border border-white/15 px-3.5 py-1.5 text-slate-300 hover:border-amber-400/60 hover:text-amber-300 hover:bg-white/[0.04] transition-colors"
               >
                 {isRevealed ? 'Hide answer' : 'Reveal answer →'}
               </button>
             </div>
 
             {/* Case data */}
-            <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs font-mono">
-              <div className="flex justify-between"><span className="text-zinc-500">Spot price</span><span className="text-white">{c.spot}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500">Forward price</span><span className="text-white">{c.forward}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500">Financing</span><span className="text-white">{c.financing}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500">Storage</span><span className="text-white">{c.storage}</span></div>
+            <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs font-mono">
+              <div className="flex justify-between"><span className="text-slate-500">Spot price</span><span className="text-slate-100">{c.spot}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Forward price</span><span className="text-slate-100">{c.forward}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Financing</span><span className="text-slate-100">{c.financing}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Storage</span><span className="text-slate-100">{c.storage}</span></div>
             </div>
 
             {c.hint && (
-              <div className="px-4 pb-2">
-                <div className="text-cyan-600 text-xs font-mono border-l-2 border-cyan-800 pl-2">{c.hint}</div>
+              <div className="px-4 pb-3">
+                <div className="text-cyan-300/80 text-xs font-mono border-l-2 border-cyan-500/50 pl-2.5">{c.hint}</div>
               </div>
             )}
 
             {/* Revealed answer */}
             {isRevealed && (
-              <div className={`border-t px-4 py-3 ${c.answer ? 'border-green-800 bg-green-950' : 'border-zinc-700 bg-zinc-950'}`}>
+              <div className={`border-t px-4 py-3.5 ${c.answer ? 'border-emerald-500/30 bg-emerald-500/[0.06]' : 'border-white/10 bg-white/[0.02]'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className={`text-sm font-mono font-bold px-3 py-1 border ${c.answer ? 'text-green-300 border-green-600 bg-green-900' : 'text-red-300 border-red-700 bg-red-950'}`}>
+                  <span className={`text-xs font-mono font-bold rounded-full px-3 py-1 border ${c.answer ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' : 'text-rose-300 border-rose-500/40 bg-rose-500/10'}`}>
                     {c.answer ? '✓ YES — ARBITRAGE EXISTS' : '✗ NO — NO ARBITRAGE'}
                   </span>
-                  {c.profit && <span className="text-green-400 font-mono text-xs">{c.profit}</span>}
+                  {c.profit && <span className="text-emerald-300 font-mono text-xs">{c.profit}</span>}
                 </div>
                 <div className="space-y-1">
                   {c.steps.map((step, i) => (
                     <div key={i} className="text-xs font-mono flex gap-2">
-                      <span className="text-zinc-600 shrink-0">{i + 1}.</span>
-                      <span className={i === c.steps.length - 1 ? (c.answer ? 'text-green-300 font-bold' : 'text-red-300 font-bold') : 'text-zinc-300'}>{step}</span>
+                      <span className="text-slate-600 shrink-0">{i + 1}.</span>
+                      <span className={i === c.steps.length - 1 ? (c.answer ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold') : 'text-slate-300'}>{step}</span>
                     </div>
                   ))}
                 </div>

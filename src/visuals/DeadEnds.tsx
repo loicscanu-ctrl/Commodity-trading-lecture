@@ -4,7 +4,7 @@ type Category = { header: string; color: string; tiles: Tile[] }
 const CATEGORIES: Category[] = [
   {
     header: 'Conventional Dead Ends',
-    color: 'border-red-900',
+    color: 'rose',
     tiles: [
       {
         label: 'FINANCE & PAPER',
@@ -24,7 +24,7 @@ const CATEGORIES: Category[] = [
   },
   {
     header: 'Institutional Dead Ends',
-    color: 'border-orange-900',
+    color: 'amber',
     tiles: [
       {
         label: 'THE INSTITUTION',
@@ -45,7 +45,7 @@ const CATEGORIES: Category[] = [
   },
   {
     header: 'Dynamic Dead Ends — The Flow Traps',
-    color: 'border-yellow-900',
+    color: 'violet',
     tiles: [
       {
         label: 'PURE FX — CURRENCY ARBITRAGE',
@@ -61,27 +61,38 @@ const CATEGORIES: Category[] = [
   },
 ]
 
+const ACCENT: Record<string, { rail: string; dot: string }> = {
+  rose: { rail: 'bg-rose-500', dot: 'bg-rose-400' },
+  amber: { rail: 'bg-amber-500', dot: 'bg-amber-400' },
+  violet: { rail: 'bg-violet-500', dot: 'bg-violet-400' },
+}
+
 export default function DeadEnds() {
   return (
-    <div className="mt-5 space-y-4">
-      {CATEGORIES.map(cat => (
+    <div className="mt-5 space-y-6">
+      {CATEGORIES.map(cat => {
+        const accent = ACCENT[cat.color] ?? ACCENT.rose
+        return (
         <div key={cat.header}>
-          <div className={`text-zinc-500 text-xs font-mono uppercase tracking-widest border-b ${cat.color} pb-1 mb-3`}>
-            {cat.header}
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />
+            <span className="eyebrow">{cat.header}</span>
           </div>
-          <div className={`grid gap-2 ${cat.tiles.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+          <div className={`grid gap-3 ${cat.tiles.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
             {cat.tiles.map(tile => (
-              <div key={tile.label} className="bg-zinc-900 border border-zinc-800 p-4">
-                <div className="text-zinc-500 font-mono text-xs tracking-wider mb-1">{tile.label}</div>
+              <div key={tile.label} className="glass glass-hover relative overflow-hidden rounded-2xl p-5">
+                <span className={`absolute left-0 top-0 h-full w-[3px] ${accent.rail}`} />
+                <div className="eyebrow mb-2">{tile.label}</div>
                 {tile.verdict && (
-                  <div className="text-red-500 font-mono text-xs mb-2">{tile.verdict}</div>
+                  <div className="chip border-rose-500/30 bg-rose-500/10 text-rose-400 mb-2">{tile.verdict}</div>
                 )}
-                <p className="text-zinc-400 text-xs leading-relaxed">{tile.body}</p>
+                <p className="text-slate-400 text-xs leading-relaxed">{tile.body}</p>
               </div>
             ))}
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

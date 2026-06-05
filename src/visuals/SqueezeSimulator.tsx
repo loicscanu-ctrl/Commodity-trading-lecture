@@ -12,10 +12,10 @@ function SliderRow({ label, value, min, max, onChange }: {
 }) {
   return (
     <div>
-      <div className="text-zinc-400 text-xs font-mono mb-1">{label}</div>
+      <div className="text-slate-400 text-xs font-mono mb-1.5">{label}</div>
       <input type="range" min={min} max={max} value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="w-full accent-amber-500 h-1 cursor-pointer" />
+        className="w-full accent-brand-blue h-1.5 cursor-pointer" />
     </div>
   )
 }
@@ -25,21 +25,21 @@ const RULES = [
     key: 'positionLimits',
     label: '1. Position Limits',
     tag: 'EX-ANTE',
-    tagColor: 'text-blue-400',
+    tagColor: 'text-brand-cyan',
     sub: 'C_eff = min(C, 0.20)',
   },
   {
     key: 'lending',
     label: '2. LME Lending Rules',
     tag: 'EX-POST',
-    tagColor: 'text-orange-400',
+    tagColor: 'text-amber-400',
     sub: 'Spread × 0.5',
   },
   {
     key: 'cap',
     label: '3. Backwardation Cap',
     tag: 'EX-POST',
-    tagColor: 'text-orange-400',
+    tagColor: 'text-amber-400',
     sub: 'Spread ≤ $50',
   },
 ]
@@ -92,8 +92,8 @@ export default function SqueezeSimulator() {
   const rawSpread = (demand / supply) * Math.exp(k * cEffective)
 
   return (
-    <div className="mt-5 bg-zinc-950 border border-zinc-700 p-5">
-      <div className="text-amber-400 text-xs font-mono uppercase tracking-widest mb-4">
+    <div className="glass mt-5 p-5 text-white">
+      <div className="eyebrow mb-4">
         Market Squeeze &amp; Intervention Simulator
       </div>
 
@@ -103,8 +103,8 @@ export default function SqueezeSimulator() {
         <div className="w-full lg:w-72 shrink-0 space-y-4">
 
           {/* Market fundamentals */}
-          <div className="bg-zinc-900 border border-zinc-800 p-4">
-            <div className="text-zinc-500 text-xs font-mono uppercase tracking-wider mb-3">Market Fundamentals</div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="eyebrow mb-3">Market Fundamentals</div>
             <div className="space-y-3">
               <SliderRow label={`Deliverable Supply (S): ${supply}`} value={supply} min={5} max={150} onChange={setSupply} />
               <SliderRow label={`Short Covering Demand (D): ${demand}`} value={demand} min={10} max={200} onChange={setDemand} />
@@ -113,8 +113,8 @@ export default function SqueezeSimulator() {
           </div>
 
           {/* Exchange rules */}
-          <div className="bg-zinc-900 border border-amber-900 p-4">
-            <div className="text-amber-400 text-xs font-mono uppercase tracking-wider mb-3">Exchange Interventions</div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+            <div className="eyebrow text-amber-400 mb-3">Exchange Interventions</div>
             <div className="space-y-3">
               {RULES.map((r, i) => {
                 const states = [rulePositionLimits, ruleLending, ruleCap]
@@ -130,10 +130,10 @@ export default function SqueezeSimulator() {
                       className="accent-amber-500 w-4 h-4 cursor-pointer shrink-0 mt-0.5" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-mono ${active ? 'text-amber-400' : 'text-zinc-400'}`}>{r.label}</span>
+                        <span className={`text-xs font-mono transition-colors ${active ? 'text-amber-400' : 'text-slate-400 group-hover:text-slate-300'}`}>{r.label}</span>
                         <span className={`text-xs font-mono ${r.tagColor} opacity-70`}>{r.tag}</span>
                       </div>
-                      <div className="text-zinc-600 font-mono text-xs">{r.sub}</div>
+                      <div className="text-slate-500 font-mono text-xs">{r.sub}</div>
                     </div>
                   </label>
                 )
@@ -143,15 +143,15 @@ export default function SqueezeSimulator() {
 
           {/* Spot price readout */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-black border border-zinc-800 p-3">
-              <div className="text-zinc-600 text-xs font-mono uppercase mb-1">Free Market</div>
-              <div className="text-red-400 font-mono font-bold text-xl">${Math.round(rawSpotFree)}</div>
-              <div className="text-zinc-700 text-xs font-mono">unconstrained</div>
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] p-3">
+              <div className="eyebrow text-rose-400/80 mb-1">Free Market</div>
+              <div className="text-rose-400 font-mono font-bold text-3xl tabular-nums">${Math.round(rawSpotFree)}</div>
+              <div className="text-slate-500 text-xs font-mono">unconstrained</div>
             </div>
-            <div className="bg-black border border-zinc-800 p-3">
-              <div className="text-zinc-600 text-xs font-mono uppercase mb-1">Regulated</div>
-              <div className="text-green-400 font-mono font-bold text-xl">${Math.round(finalSpotReg)}</div>
-              <div className="text-zinc-700 text-xs font-mono">with rules</div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+              <div className="eyebrow text-emerald-400/80 mb-1">Regulated</div>
+              <div className="text-emerald-400 font-mono font-bold text-3xl tabular-nums">${Math.round(finalSpotReg)}</div>
+              <div className="text-slate-500 text-xs font-mono">with rules</div>
             </div>
           </div>
         </div>
@@ -160,36 +160,36 @@ export default function SqueezeSimulator() {
         <div className="flex-1 space-y-3">
 
           {/* Formula breakdown */}
-          <div className="bg-black border border-zinc-800 p-3 font-mono text-xs">
-            <div className="text-zinc-500 uppercase tracking-wider mb-2">Active Formula</div>
-            <div className="text-zinc-400">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-xs">
+            <div className="eyebrow mb-2">Active Formula</div>
+            <div className="text-slate-300 tabular-nums">
               P<sub>spot</sub> = P<sub>1M</sub> + (D/S) × e<sup>k·C</sup>
             </div>
-            <div className="text-zinc-600 mt-1">
+            <div className="text-slate-500 mt-1 tabular-nums">
               = {p1M} + ({dsRatio}) × e<sup>{expArg}</sup>
               = {p1M} + {dsRatio} × {expVal}
-              = <span className={rulePositionLimits || ruleLending || ruleCap ? 'text-zinc-400' : 'text-red-400 font-bold'}>${Math.round(rawSpotFree)}</span>
+              = <span className={rulePositionLimits || ruleLending || ruleCap ? 'text-slate-300' : 'text-rose-400 font-bold'}>${Math.round(rawSpotFree)}</span>
             </div>
 
             {(rulePositionLimits || ruleLending || ruleCap) && (
-              <div className="border-t border-zinc-800 mt-2 pt-2 space-y-1 text-zinc-600">
+              <div className="border-t border-white/10 mt-2 pt-2 space-y-1 text-slate-500 tabular-nums">
                 {rulePositionLimits && (
-                  <div className="text-blue-400">
+                  <div className="text-brand-cyan">
                     Ex-ante: C<sub>eff</sub> = min({cFree.toFixed(2)}, 0.20) = {cEffective.toFixed(2)}
                     → raw spread = ${rawSpread.toFixed(2)}
                   </div>
                 )}
                 {ruleLending && (
-                  <div className="text-orange-400">
+                  <div className="text-amber-400">
                     Ex-post (Lending): Spread × 0.5 = ${(spread * (ruleCap ? 1 : 1)).toFixed(2)}
                   </div>
                 )}
                 {ruleCap && (
-                  <div className="text-orange-400">
+                  <div className="text-amber-400">
                     Ex-post (Cap): min(spread, $50) → spread = ${spread.toFixed(2)}
                   </div>
                 )}
-                <div className="text-green-400 font-bold">
+                <div className="text-emerald-400 font-bold">
                   P<sub>spot</sub> = {p1M} + ${spread.toFixed(2)} = <span>${Math.round(finalSpotReg)}</span>
                 </div>
               </div>
@@ -197,42 +197,42 @@ export default function SqueezeSimulator() {
           </div>
 
           {/* Chart */}
-          <div className="bg-black border border-zinc-800 p-4" style={{ minHeight: '260px' }}>
-            <div className="text-zinc-500 text-xs font-mono uppercase tracking-wider mb-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4" style={{ minHeight: '260px' }}>
+            <div className="eyebrow mb-3">
               Forward Curve — Spot to 6 Months
             </div>
             <ResponsiveContainer width="100%" height={230}>
               <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="month"
-                  tick={{ fill: '#71717a', fontSize: 11, fontFamily: 'monospace' }}
-                  axisLine={{ stroke: '#3f3f46' }} tickLine={false} />
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} />
                 <YAxis domain={['auto', 'auto']}
-                  tick={{ fill: '#71717a', fontSize: 11, fontFamily: 'monospace' }}
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
                   axisLine={false} tickLine={false}
                   tickFormatter={(v: number) => `$${v}`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#09090b', border: '1px solid #3f3f46', fontFamily: 'monospace', fontSize: '11px' }}
-                  labelStyle={{ color: '#f59e0b', fontWeight: 'bold' }}
+                  contentStyle={{ backgroundColor: '#0d1120', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '0.75rem', fontFamily: 'monospace', fontSize: '11px' }}
+                  labelStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any) => [`$${value}`, undefined]}
                 />
                 <Legend iconSize={10}
-                  wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', color: '#71717a', paddingTop: '4px' }} />
+                  wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', color: '#94a3b8', paddingTop: '4px' }} />
                 <Line type="monotone" dataKey="FreeMarket" name="Unconstrained Market"
-                  stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5"
-                  dot={{ fill: '#ef4444', r: 4 }} activeDot={{ r: 6 }} />
+                  stroke="#fb7185" strokeWidth={2} strokeDasharray="5 5"
+                  dot={{ fill: '#fb7185', r: 4 }} activeDot={{ r: 6 }} />
                 <Line type="monotone" dataKey="Regulated" name="With Exchange Rules"
-                  stroke="#22c55e" strokeWidth={2.5}
-                  dot={{ fill: '#22c55e', r: 4 }} activeDot={{ r: 6 }} />
+                  stroke="#34d399" strokeWidth={2.5}
+                  dot={{ fill: '#34d399', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Teaching note */}
-          <div className="text-zinc-600 text-xs font-mono border-t border-zinc-800 pt-2">
-            <span className="text-blue-400">EX-ANTE</span> rules constrain C before the squeeze forms (prevent).
-            &nbsp;<span className="text-orange-400">EX-POST</span> rules treat the spread after it forms (cure).
+          <div className="text-slate-500 text-xs font-mono border-t border-white/10 pt-2">
+            <span className="text-brand-cyan">EX-ANTE</span> rules constrain C before the squeeze forms (prevent).
+            &nbsp;<span className="text-amber-400">EX-POST</span> rules treat the spread after it forms (cure).
           </div>
         </div>
 

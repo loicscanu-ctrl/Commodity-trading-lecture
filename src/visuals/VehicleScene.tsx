@@ -1,6 +1,6 @@
 export default function VehicleScene() {
   return (
-    <div className="mt-6 bg-black border border-zinc-800 overflow-hidden" style={{ height: '130px' }}>
+    <div className="mt-6 glass rounded-2xl overflow-hidden" style={{ height: '130px' }}>
       <svg viewBox="0 0 400 130" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
         {/* Sky gradient effect */}
         <rect x="0" y="0" width="400" height="85" fill="#09090b" />

@@ -1,11 +1,11 @@
 const SEGMENTS = [
-  { name: 'Petroleum Products',             short: '$1.5T',  value: 1500, group: 'Energy',       color: '#0f2741', glow: '#1e4d7a' },
-  { name: 'Natural Gas, Coal & Electricity', short: '$454B',  value: 454,  group: 'Energy',       color: '#1a3a5c', glow: '#1e4d7a' },
-  { name: 'Precious Stones & Metals',        short: '$647B',  value: 647,  group: 'Minerals',     color: '#2d1069', glow: '#5b21b6' },
-  { name: 'Base Metals & Other Minerals',    short: '$758B',  value: 758,  group: 'Minerals',     color: '#1a0d55', glow: '#5b21b6' },
-  { name: 'Crop Products & Forestry',        short: '$1.2T',  value: 1200, group: 'Agriculture',  color: '#0d3f1a', glow: '#166534' },
-  { name: 'Animal Products',                 short: '$446B',  value: 446,  group: 'Agriculture',  color: '#145c29', glow: '#166534' },
-  { name: 'Other Products',                  short: '$319B',  value: 319,  group: 'Other',        color: '#292524', glow: '#44403c' },
+  { name: 'Petroleum Products',             short: '$1.5T',  value: 1500, group: 'Energy',       color: '#1d4ed8', glow: '#3b82f6' },
+  { name: 'Natural Gas, Coal & Electricity', short: '$454B',  value: 454,  group: 'Energy',       color: '#2563eb', glow: '#3b82f6' },
+  { name: 'Precious Stones & Metals',        short: '$647B',  value: 647,  group: 'Minerals',     color: '#7c3aed', glow: '#8b5cf6' },
+  { name: 'Base Metals & Other Minerals',    short: '$758B',  value: 758,  group: 'Minerals',     color: '#6d28d9', glow: '#8b5cf6' },
+  { name: 'Crop Products & Forestry',        short: '$1.2T',  value: 1200, group: 'Agriculture',  color: '#059669', glow: '#34d399' },
+  { name: 'Animal Products',                 short: '$446B',  value: 446,  group: 'Agriculture',  color: '#047857', glow: '#34d399' },
+  { name: 'Other Products',                  short: '$319B',  value: 319,  group: 'Other',        color: '#475569', glow: '#64748b' },
 ]
 
 const GROUP_COLOR: Record<string, string> = {
@@ -56,7 +56,7 @@ export default function CommodityDonutChart() {
           {/* Segments */}
           {segs.map((s, i) => (
             <path key={i} d={arcPath(s.start, s.end)} fill={s.color}
-              stroke="#09090b" strokeWidth="2" />
+              stroke="#070912" strokeWidth="2" />
           ))}
 
           {/* In-segment labels */}
@@ -90,9 +90,9 @@ export default function CommodityDonutChart() {
           })}
 
           {/* Center */}
-          <text x={CX} y={CY - 14} textAnchor="middle" fill="#71717a" fontSize="8.5" fontFamily="monospace" letterSpacing="1">TOTAL</text>
+          <text x={CX} y={CY - 14} textAnchor="middle" fill="#94a3b8" fontSize="8.5" fontFamily="monospace" letterSpacing="1">TOTAL</text>
           <text x={CX} y={CY + 12} textAnchor="middle" fill="white" fontSize="22" fontFamily="monospace" fontWeight="bold">$5.3T</text>
-          <text x={CX} y={CY + 28} textAnchor="middle" fill="#71717a" fontSize="7.5" fontFamily="monospace">annual commodity exports</text>
+          <text x={CX} y={CY + 28} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontFamily="monospace">annual commodity exports</text>
 
           {/* Group arc labels */}
           {/* Energy label (right arc, ~13° to ~42°) */}
@@ -102,29 +102,29 @@ export default function CommodityDonutChart() {
           {/* Agriculture label (left arc) */}
           <text x={CX - OR - 62} y={CY + 10} fill="#4ade80" fontSize="8" fontFamily="monospace" fontWeight="bold" letterSpacing="1">AGRICULTURE</text>
         </svg>
-        <div className="text-zinc-600 text-xs font-mono text-center mt-1">
+        <div className="text-slate-500 text-xs font-mono text-center mt-2">
           Source: UN Trade & Development · 2019–2021 avg.
         </div>
       </div>
 
       {/* Legend */}
       <div className="flex-1 space-y-3 min-w-0">
-        <div className="text-zinc-400 text-xs font-mono uppercase tracking-wider mb-2">Breakdown by Category</div>
+        <div className="eyebrow mb-2">Breakdown by Category</div>
         {(['Energy', 'Minerals', 'Agriculture', 'Other'] as const).map(group => {
           const groupSegs = segs.filter(s => s.group === group)
           const groupTotal = groupSegs.reduce((s, d) => s + d.value, 0)
           const gc = GROUP_COLOR[group]
           return (
-            <div key={group} className="bg-zinc-900 border border-zinc-800 overflow-hidden">
-              <div className="flex justify-between items-center px-3 py-2 border-b border-zinc-800">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: gc }}>{group}</span>
-                <span className="text-xs font-mono text-zinc-400">{groupSegs.length > 1 ? `$${(groupTotal/1000).toFixed(1)}T` : groupSegs[0].short}</span>
+            <div key={group} className="rounded-xl bg-white/[0.03] border border-white/10 overflow-hidden transition-colors hover:border-white/20">
+              <div className="flex justify-between items-center px-3.5 py-2.5 border-b border-white/10">
+                <span className="text-xs font-mono font-bold uppercase tracking-[0.16em]" style={{ color: gc }}>{group}</span>
+                <span className="text-xs font-mono text-slate-300">{groupSegs.length > 1 ? `$${(groupTotal/1000).toFixed(1)}T` : groupSegs[0].short}</span>
               </div>
               {groupSegs.map(s => (
-                <div key={s.name} className="flex items-center justify-between px-3 py-1.5 border-t border-zinc-800/50">
+                <div key={s.name} className="flex items-center justify-between px-3.5 py-2 border-t border-white/5">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: gc }} />
-                    <span className="text-zinc-400 text-xs truncate">{s.name}</span>
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: gc }} />
+                    <span className="text-slate-300 text-xs truncate">{s.name}</span>
                   </div>
                   <span className="text-white font-mono text-xs font-bold ml-2 shrink-0">{s.short}</span>
                 </div>

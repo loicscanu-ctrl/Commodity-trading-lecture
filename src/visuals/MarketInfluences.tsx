@@ -23,13 +23,13 @@ const influences = [
 
 export default function MarketInfluences() {
   return (
-    <div className="mt-6 space-y-2">
+    <div className="mt-6 space-y-3">
       {influences.map((item, i) => (
-        <div key={i} className="flex gap-4 bg-zinc-900 border border-zinc-800 p-4">
-          <div className="text-amber-500 font-mono text-xs mt-0.5 shrink-0 w-5">{String(i + 1).padStart(2, '0')}</div>
+        <div key={i} className="glass glass-hover flex gap-4 rounded-2xl p-5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-cyan/30 bg-brand-cyan/10 font-mono text-xs text-brand-cyan">{String(i + 1).padStart(2, '0')}</div>
           <div>
-            <div className="text-white font-semibold text-sm mb-1">{item.label}</div>
-            <div className="text-zinc-400 text-xs leading-relaxed">{item.detail}</div>
+            <div className="text-white font-semibold tracking-tight text-sm mb-1">{item.label}</div>
+            <div className="text-slate-400 text-xs leading-relaxed">{item.detail}</div>
           </div>
         </div>
       ))}

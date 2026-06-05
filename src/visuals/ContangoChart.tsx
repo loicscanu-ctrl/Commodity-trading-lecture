@@ -36,11 +36,11 @@ export default function ContangoChart() {
   const p6 = contangoPrice(t6)
 
   return (
-    <div className="mt-6 bg-black border border-zinc-800 p-3">
+    <div className="mt-6 rounded-2xl bg-white/[0.02] border border-white/[0.07] p-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '260px' }}>
         {/* Grid */}
         {ticks.map(t => (
-          <line key={t} x1={x(t)} y1={mt} x2={x(t)} y2={axisBottom} stroke="#27272a" strokeWidth="1" />
+          <line key={t} x1={x(t)} y1={mt} x2={x(t)} y2={axisBottom} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
         ))}
 
         {/* Spot reference line */}
@@ -48,11 +48,11 @@ export default function ContangoChart() {
           stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
 
         {/* Axes */}
-        <line x1={ml} y1={mt} x2={ml} y2={axisBottom} stroke="#3f3f46" strokeWidth="1" />
-        <line x1={ml} y1={axisBottom} x2={ml + pw} y2={axisBottom} stroke="#3f3f46" strokeWidth="1" />
+        <line x1={ml} y1={mt} x2={ml} y2={axisBottom} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+        <line x1={ml} y1={axisBottom} x2={ml + pw} y2={axisBottom} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
 
         {/* Contango curve */}
-        <path d={path} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke="#fb923c" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Spread arrow at t=6 */}
         <line x1={x(t6)} y1={spotLineY} x2={x(t6)} y2={y(p6)} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
@@ -65,9 +65,9 @@ export default function ContangoChart() {
           const lx = cx, ly = axisBottom + 10
           return (
             <g key={t}>
-              <line x1={cx} y1={axisBottom} x2={cx} y2={axisBottom + 5} stroke="#3f3f46" strokeWidth="1" />
-              <circle cx={cx} cy={cy} r="3.5" fill="#f59e0b" stroke="#78350f" strokeWidth="1" />
-              <text x={lx} y={ly} textAnchor="end" fill="#71717a" fontSize="8.5" fontFamily="monospace"
+              <line x1={cx} y1={axisBottom} x2={cx} y2={axisBottom + 5} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+              <circle cx={cx} cy={cy} r="3.5" fill="#fb923c" stroke="#070912" strokeWidth="1" />
+              <text x={lx} y={ly} textAnchor="end" fill="#94a3b8" fontSize="8.5" fontFamily="monospace"
                 transform={`rotate(-45 ${lx} ${ly})`}>{CONTRACTS[i]}</text>
             </g>
           )
@@ -78,13 +78,13 @@ export default function ContangoChart() {
         <circle cx={spotX} cy={spotY} r="9" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3" />
 
         {/* Labels */}
-        <text x={11} y={mt + ph / 2} textAnchor="middle" fill="#52525b" fontSize="9" fontFamily="monospace"
+        <text x={11} y={mt + ph / 2} textAnchor="middle" fill="#64748b" fontSize="9" fontFamily="monospace"
           transform={`rotate(-90 11 ${mt + ph / 2})`}>PRICE</text>
-        <text x={spotX + 12} y={spotY - 6} fill="#60a5fa" fontSize="9" fontFamily="monospace" fontWeight="bold">SPOT</text>
+        <text x={spotX + 12} y={spotY - 6} fill="#22d3ee" fontSize="9" fontFamily="monospace" fontWeight="bold">SPOT</text>
 
         {/* Contango label */}
-        <text x={x(9)} y={y(contangoPrice(9)) - 10} fill="#f59e0b" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
-        <text x={x(9)} y={y(contangoPrice(9)) + 3} fill="#78716c" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
+        <text x={x(9)} y={y(contangoPrice(9)) - 10} fill="#fb923c" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
+        <text x={x(9)} y={y(contangoPrice(9)) + 3} fill="#94a3b8" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
       </svg>
     </div>
   )
