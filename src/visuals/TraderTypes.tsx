@@ -135,10 +135,10 @@ const LABEL_COLOR: Record<string, string> = {
   amber: 'text-amber-400', blue: 'text-blue-400', emerald: 'text-emerald-400', violet: 'text-violet-400',
 }
 const NUM_COLOR: Record<string, string> = {
-  amber: 'text-amber-500/20', blue: 'text-blue-500/20', emerald: 'text-emerald-500/20', violet: 'text-violet-500/20',
+  amber: 'text-amber-500/25', blue: 'text-blue-500/25', emerald: 'text-emerald-500/25', violet: 'text-violet-500/25',
 }
-const ROW_BG: Record<string, string> = {
-  amber: 'border-amber-900/30', blue: 'border-blue-900/30', emerald: 'border-emerald-900/30', violet: 'border-violet-900/30',
+const RAIL: Record<string, string> = {
+  amber: 'bg-amber-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500', violet: 'bg-violet-500',
 }
 
 export default function TraderTypes() {
@@ -152,27 +152,27 @@ export default function TraderTypes() {
       {selected && info && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative z-10 bg-slate-900 border border-slate-700 w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="glass relative z-10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             {/* Close */}
-            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white text-lg">✕</button>
+            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white text-lg transition-colors">✕</button>
 
             {/* Header */}
             <div className="mb-4">
-              <div className="text-white font-bold text-xl leading-tight mb-1">{selected}</div>
+              <div className="text-white font-semibold tracking-tight text-xl leading-tight mb-1">{selected}</div>
               <div className="text-slate-400 text-sm">{info.full}</div>
             </div>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <span className="text-xs font-mono border border-slate-600 text-slate-300 px-2 py-0.5">{info.type}</span>
-              <span className="text-xs font-mono border border-slate-600 text-slate-400 px-2 py-0.5">🏢 {info.hq}</span>
-              <span className="text-xs font-mono border border-amber-800 text-amber-400 px-2 py-0.5">{info.stat}</span>
+              <span className="chip border-white/15 text-slate-300">{info.type}</span>
+              <span className="chip border-white/15 text-slate-400">🏢 {info.hq}</span>
+              <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-400">{info.stat}</span>
             </div>
 
             {/* Description */}
             <p className="text-slate-300 text-sm leading-relaxed">{info.description}</p>
 
-            <div className="mt-4 text-zinc-600 text-xs font-mono">Click anywhere to close</div>
+            <div className="mt-4 text-slate-600 text-xs font-mono">Click anywhere to close</div>
           </div>
         </div>
       )}
@@ -180,37 +180,38 @@ export default function TraderTypes() {
       {/* Tiers */}
       {TIERS.map((tier, ti) => (
         <div key={tier.num}>
-          <div className={`border ${ROW_BG[tier.color]} bg-zinc-950 p-4`}>
+          <div className="glass relative overflow-hidden rounded-2xl p-5">
+            <span className={`absolute left-0 top-0 h-full w-[3px] ${RAIL[tier.color]}`} />
             <div className="flex gap-4 items-start">
 
               {/* Left: number + label */}
               <div className="shrink-0 w-28 xl:w-32">
                 <div className={`font-black text-5xl leading-none ${NUM_COLOR[tier.color]} font-mono select-none`}>{tier.num}</div>
-                <div className={`font-mono font-bold text-xs uppercase tracking-widest mt-1.5 ${LABEL_COLOR[tier.color]}`}>{tier.label}</div>
-                <div className={`text-zinc-600 font-mono text-xs mt-0.5`}>{tier.physical ? 'PHYSICAL' : 'PAPER ONLY'}</div>
+                <div className={`font-semibold tracking-tight text-xs uppercase mt-1.5 ${LABEL_COLOR[tier.color]}`}>{tier.label}</div>
+                <div className="eyebrow mt-1">{tier.physical ? 'PHYSICAL' : 'PAPER ONLY'}</div>
               </div>
 
               {/* Right: groups */}
               <div className="flex-1 min-w-0 space-y-3">
                 {tier.groups.map(group => (
                   <div key={group.sub}>
-                    <div className="text-zinc-600 text-xs font-mono uppercase tracking-wider mb-1.5">{group.sub}</div>
+                    <div className="eyebrow mb-1.5">{group.sub}</div>
                     <div className="flex flex-wrap gap-2">
                       {group.companies.map(c => (
                         <button
                           key={c.name}
                           onClick={() => INFO[c.name] ? setSelected(c.name) : undefined}
                           disabled={!INFO[c.name]}
-                          className={`group relative px-3 py-2 border transition-all text-left ${tier.chipColor} ${INFO[c.name] ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
+                          className={`group relative rounded-xl px-3 py-2 border transition-all text-left ${tier.chipColor} ${INFO[c.name] ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default opacity-60'}`}
                         >
                           {/* Floating tooltip */}
                           {INFO[c.name] && (
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 border border-zinc-600 text-white text-xs font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full px-2 py-1 bg-white/[0.06] border border-white/20 text-white text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
                               info →
                             </div>
                           )}
                           <div className="text-white text-xs font-semibold leading-tight whitespace-nowrap">{c.name}</div>
-                          {c.note && <div className="text-zinc-500 text-xs mt-0.5">{c.note}</div>}
+                          {c.note && <div className="text-slate-500 text-xs mt-0.5">{c.note}</div>}
                         </button>
                       ))}
                     </div>
@@ -222,23 +223,23 @@ export default function TraderTypes() {
 
           {ti < TIERS.length - 1 && (
             <div className="flex justify-center h-3">
-              <div className="w-px bg-zinc-800" />
+              <div className="w-px bg-white/[0.06]" />
             </div>
           )}
         </div>
       ))}
 
       {/* Legend */}
-      <div className="flex gap-6 pt-2 border-t border-zinc-800">
+      <div className="flex gap-6 pt-3 mt-1.5 border-t border-white/10">
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-          <span className="text-zinc-500 text-xs font-mono">Physical participant</span>
+          <span className="text-slate-500 text-xs">Physical participant</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-          <span className="text-zinc-500 text-xs font-mono">Paper only</span>
+          <span className="text-slate-500 text-xs">Paper only</span>
         </div>
-        <div className="text-zinc-600 text-xs font-mono ml-auto">Click any company for details</div>
+        <div className="text-slate-600 text-xs font-mono ml-auto">Click any company for details</div>
       </div>
     </div>
   )

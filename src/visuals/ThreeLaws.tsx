@@ -19,10 +19,11 @@ export default function ThreeLaws() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
       {laws.map(law => (
-        <div key={law.label} className="border-t-2 border-amber-500 bg-zinc-900 p-5">
-          <div className="text-amber-500 font-mono text-xs mb-3 tracking-widest">{law.label}</div>
-          <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-3">{law.title}</h3>
-          <p className="text-zinc-400 text-sm leading-relaxed">{law.body}</p>
+        <div key={law.label} className="glass glass-hover relative overflow-hidden rounded-2xl p-5">
+          <span className="absolute left-0 top-0 h-full w-[3px] bg-amber-500" />
+          <div className="eyebrow text-amber-400 mb-3">{law.label}</div>
+          <h3 className="text-white font-semibold tracking-tight text-sm uppercase mb-3">{law.title}</h3>
+          <p className="text-slate-400 text-sm leading-relaxed">{law.body}</p>
         </div>
       ))}
     </div>

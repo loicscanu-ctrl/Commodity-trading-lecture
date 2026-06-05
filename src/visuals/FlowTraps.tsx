@@ -14,10 +14,11 @@ export default function FlowTraps() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
       {traps.map(trap => (
-        <div key={trap.label} className="border border-zinc-700 bg-zinc-900 p-5">
-          <div className="text-zinc-500 font-mono text-xs mb-1 tracking-widest">{trap.label}</div>
-          <div className="text-red-500 font-mono text-xs mb-3 tracking-wide">{trap.verdict}</div>
-          <p className="text-zinc-400 text-sm leading-relaxed">{trap.body}</p>
+        <div key={trap.label} className="glass glass-hover relative overflow-hidden rounded-2xl p-5">
+          <span className="absolute left-0 top-0 h-full w-[3px] bg-rose-500" />
+          <div className="eyebrow mb-2">{trap.label}</div>
+          <div className="chip border-rose-500/30 bg-rose-500/10 text-rose-400 mb-3">{trap.verdict}</div>
+          <p className="text-slate-400 text-sm leading-relaxed">{trap.body}</p>
         </div>
       ))}
     </div>

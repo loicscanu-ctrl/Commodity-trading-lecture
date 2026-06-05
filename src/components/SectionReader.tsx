@@ -15,6 +15,15 @@ type Props = {
   initialIndex?: number
 }
 
+const PROSE =
+  'prose prose-invert max-w-none leading-relaxed ' +
+  'prose-headings:tracking-tight prose-headings:text-white prose-headings:font-semibold ' +
+  'prose-p:text-slate-300 prose-li:text-slate-300 ' +
+  'prose-strong:text-white ' +
+  'prose-a:text-brand-cyan prose-a:no-underline hover:prose-a:underline ' +
+  'prose-code:rounded prose-code:bg-white/[0.06] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-brand-cyan prose-code:before:content-none prose-code:after:content-none ' +
+  'prose-table:text-slate-300 prose-th:text-slate-200 prose-blockquote:border-l-brand-blue prose-blockquote:text-slate-400'
+
 export default function SectionReader({ sections, moduleId, topicTitle, initialIndex = 0 }: Props) {
   const [current, setCurrent] = useState(initialIndex)
   const [notesOpen, setNotesOpen] = useState(false)
@@ -46,22 +55,23 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
   useEffect(() => { setNotesOpen(false) }, [current])
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 text-white">
+    <div className="flex h-screen flex-col">
       <Breadcrumb moduleId={moduleId} topicTitle={topicTitle} />
       <ProgressBar current={current + 1} total={sections.length} />
 
       {/* Main content area */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex flex-1 overflow-hidden">
 
         {/* LEFT: Notes panel (collapsible) */}
         {notesOpen && (
-          <aside className="w-80 xl:w-96 shrink-0 bg-slate-900 border-r border-slate-800/60 flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-              <span className="text-slate-500 text-xs font-mono uppercase tracking-widest">Lecture Notes</span>
-              <button onClick={() => setNotesOpen(false)} className="text-slate-500 hover:text-white text-sm leading-none px-1 transition-colors">✕</button>
+          <aside className="flex w-80 shrink-0 animate-fade-in flex-col border-r border-white/[0.06] bg-white/[0.02] backdrop-blur-md xl:w-96">
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">
+              <span className="eyebrow">Lecture Notes</span>
+              <button onClick={() => setNotesOpen(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white/5 hover:text-white">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-5">
-              <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed prose-headings:text-blue-400 prose-headings:font-semibold prose-strong:text-white prose-code:text-blue-300 prose-code:bg-slate-800 prose-table:text-slate-300">
+              <div className={`${PROSE} prose-sm`}>
                 <ReactMarkdown>{section.body}</ReactMarkdown>
               </div>
             </div>
@@ -69,27 +79,26 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
         )}
 
         {/* RIGHT: Visual main area */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
+        <div key={current} className="flex flex-1 animate-fade-in flex-col overflow-y-auto">
 
           {/* Section header */}
-          <div className="px-8 pt-8 pb-4 flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-3xl xl:text-4xl font-bold text-white leading-tight tracking-tight">{section.title}</h2>
-              {!Visual && !notesOpen && section.body && (
-                <p className="text-slate-400 text-base mt-3 leading-relaxed line-clamp-3 max-w-2xl">
-                  {section.body.replace(/[#*`_\[\]]/g, '').slice(0, 180)}{section.body.length > 180 ? '…' : ''}
-                </p>
-              )}
+          <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-8 sm:px-8">
+            <div className="min-w-0 flex-1">
+              <div className="eyebrow mb-2.5 flex items-center gap-2 text-slate-500">
+                <span>Section</span>
+                <span className="text-slate-400">{current + 1} / {sections.length}</span>
+              </div>
+              <h2 className="text-3xl font-bold leading-tight tracking-tight xl:text-4xl">{section.title}</h2>
             </div>
 
             {/* Notes toggle button */}
             {section.body && (
               <button
                 onClick={() => setNotesOpen(o => !o)}
-                className={`flex items-center gap-2 px-4 py-2 text-xs font-mono border rounded transition-colors shrink-0 ${
+                className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition-all ${
                   notesOpen
-                    ? 'border-blue-600 text-blue-400 bg-blue-950/40'
-                    : 'border-slate-700 text-slate-500 hover:border-blue-700 hover:text-blue-400'
+                    ? 'border-brand-blue/50 bg-brand-blue/15 text-blue-200'
+                    : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
                 }`}
               >
                 <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
@@ -103,11 +112,11 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
           </div>
 
           {/* Visual / content */}
-          <div className="flex-1 px-8 pb-6">
+          <div className="flex-1 px-6 pb-6 sm:px-8">
             {Visual ? (
               <Visual />
             ) : (
-              <div className="prose prose-invert prose-lg max-w-3xl text-slate-300 leading-relaxed prose-headings:text-blue-400 prose-headings:font-bold prose-strong:text-white prose-code:text-blue-300 prose-code:bg-slate-900 prose-table:text-slate-300">
+              <div className={`${PROSE} prose-lg max-w-3xl`}>
                 <ReactMarkdown>{section.body}</ReactMarkdown>
               </div>
             )}
@@ -116,36 +125,30 @@ export default function SectionReader({ sections, moduleId, topicTitle, initialI
       </main>
 
       {/* Navigation bar */}
-      <div className="border-t border-slate-800/60 bg-slate-950 px-8 py-4 shrink-0">
-        <div className="flex justify-between items-center">
-          <button
-            onClick={goPrev}
-            disabled={isFirst}
-            className="px-5 py-2 text-sm font-mono border border-slate-700 text-slate-400 hover:border-blue-600 hover:text-blue-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-          >
+      <div className="shrink-0 border-t border-white/[0.06] bg-[#070912]/70 px-6 py-4 backdrop-blur-xl sm:px-8">
+        <div className="flex items-center justify-between">
+          <button onClick={goPrev} disabled={isFirst} className="btn-ghost">
             ← Back
           </button>
 
           {/* Dot navigation */}
-          <div className="flex gap-1.5 items-center">
+          <div className="flex items-center gap-1.5">
             {sections.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
-                className={`transition-all ${
+                aria-label={`Go to section ${i + 1}`}
+                className={`h-2 rounded-full transition-all duration-300 ${
                   i === current
-                    ? 'w-4 h-2 bg-blue-500 rounded-full'
-                    : 'w-2 h-2 bg-slate-700 hover:bg-slate-500 rounded-full'
+                    ? 'w-6 bg-gradient-to-r from-brand-cyan to-brand-blue'
+                    : 'w-2 bg-white/15 hover:bg-white/35'
                 }`}
               />
             ))}
           </div>
 
-          <button
-            onClick={goNext}
-            className="px-5 py-2 text-sm font-mono bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors"
-          >
-            {isLast ? 'Module →' : 'Continue →'}
+          <button onClick={goNext} className="btn-primary">
+            {isLast ? 'Back to Module' : 'Continue'} →
           </button>
         </div>
       </div>

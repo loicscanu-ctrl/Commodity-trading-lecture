@@ -37,10 +37,10 @@ export default function RiddleScene() {
             />
           )}
         </div>
-        <div className="text-center">
-          <div className="text-amber-500 font-mono text-xs tracking-widest uppercase mb-1">I Quadrans · Anno XXXIII · Jerusalem</div>
+        <div className="glass rounded-2xl px-6 py-4 text-center">
+          <div className="eyebrow text-amber-400 mb-1">I Quadrans · Anno XXXIII · Jerusalem</div>
           <div className="text-white font-mono font-bold text-2xl">≈ $1.50</div>
-          <div className="text-zinc-600 font-mono text-xs mt-1 tracking-wider">The 2,000-Year Mandate</div>
+          <div className="text-slate-500 font-mono text-xs mt-1 tracking-wider">The 2,000-Year Mandate</div>
         </div>
       </div>
     </div>
