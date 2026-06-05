@@ -1,13 +1,6 @@
 import Link from 'next/link'
 import type { Topic } from '@/types/content'
-
-const TYPE_STYLE: Record<Topic['type'], { label: string; bar: string; text: string }> = {
-  lecture:      { label: 'LECTURE',    bar: 'bg-blue-600',   text: 'text-blue-400' },
-  'case-study': { label: 'CASE',       bar: 'bg-violet-600', text: 'text-violet-400' },
-  quiz:         { label: 'QUIZ',       bar: 'bg-emerald-600',text: 'text-emerald-400' },
-  tool:         { label: 'TOOL',       bar: 'bg-cyan-600',   text: 'text-cyan-400' },
-  simulation:   { label: 'SIMULATION', bar: 'bg-rose-700',   text: 'text-rose-400' },
-}
+import { TOPIC_META, TopicIcon } from './topicMeta'
 
 function getHref(topic: Topic, moduleId: number): string {
   if (topic.type === 'quiz') return `/module/${moduleId}/quiz/${topic.id}`
@@ -16,37 +9,57 @@ function getHref(topic: Topic, moduleId: number): string {
   return `/module/${moduleId}/section/${topic.id}`
 }
 
-type Props = { topic: Topic; moduleId: number }
+type Props = { topic: Topic; moduleId: number; index?: number }
 
-export default function TopicCard({ topic, moduleId }: Props) {
-  const style = TYPE_STYLE[topic.type]
+export default function TopicCard({ topic, moduleId, index = 0 }: Props) {
+  const meta = TOPIC_META[topic.type]
 
+  // Coming-soon / disabled state
   if (topic.v2) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden opacity-40 cursor-not-allowed">
-        <div className={`h-1 ${style.bar} opacity-30`} />
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-mono ${style.text}`}>{style.label}</span>
-            <span className="text-xs font-mono text-slate-600 border border-slate-700 px-2 py-0.5 rounded">SOON</span>
-          </div>
-          <h3 className="text-slate-500 font-semibold text-sm leading-snug">{topic.title}</h3>
-          <p className="text-slate-700 text-xs mt-2 font-mono">{topic.estimatedMinutes}m</p>
+      <div className="glass relative flex h-full flex-col overflow-hidden p-5 opacity-50">
+        <span className="absolute left-0 top-0 h-full w-[3px]" style={{ background: meta.glow, opacity: 0.4 }} />
+        <div className="flex items-center justify-between">
+          <span className={`chip ${meta.text}`}>
+            <TopicIcon type={topic.type} className="h-3 w-3" />
+            {meta.label}
+          </span>
+          <span className="chip text-slate-500">Coming Soon</span>
         </div>
+        <h3 className="mt-4 text-sm font-semibold leading-snug text-slate-400">{topic.title}</h3>
+        <p className="mt-auto pt-3 font-mono text-[11px] text-slate-600">{topic.estimatedMinutes} min</p>
       </div>
     )
   }
 
   return (
-    <Link href={getHref(topic, moduleId)}>
-      <div className="bg-slate-900 border border-slate-800 hover:border-blue-700 rounded-xl overflow-hidden transition-all cursor-pointer group hover:bg-slate-800/60">
-        <div className={`h-1 ${style.bar}`} />
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-mono ${style.text}`}>{style.label}</span>
-            <span className="text-slate-600 text-xs font-mono group-hover:text-slate-400">{topic.estimatedMinutes}m</span>
-          </div>
-          <h3 className="text-white font-semibold text-sm leading-snug group-hover:text-blue-100">{topic.title}</h3>
+    <Link href={getHref(topic, moduleId)} className="group block h-full animate-fade-up"
+      style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}>
+      <div className="glass glass-hover relative flex h-full flex-col overflow-hidden p-5">
+        {/* Accent rail */}
+        <span className="absolute left-0 top-0 h-full w-[3px] transition-all duration-300 group-hover:w-[5px]"
+          style={{ background: meta.glow }} />
+        {/* Hover bloom */}
+        <span className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-40"
+          style={{ backgroundColor: meta.hex }} />
+
+        <div className="relative flex items-center justify-between">
+          <span className={`chip ${meta.text} ${meta.ring}`}>
+            <TopicIcon type={topic.type} className="h-3 w-3" />
+            {meta.label}
+          </span>
+          <span className="font-mono text-[11px] text-slate-500 transition-colors group-hover:text-slate-300">
+            {topic.estimatedMinutes} min
+          </span>
+        </div>
+
+        <h3 className="relative mt-4 text-[15px] font-semibold leading-snug text-slate-100 transition-colors group-hover:text-white">
+          {topic.title}
+        </h3>
+
+        <div className="relative mt-auto flex items-center gap-1.5 pt-4 text-xs font-medium text-slate-500 transition-colors group-hover:text-slate-300">
+          <span>Open</span>
+          <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
         </div>
       </div>
     </Link>

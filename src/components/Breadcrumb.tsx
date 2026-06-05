@@ -4,13 +4,17 @@ type Props = { moduleId: number; topicTitle: string }
 
 export default function Breadcrumb({ moduleId, topicTitle }: Props) {
   return (
-    <nav className="bg-slate-950 border-b border-slate-800/60 px-6 py-2.5">
-      <div className="max-w-7xl mx-auto flex items-center gap-2 text-xs font-mono text-slate-500">
-        <Link href={`/module/${moduleId}`} className="hover:text-blue-400 transition-colors uppercase tracking-wider">
+    <nav className="border-b border-white/[0.06] bg-[#070912]/70 px-5 py-3 backdrop-blur-xl sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-2 text-xs">
+        <Link href="/module/1" className="text-slate-500 transition-colors hover:text-brand-cyan">
+          Home
+        </Link>
+        <span className="text-slate-700">/</span>
+        <Link href={`/module/${moduleId}`} className="font-medium text-slate-400 transition-colors hover:text-brand-blue">
           Module {moduleId}
         </Link>
         <span className="text-slate-700">/</span>
-        <span className="text-slate-300 uppercase tracking-wider truncate">{topicTitle}</span>
+        <span className="truncate font-medium text-slate-200">{topicTitle}</span>
       </div>
     </nav>
   )
