@@ -8,9 +8,10 @@ type Props = {
   questionNumber: number
   total: number
   onAnswer: (correct: boolean) => void
+  edited?: boolean
 }
 
-export default function QuizQuestion({ question, questionNumber, total, onAnswer }: Props) {
+export default function QuizQuestion({ question, questionNumber, total, onAnswer, edited = false }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const answered = selected !== null
 
@@ -22,7 +23,10 @@ export default function QuizQuestion({ question, questionNumber, total, onAnswer
 
   return (
     <div key={questionNumber} className="mx-auto max-w-2xl animate-fade-up px-6 py-10">
-      <div className="eyebrow mb-4">Question {questionNumber} / {total}</div>
+      <div className="mb-4 flex items-center gap-2">
+        <span className="eyebrow">Question {questionNumber} / {total}</span>
+        {edited && <span className="chip !py-0.5 text-brand-cyan/90">edited</span>}
+      </div>
       <h2 className="mb-8 text-xl font-semibold leading-snug tracking-tight text-white">{question.question}</h2>
       <div className="flex flex-col gap-2.5">
         {question.options.map((option, i) => {
