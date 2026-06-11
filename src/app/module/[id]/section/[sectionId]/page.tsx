@@ -17,6 +17,7 @@ export default function SectionPage({ params }: Props) {
       sections={topic.sections}
       moduleId={moduleId}
       topicTitle={topic.title}
+      topicId={topic.id}
     />
   )
 }
