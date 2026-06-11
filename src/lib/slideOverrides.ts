@@ -5,7 +5,7 @@
 // override the built-in content everywhere the slide is rendered. Nothing is
 // written to the source files — use the Export panel to pull edits back out.
 
-export type SlideOverride = { title?: string; body?: string }
+export type SlideOverride = { title?: string; body?: string; visual?: Record<string, string> }
 export type OverrideMap = Record<string, SlideOverride>
 
 const OVERRIDES_KEY = 'slide-overrides-v1'
