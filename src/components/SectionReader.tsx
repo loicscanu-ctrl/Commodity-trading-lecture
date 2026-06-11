@@ -8,7 +8,8 @@ import Breadcrumb from './Breadcrumb'
 import ProgressBar from './ProgressBar'
 import SlideEditor from './SlideEditor'
 import ExportPanel from './ExportPanel'
-import { visualRegistry } from '@/visuals'
+import { visualRegistry, visualTextRegistry } from '@/visuals'
+import { VisualTextProvider } from '@/lib/visualText'
 import {
   slideKey, loadOverrides, setOverride, clearOverride, clearAllOverrides,
   loadEditMode, saveEditMode, type OverrideMap,
@@ -54,6 +55,11 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
   const isEdited = !!ov
   const editedCount = Object.keys(overrides).length
 
+  // Editable text inside the visual component (if it declares any)
+  const visualDef = section.visual ? visualTextRegistry[section.visual] : undefined
+  const visualTextOverrides = { ...(section.visualText ?? {}), ...(ov?.visual ?? {}) }
+  const visualValues = visualDef ? { ...visualDef.defaults, ...visualTextOverrides } : undefined
+
   // Hydrate overrides + edit-mode preference on mount (client only)
   useEffect(() => {
     setOverrides(loadOverrides())
@@ -92,8 +98,12 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
     })
   }
 
-  function handleSave(t: string, b: string) {
-    setOverrides(prev => setOverride(prev, key, { title: t, body: b }))
+  function handleSave(data: { title: string; body: string; visual?: Record<string, string> }) {
+    setOverrides(prev => setOverride(prev, key, {
+      title: data.title,
+      body: data.body,
+      ...(data.visual && Object.keys(data.visual).length ? { visual: data.visual } : {}),
+    }))
     setEditing(false)
   }
 
@@ -136,6 +146,8 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
             <SlideEditor
               title={title}
               body={body}
+              visualFields={visualDef?.fields}
+              visualValues={visualValues}
               isEdited={isEdited}
               onSave={handleSave}
               onCancel={() => setEditing(false)}
@@ -214,7 +226,9 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
               {/* Visual / content */}
               <div className="flex-1 px-6 pb-6 sm:px-8">
                 {Visual ? (
-                  <Visual />
+                  <VisualTextProvider value={visualTextOverrides}>
+                    <Visual />
+                  </VisualTextProvider>
                 ) : (
                   <div className={`${PROSE} prose-lg max-w-3xl`}>
                     <ReactMarkdown>{body}</ReactMarkdown>

@@ -72,6 +72,24 @@ test('enabling edit mode lets you edit and save a slide override', () => {
   expect(screen.getByText('edited')).toBeInTheDocument()
 })
 
+test('graphic-text fields edit the text rendered inside a visual', () => {
+  const visualSections: Section[] = [
+    { id: 'v1', title: 'Laws', body: 'notes', visual: 'three-laws' },
+  ]
+  render(<SectionReader sections={visualSections} moduleId={1} topicId="t1" topicTitle="Test" />)
+  // The visual renders its default text
+  expect(screen.getByText('Absolute Ethics')).toBeInTheDocument()
+  // Enter edit mode and open the editor
+  fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Edit slide/ }))
+  // A graphic-text field is prefilled with the default and editable
+  fireEvent.change(screen.getByDisplayValue('Absolute Ethics'), { target: { value: 'Clean Hands' } })
+  fireEvent.click(screen.getByRole('button', { name: /^Save$/ }))
+  // The visual now shows the edited text
+  expect(screen.getByText('Clean Hands')).toBeInTheDocument()
+  expect(screen.queryByText('Absolute Ethics')).not.toBeInTheDocument()
+})
+
 test('override persists to localStorage and reapplies on remount', () => {
   const { unmount } = render(<SectionReader sections={sections} moduleId={1} topicId="t1" topicTitle="Test" />)
   fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }))

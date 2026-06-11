@@ -20,6 +20,7 @@ export type Section = {
   title: string
   body: string        // markdown string
   visual?: string     // key into src/visuals/index.ts registry
+  visualText?: Record<string, string>  // optional per-slide overrides for the visual's editable text
 }
 
 export type Quiz = {

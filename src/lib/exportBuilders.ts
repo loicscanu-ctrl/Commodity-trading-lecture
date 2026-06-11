@@ -11,12 +11,22 @@ export function buildTopicTs(sections: Section[], overrides: OverrideMap, module
     const ov = overrides[slideKey(moduleId, topicId, s.id)]
     const title = ov?.title ?? s.title
     const body = ov?.body ?? s.body
+    const visualText = { ...(s.visualText ?? {}), ...(ov?.visual ?? {}) }
+    const visualTextKeys = Object.keys(visualText)
+    const visualTextBlock = visualTextKeys.length
+      ? [
+          `    visualText: {`,
+          ...visualTextKeys.map(k => `      '${k}': \`${tl(visualText[k])}\`,`),
+          `    },`,
+        ].join('\n')
+      : null
     return [
       `  {`,
       `    id: '${s.id}',`,
       `    title: \`${tl(title)}\`,`,
       `    body: \`${tl(body)}\`,`,
       s.visual ? `    visual: '${s.visual}',` : null,
+      visualTextBlock,
       `  },`,
     ].filter(Boolean).join('\n')
   })
