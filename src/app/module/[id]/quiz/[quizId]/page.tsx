@@ -17,6 +17,7 @@ export default function QuizPage({ params }: Props) {
       questions={topic.quiz.questions}
       moduleId={moduleId}
       topicTitle={topic.title}
+      topicId={topic.id}
     />
   )
 }

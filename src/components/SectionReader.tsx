@@ -13,6 +13,7 @@ import {
   slideKey, loadOverrides, setOverride, clearOverride, clearAllOverrides,
   loadEditMode, saveEditMode, type OverrideMap,
 } from '@/lib/slideOverrides'
+import { buildTopicTs } from '@/lib/exportBuilders'
 
 type Props = {
   sections: Section[]
@@ -256,11 +257,15 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
 
       {showExport && (
         <ExportPanel
-          sections={sections}
-          overrides={overrides}
-          moduleId={moduleId}
-          topicId={topicId}
+          heading="Save your slide changes"
+          tsTabLabel="This topic (paste into source)"
+          tsText={buildTopicTs(sections, overrides, moduleId, topicId)}
+          jsonText={JSON.stringify(overrides, null, 2)}
+          editedLabel="slide"
           editedCount={editedCount}
+          tsFileName={`${topicId}.sections.txt`}
+          jsonFileName="slide-edits.json"
+          sourceHint={<>Replace the <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">sections: [ … ]</code> array in <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">src/content/module-{moduleId}/…{topicId}.ts</code> with the block below to make edits permanent.</>}
           onClose={() => setShowExport(false)}
           onResetAll={handleResetAll}
         />
