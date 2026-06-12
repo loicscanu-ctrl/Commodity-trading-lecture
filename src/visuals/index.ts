@@ -26,6 +26,10 @@ import ExposureLadder, { textDef as exposureLadderText } from './ExposureLadder'
 import FortiesSystem, { textDef as fortiesSystemText } from './FortiesSystem'
 import SwapSimulator from './SwapSimulator'
 import CfdCurve, { textDef as cfdCurveText } from './CfdCurve'
+import CharterTypes, { textDef as charterTypesText } from './CharterTypes'
+import DemurrageWhoPays, { textDef as demurrageWhoPaysText } from './DemurrageWhoPays'
+import WorldscaleCalculator from './WorldscaleCalculator'
+import LaytimeDemurrage from './LaytimeDemurrage'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -54,6 +58,10 @@ export const visualRegistry: Record<string, ComponentType> = {
   'forties-system': FortiesSystem,
   'swap-simulator': SwapSimulator,
   'cfd-curve': CfdCurve,
+  'charter-types': CharterTypes,
+  'demurrage-whopays': DemurrageWhoPays,
+  'worldscale-calculator': WorldscaleCalculator,
+  'laytime-demurrage': LaytimeDemurrage,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -72,4 +80,6 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'exposure-ladder': exposureLadderText,
   'forties-system': fortiesSystemText,
   'cfd-curve': cfdCurveText,
+  'charter-types': charterTypesText,
+  'demurrage-whopays': demurrageWhoPaysText,
 }
