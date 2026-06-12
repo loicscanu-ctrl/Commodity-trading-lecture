@@ -30,6 +30,13 @@ import CharterTypes, { textDef as charterTypesText } from './CharterTypes'
 import DemurrageWhoPays, { textDef as demurrageWhoPaysText } from './DemurrageWhoPays'
 import WorldscaleCalculator from './WorldscaleCalculator'
 import LaytimeDemurrage from './LaytimeDemurrage'
+import DistillationColumn, { textDef as distillationColumnText } from './DistillationColumn'
+import CrudeQualityScatter from './CrudeQualityScatter'
+import GpwCalculator from './GpwCalculator'
+import RefineryTypes, { textDef as refineryTypesText } from './RefineryTypes'
+import SupplyDemandRegion, { textDef as supplyDemandRegionText } from './SupplyDemandRegion'
+import TechnicalSchematics, { textDef as technicalSchematicsText } from './TechnicalSchematics'
+import PriceVolumeOI, { textDef as priceVolumeOIText } from './PriceVolumeOI'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -62,6 +69,13 @@ export const visualRegistry: Record<string, ComponentType> = {
   'demurrage-whopays': DemurrageWhoPays,
   'worldscale-calculator': WorldscaleCalculator,
   'laytime-demurrage': LaytimeDemurrage,
+  'distillation-column': DistillationColumn,
+  'crude-quality-scatter': CrudeQualityScatter,
+  'gpw-calculator': GpwCalculator,
+  'refinery-types': RefineryTypes,
+  'supply-demand-region': SupplyDemandRegion,
+  'technical-schematics': TechnicalSchematics,
+  'price-volume-oi': PriceVolumeOI,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -82,4 +96,9 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'cfd-curve': cfdCurveText,
   'charter-types': charterTypesText,
   'demurrage-whopays': demurrageWhoPaysText,
+  'distillation-column': distillationColumnText,
+  'refinery-types': refineryTypesText,
+  'supply-demand-region': supplyDemandRegionText,
+  'technical-schematics': technicalSchematicsText,
+  'price-volume-oi': priceVolumeOIText,
 }
