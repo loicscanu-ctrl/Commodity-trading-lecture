@@ -19,6 +19,24 @@ import SqueezeSimulator from './SqueezeSimulator'
 import MandateReveal, { textDef as mandateRevealText } from './MandateReveal'
 import CommodityDonutChart from './CommodityDonutChart'
 import TraderTypes from './TraderTypes'
+import BrentTriangle, { textDef as brentTriangleText } from './BrentTriangle'
+import BrentBasket, { textDef as brentBasketText } from './BrentBasket'
+import PriceBuildup, { textDef as priceBuildupText } from './PriceBuildup'
+import ExposureLadder, { textDef as exposureLadderText } from './ExposureLadder'
+import FortiesSystem, { textDef as fortiesSystemText } from './FortiesSystem'
+import SwapSimulator from './SwapSimulator'
+import CfdCurve, { textDef as cfdCurveText } from './CfdCurve'
+import CharterTypes, { textDef as charterTypesText } from './CharterTypes'
+import DemurrageWhoPays, { textDef as demurrageWhoPaysText } from './DemurrageWhoPays'
+import WorldscaleCalculator from './WorldscaleCalculator'
+import LaytimeDemurrage from './LaytimeDemurrage'
+import DistillationColumn, { textDef as distillationColumnText } from './DistillationColumn'
+import CrudeQualityScatter from './CrudeQualityScatter'
+import GpwCalculator from './GpwCalculator'
+import RefineryTypes, { textDef as refineryTypesText } from './RefineryTypes'
+import SupplyDemandRegion, { textDef as supplyDemandRegionText } from './SupplyDemandRegion'
+import TechnicalSchematics, { textDef as technicalSchematicsText } from './TechnicalSchematics'
+import PriceVolumeOI, { textDef as priceVolumeOIText } from './PriceVolumeOI'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -40,6 +58,24 @@ export const visualRegistry: Record<string, ComponentType> = {
   'mandate-reveal': MandateReveal,
   'commodity-donut-chart': CommodityDonutChart,
   'trader-types': TraderTypes,
+  'brent-triangle': BrentTriangle,
+  'brent-basket': BrentBasket,
+  'price-buildup': PriceBuildup,
+  'exposure-ladder': ExposureLadder,
+  'forties-system': FortiesSystem,
+  'swap-simulator': SwapSimulator,
+  'cfd-curve': CfdCurve,
+  'charter-types': CharterTypes,
+  'demurrage-whopays': DemurrageWhoPays,
+  'worldscale-calculator': WorldscaleCalculator,
+  'laytime-demurrage': LaytimeDemurrage,
+  'distillation-column': DistillationColumn,
+  'crude-quality-scatter': CrudeQualityScatter,
+  'gpw-calculator': GpwCalculator,
+  'refinery-types': RefineryTypes,
+  'supply-demand-region': SupplyDemandRegion,
+  'technical-schematics': TechnicalSchematics,
+  'price-volume-oi': PriceVolumeOI,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -52,4 +88,17 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'price-factors-grid': priceFactorsGridText,
   'tanker-types': tankerTypesText,
   'worldscale-example': worldscaleExampleText,
+  'brent-triangle': brentTriangleText,
+  'brent-basket': brentBasketText,
+  'price-buildup': priceBuildupText,
+  'exposure-ladder': exposureLadderText,
+  'forties-system': fortiesSystemText,
+  'cfd-curve': cfdCurveText,
+  'charter-types': charterTypesText,
+  'demurrage-whopays': demurrageWhoPaysText,
+  'distillation-column': distillationColumnText,
+  'refinery-types': refineryTypesText,
+  'supply-demand-region': supplyDemandRegionText,
+  'technical-schematics': technicalSchematicsText,
+  'price-volume-oi': priceVolumeOIText,
 }

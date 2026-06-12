@@ -1,6 +1,8 @@
 import { topics as module1Topics } from './module-1'
 import { topics as module2Topics } from './module-2'
 import { topics as module3Topics } from './module-3'
+import { topics as module4Topics } from './module-4'
+import { topics as module5Topics } from './module-5'
 import type { Module } from '@/types/content'
 
 export const modules: Module[] = [
@@ -21,5 +23,17 @@ export const modules: Module[] = [
     title: 'Strategies, ESG & Data',
     level: 'M2 Spécialisé',
     topics: module3Topics,
+  },
+  {
+    id: 4,
+    title: 'Crude Oil: The Brent Complex & Hedging',
+    level: 'Oil Track',
+    topics: module4Topics,
+  },
+  {
+    id: 5,
+    title: 'Crude Oil: Market Analysis & Refining',
+    level: 'Oil Track',
+    topics: module5Topics,
   },
 ]
