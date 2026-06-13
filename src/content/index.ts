@@ -26,14 +26,14 @@ export const modules: Module[] = [
   },
   {
     id: 4,
-    title: 'Crude Oil: The Brent Complex & Hedging',
-    level: 'Oil Track',
-    topics: module4Topics,
-  },
-  {
-    id: 5,
     title: 'Crude Oil: Market Analysis & Refining',
     level: 'Oil Track',
     topics: module5Topics,
+  },
+  {
+    id: 5,
+    title: 'Crude Oil: The Brent Complex & Hedging',
+    level: 'Oil Track',
+    topics: module4Topics,
   },
 ]
