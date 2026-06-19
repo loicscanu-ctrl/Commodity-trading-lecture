@@ -19,12 +19,14 @@ type Props = {
   visualFields?: VisualTextField[]
   visualValues?: Record<string, string>
   isEdited: boolean
+  isInserted?: boolean
   onSave: (data: SaveData) => void
   onCancel: () => void
   onReset: () => void
+  onDelete?: () => void
 }
 
-export default function SlideEditor({ title, body, visualFields, visualValues, isEdited, onSave, onCancel, onReset }: Props) {
+export default function SlideEditor({ title, body, visualFields, visualValues, isEdited, isInserted = false, onSave, onCancel, onReset, onDelete }: Props) {
   const [draftTitle, setDraftTitle] = useState(title)
   const [draftBody, setDraftBody] = useState(body)
   const [draftVisual, setDraftVisual] = useState<Record<string, string>>(visualValues ?? {})
@@ -54,13 +56,21 @@ export default function SlideEditor({ title, body, visualFields, visualValues, i
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
-          Editing slide
+          {isInserted ? 'Editing inserted slide' : 'Editing slide'}
         </div>
         <div className="flex items-center gap-2">
-          {isEdited && (
-            <button onClick={onReset} className="btn-ghost !px-3 !py-1.5 text-xs text-rose-300 hover:!border-rose-400/40">
-              Reset to original
-            </button>
+          {isInserted ? (
+            onDelete && (
+              <button onClick={onDelete} className="btn-ghost !px-3 !py-1.5 text-xs text-rose-300 hover:!border-rose-400/40">
+                Delete slide
+              </button>
+            )
+          ) : (
+            isEdited && (
+              <button onClick={onReset} className="btn-ghost !px-3 !py-1.5 text-xs text-rose-300 hover:!border-rose-400/40">
+                Reset to original
+              </button>
+            )
           )}
           <button onClick={onCancel} className="btn-ghost !px-3 !py-1.5 text-xs">Cancel</button>
           <button onClick={save} disabled={!dirty} className="btn-primary !px-4 !py-1.5 text-xs disabled:opacity-40">Save</button>

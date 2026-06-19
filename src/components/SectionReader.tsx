@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import type { Section } from '@/types/content'
@@ -14,6 +14,11 @@ import {
   slideKey, loadOverrides, setOverride, clearOverride, clearAllOverrides,
   loadEditMode, saveEditMode, type OverrideMap,
 } from '@/lib/slideOverrides'
+import {
+  topicKey, loadInserted, addInsertedSlide, updateInsertedSlide,
+  removeInsertedSlide, clearAllInserted, buildEffectiveSections,
+  START_ANCHOR, type InsertedMap,
+} from '@/lib/insertedSlides'
 import { buildTopicTs } from '@/lib/exportBuilders'
 
 type Props = {
@@ -40,40 +45,57 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
   const [editing, setEditing] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [overrides, setOverrides] = useState<OverrideMap>({})
+  const [insertedMap, setInsertedMap] = useState<InsertedMap>({})
   const router = useRouter()
 
-  const section = sections[current]
-  const isLast = current === sections.length - 1
-  const isFirst = current === 0
+  // Merge source slides with any user-inserted slides into the running deck.
+  const tkey = topicKey(moduleId, topicId)
+  const inserted = useMemo(() => insertedMap[tkey] ?? [], [insertedMap, tkey])
+  const effectiveSections = useMemo(() => buildEffectiveSections(sections, inserted), [sections, inserted])
+
+  const total = effectiveSections.length
+  const cur = Math.min(current, total - 1)
+  const section = effectiveSections[cur]
+  const isInserted = !!section.inserted
+  const isLast = cur === total - 1
+  const isFirst = cur === 0
   const Visual = section.visual ? (visualRegistry[section.visual] ?? null) : null
 
-  // Effective (possibly edited) content for the current slide
+  // Effective (possibly edited) content for the current slide.
+  // Inserted slides carry their own content; source slides read from overrides.
   const key = slideKey(moduleId, topicId, section.id)
-  const ov = overrides[key]
+  const ov = isInserted ? undefined : overrides[key]
   const title = ov?.title ?? section.title
   const body = ov?.body ?? section.body
-  const isEdited = !!ov
+  const isEdited = !isInserted && !!ov
   const editedCount = Object.keys(overrides).length
+  const changeCount = editedCount + inserted.length
 
   // Editable text inside the visual component (if it declares any)
   const visualDef = section.visual ? visualTextRegistry[section.visual] : undefined
   const visualTextOverrides = { ...(section.visualText ?? {}), ...(ov?.visual ?? {}) }
   const visualValues = visualDef ? { ...visualDef.defaults, ...visualTextOverrides } : undefined
 
-  // Hydrate overrides + edit-mode preference on mount (client only)
+  // Hydrate overrides + inserted slides + edit-mode preference on mount (client only)
   useEffect(() => {
     setOverrides(loadOverrides())
+    setInsertedMap(loadInserted())
     setEditMode(loadEditMode())
   }, [])
 
+  // Keep the current index in range if the deck shrinks (e.g. a slide is deleted)
+  useEffect(() => {
+    if (current > total - 1) setCurrent(Math.max(0, total - 1))
+  }, [total, current])
+
   const goNext = useCallback(() => {
     if (isLast) router.push(`/module/${moduleId}`)
-    else setCurrent(i => i + 1)
-  }, [isLast, moduleId, router])
+    else setCurrent(cur + 1)
+  }, [isLast, cur, moduleId, router])
 
   const goPrev = useCallback(() => {
-    if (!isFirst) setCurrent(i => i - 1)
-  }, [isFirst])
+    if (!isFirst) setCurrent(cur - 1)
+  }, [isFirst, cur])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -86,8 +108,14 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
     return () => window.removeEventListener('keydown', onKey)
   }, [goNext, goPrev, editing, showExport])
 
-  // Reset transient panels when changing section
-  useEffect(() => { setNotesOpen(false); setEditing(false) }, [current])
+  // Reset transient panels when changing section — unless we just inserted a
+  // slide and want to drop straight into editing it.
+  const keepEditingRef = useRef(false)
+  useEffect(() => {
+    setNotesOpen(false)
+    if (keepEditingRef.current) keepEditingRef.current = false
+    else setEditing(false)
+  }, [current])
 
   function toggleEditMode() {
     setEditMode(m => {
@@ -99,11 +127,15 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
   }
 
   function handleSave(data: { title: string; body: string; visual?: Record<string, string> }) {
-    setOverrides(prev => setOverride(prev, key, {
-      title: data.title,
-      body: data.body,
-      ...(data.visual && Object.keys(data.visual).length ? { visual: data.visual } : {}),
-    }))
+    if (isInserted) {
+      setInsertedMap(prev => updateInsertedSlide(prev, tkey, section.id, { title: data.title, body: data.body }))
+    } else {
+      setOverrides(prev => setOverride(prev, key, {
+        title: data.title,
+        body: data.body,
+        ...(data.visual && Object.keys(data.visual).length ? { visual: data.visual } : {}),
+      }))
+    }
     setEditing(false)
   }
 
@@ -114,12 +146,34 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
 
   function handleResetAll() {
     setOverrides(clearAllOverrides())
+    setInsertedMap(clearAllInserted())
+  }
+
+  // Insert a brand-new slide before or after the current one, then jump into editing it.
+  function insertSlide(position: 'before' | 'after') {
+    const afterId = position === 'after'
+      ? section.id
+      : (cur > 0 ? effectiveSections[cur - 1].id : START_ANCHOR)
+    const { map, id } = addInsertedSlide(insertedMap, tkey, afterId)
+    setInsertedMap(map)
+    const newEffective = buildEffectiveSections(sections, map[tkey] ?? [])
+    const newIdx = newEffective.findIndex(s => s.id === id)
+    setNotesOpen(false)
+    keepEditingRef.current = true
+    setCurrent(newIdx >= 0 ? newIdx : cur)
+    setEditing(true)
+  }
+
+  function handleDeleteSlide() {
+    setInsertedMap(prev => removeInsertedSlide(prev, tkey, section.id))
+    setEditing(false)
+    setCurrent(Math.max(0, cur - 1))
   }
 
   return (
     <div className="flex h-screen flex-col">
       <Breadcrumb moduleId={moduleId} topicTitle={topicTitle} />
-      <ProgressBar current={current + 1} total={sections.length} />
+      <ProgressBar current={cur + 1} total={total} />
 
       {/* Main content area */}
       <main className="flex flex-1 overflow-hidden">
@@ -149,9 +203,11 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
               visualFields={visualDef?.fields}
               visualValues={visualValues}
               isEdited={isEdited}
+              isInserted={isInserted}
               onSave={handleSave}
               onCancel={() => setEditing(false)}
               onReset={handleResetSlide}
+              onDelete={handleDeleteSlide}
             />
           ) : (
             <>
@@ -160,7 +216,10 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
                 <div className="min-w-0 flex-1">
                   <div className="eyebrow mb-2.5 flex items-center gap-2 text-slate-500">
                     <span>Section</span>
-                    <span className="text-slate-400">{current + 1} / {sections.length}</span>
+                    <span className="text-slate-400">{cur + 1} / {total}</span>
+                    {isInserted && (
+                      <span className="chip !py-0.5 text-emerald-300">inserted</span>
+                    )}
                     {isEdited && (
                       <span className="chip !py-0.5 text-brand-cyan/90">edited</span>
                     )}
@@ -181,8 +240,18 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
                         </svg>
                         Edit slide
                       </button>
+
+                      {/* Insert a new slide before or after this one (PowerPoint-style) */}
+                      <div className="flex items-center overflow-hidden rounded-full border border-emerald-400/40 bg-emerald-400/10 text-xs font-medium text-emerald-200">
+                        <button onClick={() => insertSlide('before')} title="Insert a new slide before this one"
+                          className="px-3 py-2 transition-colors hover:bg-emerald-400/20">+ Before</button>
+                        <span className="h-4 w-px bg-emerald-400/30" />
+                        <button onClick={() => insertSlide('after')} title="Insert a new slide after this one"
+                          className="px-3 py-2 transition-colors hover:bg-emerald-400/20">+ After</button>
+                      </div>
+
                       <button onClick={() => setShowExport(true)} className="btn-ghost !px-3 !py-2 text-xs">
-                        Export{editedCount > 0 ? ` (${editedCount})` : ''}
+                        Export{changeCount > 0 ? ` (${changeCount})` : ''}
                       </button>
                     </>
                   )}
@@ -248,16 +317,18 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
           </button>
 
           {/* Dot navigation */}
-          <div className="flex items-center gap-1.5">
-            {sections.map((_, i) => (
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            {effectiveSections.map((s, i) => (
               <button
-                key={i}
+                key={s.id}
                 onClick={() => setCurrent(i)}
                 aria-label={`Go to section ${i + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  i === current
+                  i === cur
                     ? 'w-6 bg-gradient-to-r from-brand-cyan to-brand-blue'
-                    : 'w-2 bg-white/15 hover:bg-white/35'
+                    : s.inserted
+                      ? 'w-2 bg-emerald-400/40 hover:bg-emerald-400/70'
+                      : 'w-2 bg-white/15 hover:bg-white/35'
                 }`}
               />
             ))}
@@ -273,13 +344,13 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
         <ExportPanel
           heading="Save your slide changes"
           tsTabLabel="This topic (paste into source)"
-          tsText={buildTopicTs(sections, overrides, moduleId, topicId)}
-          jsonText={JSON.stringify(overrides, null, 2)}
-          editedLabel="slide"
-          editedCount={editedCount}
+          tsText={buildTopicTs(effectiveSections, overrides, moduleId, topicId)}
+          jsonText={JSON.stringify({ overrides, inserted: insertedMap }, null, 2)}
+          editedLabel="change"
+          editedCount={changeCount}
           tsFileName={`${topicId}.sections.txt`}
           jsonFileName="slide-edits.json"
-          sourceHint={<>Replace the <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">sections: [ … ]</code> array in <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">src/content/module-{moduleId}/…{topicId}.ts</code> with the block below to make edits permanent.</>}
+          sourceHint={<>Replace the <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">sections: [ … ]</code> array in <code className="rounded bg-white/[0.06] px-1 text-brand-cyan">src/content/module-{moduleId}/…{topicId}.ts</code> with the block below — it already includes your inserted slides in order.</>}
           onClose={() => setShowExport(false)}
           onResetAll={handleResetAll}
         />
