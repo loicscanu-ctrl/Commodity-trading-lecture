@@ -63,7 +63,8 @@ export default function PtbfMechanics() {
 
   // Live market
   const [vnd, setVnd] = useState(120000)         // VND/kg, local HCM
-  const [fut, setFut] = useState(4800)           // London RC, $/t
+  const [fut, setFut] = useState(4800)           // London RC at the hedge, $/t
+  const [futFix, setFutFix] = useState(4800)     // London RC since the hedge (drives the fixing), $/t
   const [fobDiff, setFobDiff] = useState(-60)    // FOB HCM vs London
   const [freight, setFreight] = useState(70)     // HCM → Antwerp, $/t
   const [spotOut, setSpotOut] = useState(4920)   // spot Antwerp, outright $/t
@@ -72,20 +73,23 @@ export default function PtbfMechanics() {
   const step = deal.f4 !== undefined ? 4 : deal.sell !== undefined ? 3 : deal.f2 !== undefined ? 2 : deal.buy !== undefined ? 1 : 0
 
   const localUsd = (vnd * 1000) / FX
+  // The "current" futures for live displays: pre-hedge it is the hedge-leg
+  // price; once the hedge is locked, the fixing-leg price is the market.
+  const curFut = step >= 2 ? futFix : fut
 
   function switchMode(m: Mode) { setMode(m); setDeal({}) }
 
   function act() {
     if (mode === 'exporter') {
       if (step === 0) setDeal({ buy: localUsd, vnd })
-      else if (step === 1) setDeal(d => ({ ...d, f2: fut }))
+      else if (step === 1) { setFutFix(fut); setDeal(d => ({ ...d, f2: fut })) }
       else if (step === 2) setDeal(d => ({ ...d, sell: fobDiff }))
-      else if (step === 3) setDeal(d => ({ ...d, f4: fut }))
+      else if (step === 3) setDeal(d => ({ ...d, f4: futFix }))
     } else {
       if (step === 0) setDeal({ buy: fut + fobDiff, dBuy: fobDiff, f1: fut, freight })
-      else if (step === 1) setDeal(d => ({ ...d, f2: fut }))
+      else if (step === 1) { setFutFix(fut); setDeal(d => ({ ...d, f2: fut })) }
       else if (step === 2) setDeal(d => ({ ...d, sell: spotOut }))
-      else if (step === 3) setDeal(d => ({ ...d, f4: fut }))
+      else if (step === 3) setDeal(d => ({ ...d, f4: futFix }))
     }
   }
 
@@ -110,13 +114,13 @@ export default function PtbfMechanics() {
         { n: 1, label: 'Buy physical (VND)', detail: `${vnd.toLocaleString()} VND/kg = ${fmtUsd(localUsd, 1)}/t at ${FX.toLocaleString()} FX` },
         { n: 2, label: 'Sell futures', detail: `hedge 10 lots at ${fmtUsd(fut)} → sets your buying differential` },
         { n: 3, label: 'Sell physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF` },
-        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(fut)} → invoice = fix + diff` },
+        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(curFut)} → invoice = fix + diff` },
       ]
     : [
         { n: 1, label: 'Buy physical FOB (diff)', detail: `London ${dfmt(fobDiff)} priced at ${fmtUsd(fut)} → ${fmtUsd(fut + fobDiff)}/t · freight $${freight} booked` },
         { n: 2, label: 'Sell futures', detail: `hedge 10 lots at ${fmtUsd(fut)}` },
         { n: 3, label: 'Sell physical spot (outright)', detail: `to local roasters at ${fmtUsd(spotOut)}/t instore` },
-        { n: 4, label: 'Fix it (buy futures)', detail: `unwind the hedge at ${fmtUsd(fut)}` },
+        { n: 4, label: 'Fix it (buy futures)', detail: `unwind the hedge at ${fmtUsd(curFut)}` },
       ]
 
   const STATUS = mode === 'exporter' ? EXP_STATUS : IMP_STATUS
@@ -154,8 +158,13 @@ export default function PtbfMechanics() {
               locked={step >= 1} lockedAt={step >= 1 ? `@ ${dfmt(deal.dBuy!)}` : undefined} />
           )}
 
-          <Field label="London futures ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut}
-            locked={step >= 4} lockedAt={step >= 4 ? `@ ${fmtUsd(deal.f4!)}` : undefined} />
+          <Field label="London futures — hedge leg ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut}
+            locked={step >= 2} lockedAt={step >= 2 ? `@ ${fmtUsd(deal.f2!)}` : undefined} />
+
+          {step >= 2 && (
+            <Field label="London futures — since the hedge ($/t)" value={futFix} min={3500} max={6000} step={5} onChange={setFutFix}
+              locked={step >= 4} lockedAt={step >= 4 ? `@ ${fmtUsd(deal.f4!)}` : undefined} />
+          )}
 
           {mode === 'exporter' && (
             <Field label="FOB HCM differential ($/t)" value={fobDiff} min={-400} max={200} step={5} onChange={setFobDiff}
@@ -176,16 +185,16 @@ export default function PtbfMechanics() {
             {mode === 'exporter' ? (
               <>
                 <div className="flex justify-between"><span className="text-slate-400">Local price in USD</span><span className="text-white">{fmtUsd(localUsd, 1)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - fut, 1)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - curFut, 1)}</span></div>
                 {dBuyExp !== null && (
                   <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR buying diff (VND buy vs hedge)</span><span className="text-amber-300 font-bold">{dfmt(dBuyExp, 1)}</span></div>
                 )}
               </>
             ) : (
               <>
-                <div className="flex justify-between"><span className="text-slate-400">FOB priced (futures + diff)</span><span className="text-white">{fmtUsd(fut + fobDiff)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Landed cost (+ freight + ${CIF_INSTORE} instore)</span><span className="text-white">{fmtUsd(fut + fobDiff + freight + CIF_INSTORE)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Spot Antwerp vs landed</span><span className="text-brand-cyan font-bold">{dfmt(spotOut - (fut + fobDiff + freight + CIF_INSTORE), 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">FOB {step >= 1 ? 'bought' : 'priced'} (futures + diff)</span><span className="text-white">{fmtUsd(step >= 1 ? deal.buy! : fut + fobDiff)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Landed cost (+ freight + ${CIF_INSTORE} instore)</span><span className="text-white">{fmtUsd((step >= 1 ? deal.buy! + deal.freight! : fut + fobDiff + freight) + CIF_INSTORE)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Spot Antwerp vs landed</span><span className="text-brand-cyan font-bold">{dfmt((step >= 3 ? deal.sell! : spotOut) - ((step >= 1 ? deal.buy! + deal.freight! : fut + fobDiff + freight) + CIF_INSTORE), 0)}</span></div>
               </>
             )}
           </div>
