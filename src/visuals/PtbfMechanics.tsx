@@ -60,6 +60,51 @@ const fmtEur = (n: number) => '€' + Math.abs(n).toLocaleString('en-US')
 const sgn = (n: number, dp = 0) => (n < 0 ? '−' : '+') + fmtUsd(n, dp)
 const dfmt = (n: number, dp = 0) => `${n < 0 ? '−' : '+'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`
 
+export type TradeRecord = {
+  mode: Mode
+  tonnes: number
+  deal: Deal
+  physical: number
+  futures: number
+  costs: number
+  net: number
+}
+
+const stampLabel = (deal: Deal, i: number) => (deal.stamps?.[i] !== undefined ? ` · ${LIVE_SCRIPT[deal.stamps[i]].label}` : '')
+
+/** Plain-text session report: every trade with its executions, stamps and P&L. */
+export function buildTradeReport(history: TradeRecord[]): string {
+  const L: string[] = []
+  L.push('PTBF TRADE REPORT — 100 t Robusta per trade')
+  L.push(`Generated: ${new Date().toISOString()}`)
+  L.push('')
+  history.forEach((t, n) => {
+    const d = t.deal
+    L.push(`Trade ${n + 1} — ${t.mode === 'exporter' ? 'Exporter (buy VND → sell FOB)' : 'Importer (buy FOB → sell spot EUR)'} · ${t.tonnes} t`)
+    if (t.mode === 'exporter') {
+      const dBuy = d.buy! - d.fHedge!
+      L.push(`  1. Buy physical: ${d.vnd?.toLocaleString('en-US')} VND/kg = ${fmtUsd(d.buy!, 1)}/t${stampLabel(d, 0)}`)
+      L.push(`  2. Sell futures (hedge): ${fmtUsd(d.fHedge!)} → buying diff ${dfmt(dBuy, 1)}${stampLabel(d, 1)}`)
+      L.push(`  3. Sell physical FOB: London ${dfmt(d.sell!)}${stampLabel(d, 2)}`)
+      L.push(`  4. Fix (buy futures): ${fmtUsd(d.fFix!)} → invoice ${fmtUsd(d.fFix! + d.sell!)}/t${stampLabel(d, 3)}`)
+      if (d.stamps) L.push(`  Rounds unhedged (flat risk): ${d.stamps[1] - d.stamps[0]}`)
+    } else {
+      L.push(`  1. Buy physical FOB: London ${dfmt(d.dBuy!)} (PTBF)${stampLabel(d, 0)}`)
+      L.push(`  2. Buy freight: $${d.freight}/t + $${CIF_INSTORE} instore${stampLabel(d, 1)}`)
+      L.push(`  3. Fix before export (sell futures): ${fmtUsd(d.fHedge!)} → purchase ${fmtUsd(d.fHedge! + d.dBuy!)}/t${stampLabel(d, 2)}`)
+      L.push(`  4. Sell spot outright: ${fmtEur(d.eur!)}/t × ${EURUSD.toFixed(2)} = ${fmtUsd(d.sell!)}/t${stampLabel(d, 3)}`)
+      L.push(`  5. Buy futures: ${fmtUsd(d.fFix!)} → selling diff ${dfmt(d.sell! - d.fFix!)}${stampLabel(d, 4)}`)
+      if (d.stamps) L.push(`  Rounds with naked short (flat risk): ${d.stamps[4] - d.stamps[3]}`)
+    }
+    L.push(`  Physical P&L: ${sgn(t.physical, 1)}/t · Futures P&L: ${sgn(t.futures)}/t${t.costs !== 0 ? ` · Costs: ${sgn(t.costs)}/t` : ''}`)
+    L.push(`  NET: ${sgn(t.net, 1)}/t = ${sgn(t.net * t.tonnes)} on ${t.tonnes} t`)
+    L.push('')
+  })
+  const total = history.reduce((s, t) => s + t.net * t.tonnes, 0)
+  L.push(`SESSION TOTAL (${history.length} trade${history.length === 1 ? '' : 's'}): ${sgn(total)}`)
+  return L.join('\n')
+}
+
 function Field({ label, value, min, max, step, onChange, locked, lockedAt, live }: {
   label: string; value: number; min: number; max: number; step: number
   onChange: (v: number) => void; locked: boolean; lockedAt?: string; live?: boolean
@@ -143,6 +188,7 @@ export default function PtbfMechanics() {
   const [eurSpot, setEurSpot] = useState(4100) // spot Antwerp, outright €/t
 
   const [deal, setDeal] = useState<Deal>({})
+  const [history, setHistory] = useState<TradeRecord[]>([])
 
   // Live-market mode: the predetermined path plays at one round per minute.
   const [live, setLive] = useState(false)
@@ -204,7 +250,27 @@ export default function PtbfMechanics() {
     }
   }
 
-  const roundTag = (i: number) => (deal.stamps?.[i] !== undefined ? ` · ${LIVE_SCRIPT[deal.stamps[i]].label}` : '')
+  const roundTag = (i: number) => stampLabel(deal, i)
+
+  // Record the completed trade into the log and clear the desk for the next one.
+  function recordTrade() {
+    const p = physical, f = futures, n = total
+    if (p === null || f === null || n === null) return
+    setHistory(h => [...h, { mode, tonnes: TONNES, deal, physical: p, futures: f, costs, net: n }])
+    setDeal({})
+  }
+
+  function exportReport() {
+    const blob = new Blob([buildTradeReport(history)], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'ptbf-trade-report.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const sessionTotal = history.reduce((s, t) => s + t.net * t.tonnes, 0)
 
   // Derived economics
   const dBuyExp = mode === 'exporter' && hedged ? deal.buy! - deal.fHedge! : null
@@ -426,10 +492,67 @@ export default function PtbfMechanics() {
           )}
 
           {step > 0 && (
-            <button onClick={() => setDeal({})} className="btn-ghost !px-3 !py-1.5 text-xs">Reset trade</button>
+            <div className="flex flex-wrap gap-2">
+              {complete && (
+                <button onClick={recordTrade} className="btn-primary !px-3 !py-1.5 text-xs">
+                  ✓ Record trade · start next
+                </button>
+              )}
+              <button onClick={() => setDeal({})} className="btn-ghost !px-3 !py-1.5 text-xs">
+                {complete ? 'Discard (don’t record)' : 'Reset trade'}
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Trade log — every recorded trade of the session */}
+      {history.length > 0 && (
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="eyebrow">
+              Trade log · session total{' '}
+              <span className={sessionTotal >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(sessionTotal)}</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={exportReport} className="btn-ghost !px-3 !py-1 text-xs">↓ Export report</button>
+              <button onClick={() => setHistory([])} className="btn-ghost !px-3 !py-1 text-xs text-rose-300 hover:!border-rose-400/40">Clear log</button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full font-mono text-[11px] tabular-nums">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-500">
+                  <th className="py-1.5 pr-2 text-left font-normal">#</th>
+                  <th className="px-2 text-left font-normal">Trade</th>
+                  <th className="px-2 text-left font-normal">Route</th>
+                  <th className="px-2 text-left font-normal">Rounds</th>
+                  <th className="px-2 text-right font-normal">Net $/t</th>
+                  <th className="pl-2 text-right font-normal">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((t, i) => (
+                  <tr key={i} className="border-b border-white/5">
+                    <td className="py-1.5 pr-2 text-slate-400">#{i + 1}</td>
+                    <td className="px-2 text-slate-300">{t.mode === 'exporter' ? 'Exporter' : 'Importer'}</td>
+                    <td className="px-2 text-slate-400">
+                      {t.mode === 'exporter'
+                        ? `${t.deal.vnd?.toLocaleString('en-US')} VND → FOB ${dfmt(t.deal.sell!)}`
+                        : `FOB ${dfmt(t.deal.dBuy!)} → ${fmtEur(t.deal.eur!)}`}
+                    </td>
+                    <td className="px-2 text-slate-500">
+                      {t.deal.stamps ? `${LIVE_SCRIPT[t.deal.stamps[0]].label} → ${LIVE_SCRIPT[t.deal.stamps[t.deal.stamps.length - 1]].label}` : 'manual'}
+                    </td>
+                    <td className={`px-2 text-right ${t.net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(t.net, 1)}</td>
+                    <td className={`pl-2 text-right font-bold ${t.net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(t.net * t.tonnes)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
