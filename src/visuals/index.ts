@@ -45,6 +45,7 @@ import VietnamCaseStudy, { textDef as vietnamCaseStudyText } from './VietnamCase
 import PtbfMechanics from './PtbfMechanics'
 import OptionPayoff from './OptionPayoff'
 import BasisPnl from './BasisPnl'
+import SdScenario from './SdScenario'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -92,6 +93,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'ptbf-mechanics': PtbfMechanics,
   'option-payoff': OptionPayoff,
   'basis-pnl': BasisPnl,
+  'sd-scenario': SdScenario,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
