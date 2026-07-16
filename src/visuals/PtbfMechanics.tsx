@@ -2,112 +2,196 @@
 
 import { useState } from 'react'
 
-function Slider({ label, value, min, max, step, onChange, display }: {
+// Two PTBF trades, four actions each, on 100 t of Robusta.
+//  Exporter: buy local (VND, outright) → hedge → sell FOB (diff) → fix.
+//  Importer: buy FOB (diff, priced at execution) → hedge → sell spot
+//            outright to roasters → fix (unwind).
+// Every market component is typeable (keyboard) and LOCKS the moment the
+// action that consumes it executes.
+const FX = 25500        // VND per USD
+const CIF_INSTORE = 100 // $/t CIF → instore on the importer leg
+const TONNES = 100
+
+type Mode = 'exporter' | 'importer'
+type Deal = Record<string, number | undefined>
+
+const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
+const sgn = (n: number, dp = 0) => (n < 0 ? '−' : '+') + fmtUsd(n, dp)
+const dfmt = (n: number, dp = 0) => `${n < 0 ? '−' : '+'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`
+
+function Field({ label, value, min, max, step, onChange, locked, lockedAt }: {
   label: string; value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; display: string
+  onChange: (v: number) => void; locked: boolean; lockedAt?: string
 }) {
   return (
-    <div>
-      <div className="flex justify-between mb-1">
+    <div className={locked ? 'opacity-70' : ''}>
+      <div className="mb-1 flex items-center justify-between gap-2">
         <span className="text-xs font-mono text-slate-400">{label}</span>
-        <span className="text-xs font-mono font-bold tabular-nums text-white">{display}</span>
+        {locked ? (
+          <span className="chip !py-0.5 border-amber-500/40 bg-amber-500/10 font-mono text-[10px] text-amber-300">locked {lockedAt}</span>
+        ) : (
+          <input
+            type="number" value={value} min={min} max={max} step={step}
+            onChange={e => {
+              const v = parseFloat(e.target.value)
+              if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)))
+            }}
+            aria-label={label}
+            className="w-28 rounded-lg border border-white/15 bg-white/[0.05] px-2 py-1 text-right font-mono text-xs tabular-nums text-white outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue"
+          />
+        )}
       </div>
-      <input type="range" min={min} max={max} step={step} value={value}
+      <input type="range" min={min} max={max} step={step} value={value} disabled={locked}
         onChange={e => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 cursor-pointer accent-brand-blue" />
+        className={`w-full h-1.5 ${locked ? 'cursor-not-allowed accent-slate-600' : 'cursor-pointer accent-brand-blue'}`} />
     </div>
   )
 }
 
-// Full PTBF round trip: buy Vietnamese robusta FOB HCM, hedge, ship to
-// Antwerp, sell instore in differential, fix. 100 t = 10 lots.
-const FX = 25500        // VND per USD (kept fixed for clarity)
-const CIF_INSTORE = 100 // $/t from CIF Antwerp to instore (insurance, port, handling)
-const TONNES = 100
-
-type Deal = {
-  dBuy?: number; f1?: number          // step 1: buy physical FOB (diff) + freight booked
-  freight?: number
-  f2?: number                          // step 2: sell futures (hedge)
-  dSell?: number; f3?: number          // step 3: sell physical instore (diff)
-  f4?: number                          // step 4: fix — buy futures back
-}
-
-const STATUS = [
-  { label: 'No position', cls: 'border-white/10 bg-white/[0.03] text-slate-400' },
-  { label: 'UNHEDGED — long flat + long diff', cls: 'border-rose-500/40 bg-rose-500/[0.10] text-rose-300' },
-  { label: 'Hedged — long the basis', cls: 'border-brand-cyan/40 bg-brand-cyan/10 text-cyan-200' },
-  { label: 'Diff locked — fixing pending', cls: 'border-amber-500/40 bg-amber-500/[0.10] text-amber-300' },
-  { label: 'FLAT — trade complete', cls: 'border-emerald-500/40 bg-emerald-500/[0.10] text-emerald-300' },
+const EXP_STATUS = ['No position', 'Long physical (VND) — UNHEDGED', 'Hedged — buying diff locked', 'Sold FOB — fixing pending', 'FLAT — trade complete']
+const IMP_STATUS = ['No position', 'Long FOB (priced) — UNHEDGED', 'Hedged — long the basis', 'Sold outright — short futures still open!', 'FLAT — trade complete']
+const STATUS_CLS = [
+  'border-white/10 bg-white/[0.03] text-slate-400',
+  'border-rose-500/40 bg-rose-500/[0.10] text-rose-300',
+  'border-brand-cyan/40 bg-brand-cyan/10 text-cyan-200',
+  'border-amber-500/40 bg-amber-500/[0.10] text-amber-300',
+  'border-emerald-500/40 bg-emerald-500/[0.10] text-emerald-300',
 ]
 
 export default function PtbfMechanics() {
+  const [mode, setMode] = useState<Mode>('exporter')
+
   // Live market
-  const [vnd, setVnd] = useState(120000)     // VND/kg, spot HCM
-  const [fut, setFut] = useState(4800)       // London RC, $/t
-  const [fobDiff, setFobDiff] = useState(-60)
-  const [freight, setFreight] = useState(70)
-  const [antwerpDiff, setAntwerpDiff] = useState(120)
+  const [vnd, setVnd] = useState(120000)         // VND/kg, local HCM
+  const [fut, setFut] = useState(4800)           // London RC, $/t
+  const [fobDiff, setFobDiff] = useState(-60)    // FOB HCM vs London
+  const [freight, setFreight] = useState(70)     // HCM → Antwerp, $/t
+  const [spotOut, setSpotOut] = useState(4920)   // spot Antwerp, outright $/t
 
   const [deal, setDeal] = useState<Deal>({})
-  const step = deal.f4 !== undefined ? 4 : deal.dSell !== undefined ? 3 : deal.f2 !== undefined ? 2 : deal.dBuy !== undefined ? 1 : 0
+  const step = deal.f4 !== undefined ? 4 : deal.sell !== undefined ? 3 : deal.f2 !== undefined ? 2 : deal.buy !== undefined ? 1 : 0
 
-  // Local market converted: VND/kg → $/t, and its implied differential vs London
   const localUsd = (vnd * 1000) / FX
-  const localDiff = localUsd - fut
 
-  const usd0 = (n: number) => '$' + Math.round(Math.abs(n)).toLocaleString('en-US')
-  const sgn = (n: number) => (n >= 0 ? '+' : '−') + usd0(n)
-  const dfmt = (n: number) => `${n >= 0 ? '+' : '−'}$${Math.abs(Math.round(n))}`
+  function switchMode(m: Mode) { setMode(m); setDeal({}) }
 
   function act() {
-    if (step === 0) setDeal({ dBuy: fobDiff, f1: fut, freight })
-    else if (step === 1) setDeal(d => ({ ...d, f2: fut }))
-    else if (step === 2) setDeal(d => ({ ...d, dSell: antwerpDiff, f3: fut }))
-    else if (step === 3) setDeal(d => ({ ...d, f4: fut }))
+    if (mode === 'exporter') {
+      if (step === 0) setDeal({ buy: localUsd, vnd })
+      else if (step === 1) setDeal(d => ({ ...d, f2: fut }))
+      else if (step === 2) setDeal(d => ({ ...d, sell: fobDiff }))
+      else if (step === 3) setDeal(d => ({ ...d, f4: fut }))
+    } else {
+      if (step === 0) setDeal({ buy: fut + fobDiff, dBuy: fobDiff, f1: fut, freight })
+      else if (step === 1) setDeal(d => ({ ...d, f2: fut }))
+      else if (step === 2) setDeal(d => ({ ...d, sell: spotOut }))
+      else if (step === 3) setDeal(d => ({ ...d, f4: fut }))
+    }
   }
 
-  // Final P&L (per tonne) once complete
-  const diffLeg = step >= 3 ? (deal.dSell! - deal.dBuy!) : null
-  const costs = step >= 1 ? -(deal.freight! + CIF_INSTORE) : null
-  const slippage = step >= 4 ? (deal.f2! - deal.f1!) + (deal.f3! - deal.f4!) : null
-  const net = step >= 4 ? diffLeg! + costs! + slippage! : null
+  // Derived economics
+  const dBuyExp = step >= 2 && mode === 'exporter' ? deal.buy! - deal.f2! : null // exporter buying differential
+  let physical: number | null = null
+  let futures: number | null = null
+  let costs = 0
+  if (step >= 4) {
+    futures = deal.f2! - deal.f4!
+    if (mode === 'exporter') {
+      physical = (deal.f4! + deal.sell!) - deal.buy!      // invoice (fix + diff) − VND purchase
+    } else {
+      costs = -(deal.freight! + CIF_INSTORE)
+      physical = deal.sell! - deal.buy!                    // outright sale − priced FOB purchase
+    }
+  }
+  const total = physical !== null ? physical + futures! + costs : null
 
-  const ACTIONS = [
-    { n: 1, label: 'Buy physical', detail: `FOB HCM at London ${dfmt(fobDiff)} · book freight $${freight}/t` },
-    { n: 2, label: 'Sell futures', detail: `hedge 10 lots at $${fut.toLocaleString()}` },
-    { n: 3, label: 'Sell physical', detail: `instore Antwerp at London ${dfmt(antwerpDiff)} (PTBF)` },
-    { n: 4, label: 'Fix it — buy futures', detail: `buy back 10 lots at $${fut.toLocaleString()}` },
-  ]
+  const ACTIONS = mode === 'exporter'
+    ? [
+        { n: 1, label: 'Buy physical (VND)', detail: `${vnd.toLocaleString()} VND/kg = ${fmtUsd(localUsd, 1)}/t at ${FX.toLocaleString()} FX` },
+        { n: 2, label: 'Sell futures', detail: `hedge 10 lots at ${fmtUsd(fut)} → sets your buying differential` },
+        { n: 3, label: 'Sell physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF` },
+        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(fut)} → invoice = fix + diff` },
+      ]
+    : [
+        { n: 1, label: 'Buy physical FOB (diff)', detail: `London ${dfmt(fobDiff)} priced at ${fmtUsd(fut)} → ${fmtUsd(fut + fobDiff)}/t · freight $${freight} booked` },
+        { n: 2, label: 'Sell futures', detail: `hedge 10 lots at ${fmtUsd(fut)}` },
+        { n: 3, label: 'Sell physical spot (outright)', detail: `to local roasters at ${fmtUsd(spotOut)}/t instore` },
+        { n: 4, label: 'Fix it (buy futures)', detail: `unwind the hedge at ${fmtUsd(fut)}` },
+      ]
+
+  const STATUS = mode === 'exporter' ? EXP_STATUS : IMP_STATUS
 
   return (
     <div className="glass mt-5 p-5 text-white">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="eyebrow">Full PTBF Round Trip · 100 t Robusta, HCM → Antwerp</div>
-        <span className={`rounded-full border px-3 py-1 font-mono text-[11px] ${STATUS[step].cls}`}>{STATUS[step].label}</span>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="eyebrow">Two PTBF Trades · 100 t Robusta</div>
+        <span className={`rounded-full border px-3 py-1 font-mono text-[11px] ${STATUS_CLS[step]}`}>{STATUS[step]}</span>
+      </div>
+
+      {/* Trade selector */}
+      <div className="mb-4 flex gap-1.5">
+        {([['exporter', 'Exporter: buy VND → sell FOB'], ['importer', 'Importer: buy FOB → sell spot']] as [Mode, string][]).map(([m, label]) => (
+          <button key={m} onClick={() => switchMode(m)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+              mode === m ? 'border-brand-blue/60 bg-brand-blue/20 text-blue-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
+            }`}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT: the market (live) */}
+        {/* LEFT: the market — type or slide; locks when consumed */}
         <div className="space-y-3">
-          <div className="eyebrow mb-1">The market — move it between steps</div>
-          <Slider label="Spot HCM (VND/kg)" value={vnd} min={80000} max={160000} step={1000} onChange={setVnd} display={vnd.toLocaleString('en-US')} />
-          <Slider label="London futures ($/t)" value={fut} min={3500} max={6000} step={10} onChange={setFut} display={'$' + fut.toLocaleString()} />
-          <Slider label="FOB HCM differential ($/t)" value={fobDiff} min={-400} max={200} step={5} onChange={setFobDiff} display={dfmt(fobDiff)} />
-          <Slider label="Freight HCM → Antwerp ($/t)" value={freight} min={40} max={150} step={5} onChange={setFreight} display={'$' + freight} />
-          <Slider label="Spot Antwerp instore, differential ($/t)" value={antwerpDiff} min={-200} max={300} step={5} onChange={setAntwerpDiff} display={dfmt(antwerpDiff)} />
+          <div className="eyebrow mb-1">The market — type a value or slide</div>
 
-          {/* Derived local market */}
+          {mode === 'exporter' && (
+            <Field label="Spot HCM (VND/kg)" value={vnd} min={80000} max={160000} step={500} onChange={setVnd}
+              locked={step >= 1} lockedAt={step >= 1 ? `@ ${deal.vnd!.toLocaleString()}` : undefined} />
+          )}
+          {mode === 'importer' && (
+            <Field label="FOB HCM differential ($/t)" value={fobDiff} min={-400} max={200} step={5} onChange={setFobDiff}
+              locked={step >= 1} lockedAt={step >= 1 ? `@ ${dfmt(deal.dBuy!)}` : undefined} />
+          )}
+
+          <Field label="London futures ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut}
+            locked={step >= 4} lockedAt={step >= 4 ? `@ ${fmtUsd(deal.f4!)}` : undefined} />
+
+          {mode === 'exporter' && (
+            <Field label="FOB HCM differential ($/t)" value={fobDiff} min={-400} max={200} step={5} onChange={setFobDiff}
+              locked={step >= 3} lockedAt={step >= 3 ? `@ ${dfmt(deal.sell!)}` : undefined} />
+          )}
+          {mode === 'importer' && (
+            <>
+              <Field label="Freight HCM → Antwerp ($/t)" value={freight} min={40} max={150} step={5} onChange={setFreight}
+                locked={step >= 1} lockedAt={step >= 1 ? `@ $${deal.freight}` : undefined} />
+              <Field label="Spot Antwerp, outright ($/t)" value={spotOut} min={4000} max={5800} step={10} onChange={setSpotOut}
+                locked={step >= 3} lockedAt={step >= 3 ? `@ ${fmtUsd(deal.sell!)}` : undefined} />
+            </>
+          )}
+
+          {/* Context */}
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums space-y-1">
-            <div className="eyebrow mb-1">Local market, converted</div>
-            <div className="flex justify-between"><span className="text-slate-400">{vnd.toLocaleString()} VND/kg ÷ {FX.toLocaleString()} VND/USD</span><span className="text-white">{usd0(localUsd)}/t</span></div>
-            <div className="flex justify-between"><span className="text-slate-400">Theoretical local buying differential</span><span className="text-brand-cyan font-bold">{dfmt(localDiff)} vs London</span></div>
-            <div className="flex justify-between"><span className="text-slate-400">FOB diff − local diff (origination margin)</span><span className={fobDiff - localDiff >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{dfmt(fobDiff - localDiff)}</span></div>
-            <p className="text-slate-500 pt-1">CIF → instore Antwerp costs fixed at ${CIF_INSTORE}/t on top of freight.</p>
+            <div className="eyebrow mb-1">Live conversion</div>
+            {mode === 'exporter' ? (
+              <>
+                <div className="flex justify-between"><span className="text-slate-400">Local price in USD</span><span className="text-white">{fmtUsd(localUsd, 1)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - fut, 1)}</span></div>
+                {dBuyExp !== null && (
+                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR buying diff (VND buy vs hedge)</span><span className="text-amber-300 font-bold">{dfmt(dBuyExp, 1)}</span></div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between"><span className="text-slate-400">FOB priced (futures + diff)</span><span className="text-white">{fmtUsd(fut + fobDiff)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Landed cost (+ freight + ${CIF_INSTORE} instore)</span><span className="text-white">{fmtUsd(fut + fobDiff + freight + CIF_INSTORE)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Spot Antwerp vs landed</span><span className="text-brand-cyan font-bold">{dfmt(spotOut - (fut + fobDiff + freight + CIF_INSTORE), 0)}</span></div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* RIGHT: actions + blotter + P&L */}
+        {/* RIGHT: actions, blotter, P&L */}
         <div className="space-y-3">
           <div className="space-y-1.5">
             {ACTIONS.map(a => {
@@ -122,8 +206,7 @@ export default function PtbfMechanics() {
                   }`}>
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs font-bold text-white">{a.n}. {a.label}</span>
-                    {done && <span className="text-emerald-400 text-xs">✓</span>}
-                    {isNext && <span className="chip !py-0.5 text-blue-200">execute</span>}
+                    {done ? <span className="text-emerald-400 text-xs">✓ locked</span> : isNext ? <span className="chip !py-0.5 text-blue-200">execute</span> : null}
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-slate-500">{a.detail}</div>
                 </button>
@@ -134,26 +217,40 @@ export default function PtbfMechanics() {
           {/* Blotter */}
           {step > 0 && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums space-y-1">
-              <div className="eyebrow mb-1">Deal blotter (stamped at execution)</div>
-              <div className="flex justify-between"><span className="text-slate-400">1 · Bought FOB HCM</span><span className="text-white">Ldn {dfmt(deal.dBuy!)} (F {usd0(deal.f1!)}) · freight ${deal.freight}</span></div>
-              {step >= 2 && <div className="flex justify-between"><span className="text-slate-400">2 · Sold futures</span><span className="text-white">{usd0(deal.f2!)}</span></div>}
-              {step >= 3 && <div className="flex justify-between"><span className="text-slate-400">3 · Sold instore Antwerp</span><span className="text-white">Ldn {dfmt(deal.dSell!)} (F {usd0(deal.f3!)})</span></div>}
-              {step >= 4 && <div className="flex justify-between"><span className="text-slate-400">4 · Fixed (bought futures)</span><span className="text-white">{usd0(deal.f4!)}</span></div>}
+              <div className="eyebrow mb-1">Deal blotter (locked at execution)</div>
+              {mode === 'exporter' ? (
+                <>
+                  <div className="flex justify-between"><span className="text-slate-400">1 · Bought local</span><span className="text-white">{deal.vnd?.toLocaleString()} VND/kg = {fmtUsd(deal.buy!, 1)}/t</span></div>
+                  {step >= 2 && <div className="flex justify-between"><span className="text-slate-400">2 · Sold futures → buying diff</span><span className="text-white">{fmtUsd(deal.f2!)} → {dfmt(dBuyExp!, 1)}</span></div>}
+                  {step >= 3 && <div className="flex justify-between"><span className="text-slate-400">3 · Sold FOB (PTBF)</span><span className="text-white">London {dfmt(deal.sell!)}</span></div>}
+                  {step >= 4 && <div className="flex justify-between"><span className="text-slate-400">4 · Fixed — invoice</span><span className="text-white">{fmtUsd(deal.f4!)} {deal.sell! < 0 ? '−' : '+'} {fmtUsd(Math.abs(deal.sell!))} = {fmtUsd(deal.f4! + deal.sell!)}/t</span></div>}
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between"><span className="text-slate-400">1 · Bought FOB</span><span className="text-white">Ldn {dfmt(deal.dBuy!)} @ {fmtUsd(deal.f1!)} = {fmtUsd(deal.buy!)}/t · frt ${deal.freight}</span></div>
+                  {step >= 2 && <div className="flex justify-between"><span className="text-slate-400">2 · Sold futures</span><span className="text-white">{fmtUsd(deal.f2!)}</span></div>}
+                  {step >= 3 && <div className="flex justify-between"><span className="text-slate-400">3 · Sold spot outright</span><span className="text-white">{fmtUsd(deal.sell!)}/t</span></div>}
+                  {step >= 4 && <div className="flex justify-between"><span className="text-slate-400">4 · Fixed — bought futures</span><span className="text-white">{fmtUsd(deal.f4!)}</span></div>}
+                </>
+              )}
             </div>
           )}
 
-          {/* Final P&L */}
-          {step >= 4 && (
-            <div className={`rounded-xl p-4 border font-mono text-xs tabular-nums ${net! >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.08]' : 'border-rose-500/40 bg-rose-500/[0.10]'}`}>
+          {/* P&L */}
+          {step >= 4 && total !== null && (
+            <div className={`rounded-xl p-4 border font-mono text-xs tabular-nums ${total >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.08]' : 'border-rose-500/40 bg-rose-500/[0.10]'}`}>
               <div className="eyebrow mb-2">Trade P&L ($/t)</div>
               <div className="space-y-1">
-                <div className="flex justify-between"><span className="text-slate-400">Differential leg (sell − buy)</span><span className="text-white">{sgn(diffLeg!)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Freight + CIF→instore</span><span className="text-rose-300">{sgn(costs!)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Flat-price slippage (hedge & fix timing)</span><span className={slippage! === 0 ? 'text-emerald-300' : 'text-amber-300'}>{slippage! === 0 ? 'none — clean pair trade' : sgn(slippage!)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Physical P&L {mode === 'exporter' ? '(invoice − VND buy)' : '(outright sale − FOB buy)'}</span><span className={physical! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(physical!, 1)}</span></div>
+                {mode === 'importer' && <div className="flex justify-between"><span className="text-slate-400">Freight + instore costs</span><span className="text-rose-300">{sgn(costs)}</span></div>}
+                <div className="flex justify-between"><span className="text-slate-400">Futures P&L (sold − bought back)</span><span className={futures! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(futures!, 0)}</span></div>
                 <div className="flex justify-between border-t border-white/15 pt-1.5">
                   <span className="text-white font-bold">Net · × {TONNES} t</span>
-                  <span className={`font-bold text-base ${net! >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(net!)}/t · {sgn(net! * TONNES)}</span>
+                  <span className={`font-bold text-base ${total >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(total, 1)}/t · {sgn(total * TONNES)}</span>
                 </div>
+                {mode === 'exporter' && (
+                  <p className="pt-1 text-slate-400">= sell diff {dfmt(deal.sell!)} − buying diff {dfmt(dBuyExp!, 1)}: the whole trade was a differential.</p>
+                )}
               </div>
             </div>
           )}
