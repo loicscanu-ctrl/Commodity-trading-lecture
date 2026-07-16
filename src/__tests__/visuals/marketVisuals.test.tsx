@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, fireEvent, screen } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
@@ -33,6 +33,21 @@ test('VietnamCaseStudy renders three panels with the key annotations', () => {
   expect(text).toContain('trough −$298 (Feb 25)')
   expect(text).toContain('630')
   expect(text).toContain('3-month lag')
+})
+
+test('VietnamCaseStudy toggle overlays Gd2 as a cash price on the futures panel', () => {
+  const { container } = render(<VietnamCaseStudy />)
+  // Off by default
+  expect(container.textContent).not.toContain('Gd2 5% implied cash')
+  fireEvent.click(screen.getByRole('button', { name: /Show Gd2 as cash price/ }))
+  const text = container.textContent ?? ''
+  expect(text).toContain('Gd2 5% implied cash, FOB HCMC ($/t)')
+  expect(text).toContain('gap = the differential')
+  // Hover title shows the converted price: Feb 25 → 5,050 − 298 = $4,752/t
+  expect(text).toContain('Feb 25 · Gd2 cash $4,752/t (futures −$298)')
+  // Toggling off removes the overlay
+  fireEvent.click(screen.getByRole('button', { name: /Show Gd2 as cash price/ }))
+  expect(container.textContent).not.toContain('Gd2 5% implied cash')
 })
 
 test('module 1 quiz has 10 questions and follows the market-structure topic', () => {

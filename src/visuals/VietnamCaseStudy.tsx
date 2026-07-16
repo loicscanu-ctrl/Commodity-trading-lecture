@@ -1,9 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { defineVisualText, useVisualText } from '@/lib/visualText'
 
 export const textDef = defineVisualText({
   heading: { label: 'Heading', value: 'Vietnam 2024–25: the exchange as buyer of last resort' },
+  overlayLabel: { label: 'Overlay toggle · label', value: 'Show Gd2 as cash price ($/t)' },
+  cashSeries: { label: 'Overlay series · name', value: 'Gd2 5% implied cash, FOB HCMC ($/t)' },
+  gapLabel: { label: 'Overlay gap · label', value: 'gap = the differential' },
   p1Title: { label: 'Panel 1 · title', value: 'RC futures, front month (US$/t)' },
   p2Title: { label: 'Panel 2 · title', value: 'Gd2 5% cash differential, FOB Ho Chi Minh (US$/t)' },
   p3Title: { label: 'Panel 3 · title', value: 'Vietnamese lots graded at ICE (per month)' },
@@ -59,6 +63,7 @@ function PanelTitle({ y, color, children }: { y: number; color: string; children
 
 export default function VietnamCaseStudy() {
   const t = useVisualText(textDef)
+  const [overlay, setOverlay] = useState(false)
 
   const futMaxI = FUT.indexOf(Math.max(...FUT))
   const futMinI = FUT.indexOf(Math.min(...FUT))
@@ -66,9 +71,32 @@ export default function VietnamCaseStudy() {
   const zeroY = py(P2, 0)
   const base3 = P3.top + P3.h
 
+  // Gd2 expressed as an outright cash price: futures + differential ($/t).
+  const CASH = FUT.map((v, i) => v + DIF[i])
+  // Shaded band between the two lines — the gap IS the differential.
+  const bandPath =
+    FUT.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${py(P1, v).toFixed(1)}`).join(' ') +
+    ' ' +
+    [...CASH].reverse().map((v, i) => `L${x(N - 1 - i).toFixed(1)},${py(P1, v).toFixed(1)}`).join(' ') +
+    ' Z'
+
   return (
     <div className="glass mt-5 p-5 text-white">
-      <div className="eyebrow mb-3">{t('heading')}</div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="eyebrow">{t('heading')}</div>
+        <button
+          onClick={() => setOverlay(o => !o)}
+          title="Overlay the Gd2 differential as an outright cash price on the futures panel"
+          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+            overlay
+              ? 'border-amber-400/50 bg-amber-400/15 text-amber-200'
+              : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${overlay ? 'bg-amber-400' : 'bg-slate-500'}`} />
+          {t('overlayLabel')}
+        </button>
+      </div>
 
       <svg viewBox={`0 0 ${W} 452`} className="w-full" style={{ maxHeight: '470px' }}>
         <defs>
@@ -105,6 +133,30 @@ export default function VietnamCaseStudy() {
         <text x={x(futMinI)} y={py(P1, FUT[futMinI]) + 14} textAnchor="middle" fill="#e2e8f0" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
           ${FUT[futMinI].toLocaleString()}
         </text>
+
+        {/* ── Overlay: Gd2 as an outright cash price on the futures axis ── */}
+        {overlay && (
+          <g>
+            <path d={bandPath} fill={C_DIF} opacity="0.14" />
+            <path d={linePath(P1, CASH)} fill="none" stroke={C_DIF} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            {CASH.map((v, i) => (
+              <g key={`c-${i}`}>
+                <circle cx={x(i)} cy={py(P1, v)} r="3" fill={C_DIF} stroke="#070912" strokeWidth="1" />
+                <circle cx={x(i)} cy={py(P1, v)} r="10" fill="transparent">
+                  <title>{`${MONTHS[i]} · Gd2 cash $${v.toLocaleString()}/t (futures ${DIF[i] >= 0 ? '+' : '−'}$${Math.abs(DIF[i])})`}</title>
+                </circle>
+              </g>
+            ))}
+            {/* Second series → legend entry beside the panel title */}
+            <circle cx={300} cy={P1.top - 12} r="3.5" fill={C_DIF} />
+            <text x={308} y={P1.top - 9} fill="#94a3b8" fontSize="9" fontFamily="monospace">{t('cashSeries')}</text>
+            {/* The vertical gap between the lines is the differential */}
+            <text x={x(12)} y={(py(P1, FUT[12]) + py(P1, CASH[12])) / 2 + 3} textAnchor="middle"
+              fill="#d97706" fontSize="8" fontFamily="monospace" fontStyle="italic">
+              {t('gapLabel')}
+            </text>
+          </g>
+        )}
 
         {/* ── Panel 2: differential ── */}
         <PanelTitle y={P2.top} color={C_DIF}>{t('p2Title')}</PanelTitle>
