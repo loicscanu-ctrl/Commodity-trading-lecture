@@ -43,6 +43,7 @@ import ExchangeFunctions, { textDef as exchangeFunctionsText } from './ExchangeF
 import RobustaContract, { textDef as robustaContractText } from './RobustaContract'
 import VietnamCaseStudy, { textDef as vietnamCaseStudyText } from './VietnamCaseStudy'
 import PtbfMechanics from './PtbfMechanics'
+import OptionPayoff from './OptionPayoff'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -88,6 +89,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'robusta-contract': RobustaContract,
   'vietnam-case-study': VietnamCaseStudy,
   'ptbf-mechanics': PtbfMechanics,
+  'option-payoff': OptionPayoff,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.

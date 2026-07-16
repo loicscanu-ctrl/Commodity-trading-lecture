@@ -9,7 +9,7 @@ const topic: Topic = {
     {
       id: 'futures',
       title: 'Futures Contracts',
-      body: `A **futures contract** is a standardized, exchange-traded agreement to buy or sell a specific commodity at a predetermined price on a future date.\n\nKey characteristics:\n- **Standardized:** lot size, quality, delivery location defined by the exchange\n- **Marked to market daily:** gains/losses settled each day (variation margin)\n- **Clearinghouse guarantee:** no counterparty credit risk\n\n**Arabica Coffee (ICE-US):** 37,500 lbs per lot, quoted in cents/lb\n**Robusta Coffee (ICE-EU):** 10 metric tonnes per lot, quoted in $/MT\n**Brent Crude (ICE):** 1,000 barrels per lot, quoted in $/barrel\n\nMost futures contracts are **never delivered** — they are offset before expiry by an opposing trade.`,
+      body: `A **futures contract** is a standardized, exchange-traded agreement to buy or sell a specific commodity at a predetermined price on a future date.\n\nKey characteristics:\n- **Standardized:** lot size, quality, delivery location defined by the exchange\n- **Marked to market daily:** gains/losses settled each day (variation margin)\n- **Clearinghouse guarantee:** counterparty risk is *mutualised and collateralised* (initial + variation margin, default fund) — mitigated, not abolished; the 2018 Nasdaq Clearing power-market default is the standard counterexample\n\n**Arabica Coffee (ICE-US):** 37,500 lbs per lot, quoted in cents/lb\n**Robusta Coffee (ICE-EU):** 10 metric tonnes per lot, quoted in $/MT\n**Brent Crude (ICE):** 1,000 barrels per lot, quoted in $/barrel\n\nMost futures contracts are **never delivered** — they are offset before expiry by an opposing trade.`,
     },
     {
       id: 'swaps',

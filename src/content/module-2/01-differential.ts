@@ -9,7 +9,7 @@ const topic: Topic = {
     {
       id: 'what-is-differential',
       title: 'What is the Differential?',
-      body: `The **differential** (also called the basis in grain markets) is the premium or discount at which physical coffee trades relative to the futures price.\n\n**Physical price = Futures price ± Differential**\n\nA coffee from Colombia might trade at ICE March + 35¢/lb.\nA lower-grade Vietnam Robusta might trade at LIFFE March − $30/MT.\n\nThe differential is the market's way of pricing everything the futures contract ignores: origin, quality, harvest timing, local logistics, certifiability.`,
+      body: `The **differential** (also called the basis in grain markets) is the premium or discount at which physical coffee trades relative to the futures price.\n\n**Physical price = Futures price ± Differential**\n\nA coffee from Colombia might trade at ICE New York March + 35¢/lb.\nA lower-grade Vietnam Robusta might trade at ICE London March − $30/MT.\n\n*(You will still hear old-timers say "LIFFE" for the London contract — the exchange has been ICE Futures Europe since 2013.)*\n\nThe differential is the market's way of pricing everything the futures contract ignores: origin, quality, harvest timing, local logistics, certifiability.`,
     },
     {
       id: 'arbitrage-types',
@@ -19,7 +19,7 @@ const topic: Topic = {
     {
       id: 'basis-risk',
       title: 'Basis Risk',
-      body: `A trader who hedges price risk with futures eliminates **flat price risk** but retains **basis risk** — the risk that the differential moves adversely.\n\nExample:\n- Trader buys physical Robusta at LIFFE + $10/MT\n- Sells LIFFE futures at the same time (hedge)\n- Flat price risk: eliminated\n- Basis risk: if the differential widens to − $20/MT when the trader needs to sell, they lose $30/MT on the basis\n\nBasis risk is the core commercial risk that separates skilled physical traders from pure financial speculators.`,
+      body: `A trader who hedges price risk with futures eliminates **flat price risk** but retains **basis risk** — the risk that the differential moves adversely.\n\nFirst, fix the vocabulary (M2 examiners care):\n\n- The basis **strengthens** when the differential moves *up* (toward or above futures)\n- The basis **weakens** when it moves *down*\n- The hedged owner of physical — **long physical / short futures** — is **long the basis**: strengthening is their profit, weakening their loss. A short-basis position (sold physical forward, long futures) wants the opposite.\n\nExample:\n- Trader buys physical Robusta at ICE London **+ $10/MT** and sells futures at the same time (hedge)\n- Flat price risk: eliminated — the PTBF pair trade from Module 1\n- Basis risk: by the time they sell, the differential has **weakened from +$10 to −$20/MT** → they realise **−$30/MT on the basis**, no matter what the flat price did\n\nBasis risk is the core commercial risk that separates skilled physical traders from pure financial speculators.`,
     },
   ],
 }

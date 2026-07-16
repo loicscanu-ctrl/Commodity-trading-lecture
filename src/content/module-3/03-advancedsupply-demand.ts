@@ -9,7 +9,7 @@ const topic: Topic = {
     {
       id: 'building-a-model',
       title: 'Building an S&D Model',
-      body: `A commodity S&D model is a structured forecast of supply and demand variables to estimate the ending stocks balance and derive a price view.\n\n**Standard structure (annual, crop year basis):**\n\n| Supply | Demand |\n|--------|--------|\n| Opening stocks | Consumption |\n| Production | Exports |\n| Imports | Ending stocks |\n| **Total supply** | **Total demand** |\n\nBalance = Total supply − Total demand = Ending stocks (must equal)\n\nThe model's value lies not in the number — it's in the **scenario analysis**: what if Brazil production is down 5%? What if Chinese demand grows faster than expected?`,
+      body: `A commodity S&D model is a structured forecast of supply and demand variables to estimate the ending stocks balance and derive a price view.\n\n**Standard structure (annual, crop year basis):**\n\n| Supply | Use |\n|--------|--------|\n| Opening stocks | Consumption |\n| Production | Exports |\n| Imports | — |\n| **Total supply** | **Total use** |\n\nThe forecast output is the residual:\n\n> **Ending stocks = Total supply − (Consumption + Exports)**\n\n(Beware the classic accounting trap: if you put ending stocks *inside* "total demand", then supply − demand ≡ 0 by construction and the identity tells you nothing. Ending stocks are the balancing item, not a demand.)\n\nThe model's value lies not in the number — it's in the **scenario analysis**: what if Brazil production is down 5%? What if Chinese demand grows faster than expected? Each scenario propagates straight through the identity into ending stocks, then into the stocks-to-use ratio, and from there into your price view.`,
     },
     {
       id: 'trader-2',
