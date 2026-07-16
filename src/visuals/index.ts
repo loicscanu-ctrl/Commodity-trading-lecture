@@ -46,6 +46,7 @@ import PtbfMechanics from './PtbfMechanics'
 import OptionPayoff from './OptionPayoff'
 import BasisPnl from './BasisPnl'
 import SdScenario from './SdScenario'
+import GuidedTradeSim from './GuidedTradeSim'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -94,6 +95,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'option-payoff': OptionPayoff,
   'basis-pnl': BasisPnl,
   'sd-scenario': SdScenario,
+  'guided-trade-sim': GuidedTradeSim,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
