@@ -64,6 +64,25 @@ function Field({ label, value, min, max, step, onChange, locked, lockedAt }: {
   )
 }
 
+function RiskSquare({ label, on, active }: { label: string; on: boolean; active: boolean }) {
+  return (
+    <div
+      data-testid={`risk-${label.toLowerCase()}`}
+      title={`${label} price risk is ${on ? 'OPEN' : active ? 'covered' : 'not present'}`}
+      className={`flex w-16 flex-col items-center rounded-lg border px-2 py-1 font-mono text-[10px] leading-tight ${
+        on
+          ? 'border-rose-500/50 bg-rose-500/15 text-rose-300'
+          : active
+            ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-400'
+            : 'border-white/10 bg-white/[0.02] text-slate-500'
+      }`}
+    >
+      <span className="font-bold tracking-wide">{label}</span>
+      <span>{on ? 'AT RISK' : active ? 'covered' : '—'}</span>
+    </div>
+  )
+}
+
 const EXP_STATUS = ['No position', 'Long physical (VND) — UNHEDGED', 'Hedged — buying diff locked', 'Sold FOB — fixing pending', 'FLAT — trade complete']
 const IMP_STATUS = ['No position', 'Long the diff — unpriced PTBF, no flat risk yet', 'Freight booked — costs locked', 'Fixed & hedged — long the basis', 'Sold outright (EUR) — short futures open!', 'FLAT — trade complete']
 const CHIP_CLS = (s: string) =>
@@ -149,11 +168,23 @@ export default function PtbfMechanics() {
 
   const STATUS = mode === 'exporter' ? EXP_STATUS : IMP_STATUS
 
+  // Which risks are OPEN at each stage of the book:
+  //  Exporter: 1 = outright VND long (flat+diff) · 2 = hedged, selling diff
+  //  still open · 3-4 = PTBF sale offsets the short (EFP fix is riskless).
+  //  Importer: 1-3 = diff open (selling side unsecured), no flat (unpriced
+  //  PTBF, then hedged) · 4 = naked short futures (flat!) · 5 = flat book.
+  const flatRisk = mode === 'exporter' ? step === 1 : step === 4
+  const diffRisk = mode === 'exporter' ? step >= 1 && step <= 2 : step >= 1 && step <= 3
+
   return (
     <div className="glass mt-5 p-5 text-white">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="eyebrow">Two PTBF Trades · 100 t Robusta</div>
-        <span className={`rounded-full border px-3 py-1 font-mono text-[11px] ${CHIP_CLS(STATUS[step])}`}>{STATUS[step]}</span>
+        <div className="flex items-center gap-1.5">
+          <RiskSquare label="FLAT" on={flatRisk} active={step > 0 && !complete} />
+          <RiskSquare label="DIFF" on={diffRisk} active={step > 0 && !complete} />
+          <span className={`rounded-full border px-3 py-1 font-mono text-[11px] ${CHIP_CLS(STATUS[step])}`}>{STATUS[step]}</span>
+        </div>
       </div>
 
       {/* Trade selector */}
