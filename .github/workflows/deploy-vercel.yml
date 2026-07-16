@@ -1,0 +1,49 @@
+# Deploys the site to Vercel production on every push to main.
+#
+# Required repository secrets (GitHub → Settings → Secrets and variables → Actions):
+#   VERCEL_TOKEN       — create at https://vercel.com/account/tokens
+#   VERCEL_ORG_ID      — Vercel project → Settings → General ("Team/Org ID"),
+#                        or run `npx vercel link` locally and read .vercel/project.json
+#   VERCEL_PROJECT_ID  — same place as above ("Project ID")
+#
+# Can also be run manually: GitHub → Actions → "Deploy to Vercel" → Run workflow.
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check secrets are configured
+        run: |
+          missing=0
+          [ -z "${{ secrets.VERCEL_TOKEN }}" ] && echo "::error::Missing repo secret VERCEL_TOKEN (create a token at vercel.com/account/tokens)" && missing=1
+          [ -z "${{ secrets.VERCEL_ORG_ID }}" ] && echo "::error::Missing repo secret VERCEL_ORG_ID (Vercel project → Settings → General)" && missing=1
+          [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ] && echo "::error::Missing repo secret VERCEL_PROJECT_ID (Vercel project → Settings → General)" && missing=1
+          exit $missing
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to production
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
