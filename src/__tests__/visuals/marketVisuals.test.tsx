@@ -90,16 +90,21 @@ test('PtbfMechanics importer trade: FOB diff buy, outright sale, costs and legs'
   expect(text).toContain('+$1,000')
 })
 
-test('PtbfMechanics: market values are typeable via keyboard inputs', () => {
+test('PtbfMechanics: typeable inputs, and the two futures legs lock independently', () => {
   const { container } = render(<PtbfMechanics />)
-  // Type a futures level directly instead of sliding
-  fireEvent.change(screen.getByRole('spinbutton', { name: /London futures/ }), { target: { value: '5000' } })
+  // Type the hedge-leg futures level directly instead of sliding
+  fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — hedge leg/ }), { target: { value: '5000' } })
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
   fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
-  // Buying diff = 4,705.9 − 5,000 = −$294.1
+  // Hedge leg is now locked at 5,000; buying diff = 4,705.9 − 5,000 = −$294.1
+  expect(container.textContent).toContain('locked @ $5,000')
   expect(container.textContent).toContain('−$294.1')
-  // Futures stays typeable until the fix; then it locks
-  fireEvent.change(screen.getByRole('spinbutton', { name: /London futures/ }), { target: { value: '4900' } })
+  expect(screen.queryByRole('spinbutton', { name: /London futures — hedge leg/ })).not.toBeInTheDocument()
+  // A second futures price ("since the hedge") drives the fixing — move it
+  fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — since the hedge/ }), { target: { value: '4900' } })
+  // The locked hedge did not move
+  expect(container.textContent).toContain('locked @ $5,000')
+  expect(container.textContent).toContain('−$294.1')
   fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
   fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
   expect(container.textContent).toContain('locked @ $4,900')
