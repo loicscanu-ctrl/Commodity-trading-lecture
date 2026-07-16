@@ -36,7 +36,7 @@ const topic: Topic = {
           'The difference between Arabica and Robusta coffee prices',
         ],
         correctIndex: 2,
-        explanation: 'Physical price = Futures price + Differential. The differential captures origin, quality, logistics, and timing factors not reflected in the generic futures contract.',
+        explanation: 'Physical price = Futures fixing + Differential — the PTBF (Price To Be Fixed) structure. The differential captures origin, quality, logistics, and timing factors not reflected in the generic futures contract.',
       },
       {
         id: 'q4',
