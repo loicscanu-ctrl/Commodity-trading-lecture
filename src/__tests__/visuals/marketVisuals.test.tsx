@@ -115,23 +115,26 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
   try {
     const { container } = render(<PtbfMechanics />)
     fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
-    // T0 values on the feed; typing is disabled (no market spinbuttons)
-    expect(container.textContent).toContain('Round T0/4')
-    expect(container.textContent).toContain('120,000')
+    // Round 1 (Y1 Apr) on the feed, with its news; typing is disabled
+    expect(container.textContent).toContain('Round 1/10 · Y1 Apr')
+    expect(container.textContent).toContain('warehouses almost full')
+    expect(container.textContent).toContain('119,000')
     expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: /London futures/ })).not.toBeInTheDocument()
-    // One minute later the market ticks to T1 for everyone
-    act(() => { jest.advanceTimersByTime(60_000) })
-    expect(container.textContent).toContain('Round T1/4')
-    expect(container.textContent).toContain('121,500')
-    // Buy at T1, advance to T2 and hedge: buying diff = 121,500/25.5k − 5,100 = −$335.3
+    // 90 seconds later the market ticks to Y1 Jul for everyone
+    act(() => { jest.advanceTimersByTime(90_000) })
+    expect(container.textContent).toContain('Round 2/10 · Y1 Jul')
+    expect(container.textContent).toContain('114,000')
+    // Buy at Y1 Jul, tick to Y1 Nov (Bab-el-Mandeb) and hedge:
+    // buying diff = 114,000/25.5k − 4,950 = −$479.4
     fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
-    act(() => { jest.advanceTimersByTime(60_000) })
+    act(() => { jest.advanceTimersByTime(90_000) })
+    expect(container.textContent).toContain('Bab-el-Mandeb')
     fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
-    expect(container.textContent).toContain('−$335.3')
+    expect(container.textContent).toContain('−$479.4')
     // The blotter stamps the execution rounds — the anti-cheat audit trail
-    expect(container.textContent).toContain('Bought local · T1')
-    expect(container.textContent).toContain('buying diff · T2')
+    expect(container.textContent).toContain('Bought local · Y1 Jul')
+    expect(container.textContent).toContain('buying diff · Y1 Nov')
   } finally {
     jest.useRealTimers()
   }
