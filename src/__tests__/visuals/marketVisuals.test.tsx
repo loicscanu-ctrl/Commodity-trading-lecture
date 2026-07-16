@@ -73,21 +73,43 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   expect(text).toContain('FLAT — trade complete')
 })
 
-test('PtbfMechanics importer trade: FOB diff buy, outright sale, costs and legs', () => {
+test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sale, buy-back', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
+  // 1. Buy in diff only — price still floating
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical FOB/ }))
-  // FOB diff and freight lock at purchase
   expect(container.textContent).toContain('locked @ −$60')
+  expect(container.textContent).toContain('price TBF')
+  // 2. Buy freight
+  fireEvent.click(screen.getByRole('button', { name: /2\. Buy freight/ }))
   expect(container.textContent).toContain('locked @ $70')
-  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
-  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical spot/ }))
-  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
+  // 3. Fix before export: sell futures → purchase prices at 4,800 − 60 = 4,740
+  fireEvent.click(screen.getByRole('button', { name: /3\. Fix before export/ }))
+  expect(container.textContent).toContain('$4,740')
+  // 4. Sell spot outright in EUR: €4,100 × 1.20 = $4,920
+  fireEvent.click(screen.getByRole('button', { name: /4\. Sell spot/ }))
+  expect(container.textContent).toContain('€4,100')
+  expect(container.textContent).toContain('$4,920')
+  // 5. Buy futures → selling diff = 4,920 − 4,800 = +$120
+  fireEvent.click(screen.getByRole('button', { name: /5\. Buy futures/ }))
   const text = container.textContent ?? ''
-  // Physical 4,920 − 4,740 = +180; costs −170; futures 0 → +$10.0/t, +$1,000
+  expect(text).toContain('+$120')
+  // Physical +180, costs −170, futures 0 → +$10/t · +$1,000
   expect(text).toContain('+$180')
   expect(text).toContain('−$170')
   expect(text).toContain('+$1,000')
+  expect(text).toContain('FLAT — trade complete')
+})
+
+test('PtbfMechanics: typed values beyond the slider scale are accepted', () => {
+  const { container } = render(<PtbfMechanics />)
+  // 6,500 is beyond the slider max of 6,000 — typing must still work
+  fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — hedge leg/ }), { target: { value: '6500' } })
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  expect(container.textContent).toContain('locked @ $6,500')
+  // Buying diff = 4,705.9 − 6,500 = −$1,794.1
+  expect(container.textContent).toContain('−$1,794.1')
 })
 
 test('PtbfMechanics: typeable inputs, and the two futures legs lock independently', () => {
