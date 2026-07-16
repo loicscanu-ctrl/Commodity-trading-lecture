@@ -51,18 +51,40 @@ test('VietnamCaseStudy toggle overlays Gd2 as a cash price on the futures panel'
   expect(container.textContent).not.toContain('Gd2 5% implied cash')
 })
 
-test('PtbfMechanics: hedged exporter net is invariant to the fixing level', () => {
+test('PtbfMechanics: steps enforce order and a clean round trip nets the diff minus costs', () => {
   const { container } = render(<PtbfMechanics />)
+  // Only step 1 is executable at the start
+  expect(screen.getByRole('button', { name: /1\. Buy physical/ })).toBeEnabled()
+  expect(screen.getByRole('button', { name: /2\. Sell futures/ })).toBeDisabled()
+  // Execute all four steps without moving the market
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical/ }))
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical/ }))
+  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
   const text = container.textContent ?? ''
-  // Default fixing $4,200: invoice 4,320, hedge +300, net locked at 4,620 = 4,500 + 120
-  expect(text).toContain('$4,320')
-  expect(text).toContain('$4,620')
-  expect(text).toContain('The exporter is locked')
-  // Move the fixing to $5,000: invoice changes, the exporter net does not
-  fireEvent.change(container.querySelector('input[type="range"]')!, { target: { value: '5000' } })
-  const after = container.textContent ?? ''
-  expect(after).toContain('$5,120')
-  expect(after).toContain('$4,620')
+  // Diff leg 120 − (−60) = +180; costs freight 70 + 100 instore = −170; no slippage → +$10/t, +$1,000
+  expect(text).toContain('+$180')
+  expect(text).toContain('−$170')
+  expect(text).toContain('clean pair trade')
+  expect(text).toContain('+$10/t')
+  expect(text).toContain('+$1,000')
+  expect(text).toContain('FLAT — trade complete')
+})
+
+test('PtbfMechanics: moving futures between buy and hedge shows up as slippage', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical/ }))
+  // Futures rally $100 before the hedge goes on (sliders: vnd, futures, fobDiff, freight, antwerpDiff)
+  const sliders = container.querySelectorAll('input[type="range"]')
+  fireEvent.change(sliders[1], { target: { value: '4900' } })
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical/ }))
+  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
+  const text = container.textContent ?? ''
+  // Slippage = (4900 − 4800) = +100 → net = 180 − 170 + 100 = +$110/t
+  expect(text).toContain('+$100')
+  expect(text).toContain('+$110/t')
+  expect(text).not.toContain('clean pair trade')
 })
 
 test('module 1 quiz has 10 questions and follows the market-structure topic', () => {
