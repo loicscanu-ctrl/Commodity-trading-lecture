@@ -2,6 +2,7 @@ import { render, fireEvent, screen } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
+import PtbfMechanics from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -48,6 +49,20 @@ test('VietnamCaseStudy toggle overlays Gd2 as a cash price on the futures panel'
   // Toggling off removes the overlay
   fireEvent.click(screen.getByRole('button', { name: /Show Gd2 as cash price/ }))
   expect(container.textContent).not.toContain('Gd2 5% implied cash')
+})
+
+test('PtbfMechanics: hedged exporter net is invariant to the fixing level', () => {
+  const { container } = render(<PtbfMechanics />)
+  const text = container.textContent ?? ''
+  // Default fixing $4,200: invoice 4,320, hedge +300, net locked at 4,620 = 4,500 + 120
+  expect(text).toContain('$4,320')
+  expect(text).toContain('$4,620')
+  expect(text).toContain('The exporter is locked')
+  // Move the fixing to $5,000: invoice changes, the exporter net does not
+  fireEvent.change(container.querySelector('input[type="range"]')!, { target: { value: '5000' } })
+  const after = container.textContent ?? ''
+  expect(after).toContain('$5,120')
+  expect(after).toContain('$4,620')
 })
 
 test('module 1 quiz has 10 questions and follows the market-structure topic', () => {
