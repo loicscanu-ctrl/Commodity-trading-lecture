@@ -56,13 +56,17 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   // Order enforced
   expect(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ })).toBeEnabled()
   expect(screen.getByRole('button', { name: /2\. Sell futures/ })).toBeDisabled()
-  // Step 1: buy local — the VND component locks
+  // Step 1: buy local — the VND component locks; outright long = BOTH risks open
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
   expect(container.textContent).toContain('locked @ 120,000')
   expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
-  // Step 2: hedge → buying diff = 4,705.9 − 4,800 = −$94.1
+  expect(screen.getByTestId('risk-flat').textContent).toContain('AT RISK')
+  expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
+  // Step 2: hedge → buying diff = 4,705.9 − 4,800 = −$94.1; flat covered, diff still open
   fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
   expect(container.textContent).toContain('−$94.1')
+  expect(screen.getByTestId('risk-flat').textContent).toContain('covered')
+  expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
   // Steps 3 & 4 at unchanged market
   fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
   fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
@@ -76,20 +80,25 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
 test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sale, buy-back', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
-  // 1. Buy in diff only — price still floating
+  // 1. Buy in diff only — price still floating: diff risk open, NO flat risk
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical FOB/ }))
   expect(container.textContent).toContain('locked @ −$60')
   expect(container.textContent).toContain('price TBF')
+  expect(screen.getByTestId('risk-flat').textContent).toContain('covered')
+  expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
   // 2. Buy freight
   fireEvent.click(screen.getByRole('button', { name: /2\. Buy freight/ }))
   expect(container.textContent).toContain('locked @ $70')
   // 3. Fix before export: sell futures → purchase prices at 4,800 − 60 = 4,740
   fireEvent.click(screen.getByRole('button', { name: /3\. Fix before export/ }))
   expect(container.textContent).toContain('$4,740')
-  // 4. Sell spot outright in EUR: €4,100 × 1.20 = $4,920
+  // 4. Sell spot outright in EUR: €4,100 × 1.20 = $4,920 — the naked-short
+  //    window: FLAT risk flips ON, diff risk is done
   fireEvent.click(screen.getByRole('button', { name: /4\. Sell spot/ }))
   expect(container.textContent).toContain('€4,100')
   expect(container.textContent).toContain('$4,920')
+  expect(screen.getByTestId('risk-flat').textContent).toContain('AT RISK')
+  expect(screen.getByTestId('risk-diff').textContent).toContain('covered')
   // 5. Buy futures → selling diff = 4,920 − 4,800 = +$120
   fireEvent.click(screen.getByRole('button', { name: /5\. Buy futures/ }))
   const text = container.textContent ?? ''
