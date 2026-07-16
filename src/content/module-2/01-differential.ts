@@ -21,6 +21,12 @@ const topic: Topic = {
       title: 'Basis Risk',
       body: `A trader who hedges price risk with futures eliminates **flat price risk** but retains **basis risk** — the risk that the differential moves adversely.\n\nFirst, fix the vocabulary (M2 examiners care):\n\n- The basis **strengthens** when the differential moves *up* (toward or above futures)\n- The basis **weakens** when it moves *down*\n- The hedged owner of physical — **long physical / short futures** — is **long the basis**: strengthening is their profit, weakening their loss. A short-basis position (sold physical forward, long futures) wants the opposite.\n\nExample:\n- Trader buys physical Robusta at ICE London **+ $10/MT** and sells futures at the same time (hedge)\n- Flat price risk: eliminated — the PTBF pair trade from Module 1\n- Basis risk: by the time they sell, the differential has **weakened from +$10 to −$20/MT** → they realise **−$30/MT on the basis**, no matter what the flat price did\n\nBasis risk is the core commercial risk that separates skilled physical traders from pure financial speculators.`,
     },
+    {
+      id: 'hedged-pnl',
+      title: 'The Hedged Trade P&L — Three Legs',
+      body: `Put the whole trade on paper once, and the vocabulary becomes arithmetic. **Buy 100 t physical at London \\$2,400 + \\$10 = \\$2,410**, hedge by **selling futures at \\$2,400**. Later the market has fallen to \\$2,250 and the differential has weakened to −\\$20:\n\n| Leg | Entry | Exit | P&L ($/t) |\n|---|---|---|---|\n| Physical | buy 2,410 | sell 2,250 − 20 = 2,230 | **−180** |\n| Futures (short) | sold 2,400 | bought back 2,250 | **+150** |\n| **Net** | | | **−30** |\n\nNet = **exit diff − entry diff** = (−20) − (+10) = **−\\$30/t**, i.e. −\\$3,000 on the parcel. The \\$150 flat-price collapse never touched the book.\n\nNow verify it isn't a coincidence: in the simulator below, drag the exit futures anywhere from \\$1,800 to \\$3,000 — the two big legs swing violently and their sum never moves. Then drag the *differentials* and watch the P&L respond one-for-one. That asymmetry is the entire business model of a physical trading desk.`,
+      visual: 'basis-pnl',
+    },
   ],
 }
 

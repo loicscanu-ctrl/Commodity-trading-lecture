@@ -44,6 +44,7 @@ import RobustaContract, { textDef as robustaContractText } from './RobustaContra
 import VietnamCaseStudy, { textDef as vietnamCaseStudyText } from './VietnamCaseStudy'
 import PtbfMechanics from './PtbfMechanics'
 import OptionPayoff from './OptionPayoff'
+import BasisPnl from './BasisPnl'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -90,6 +91,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'vietnam-case-study': VietnamCaseStudy,
   'ptbf-mechanics': PtbfMechanics,
   'option-payoff': OptionPayoff,
+  'basis-pnl': BasisPnl,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
