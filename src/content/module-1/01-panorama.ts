@@ -13,6 +13,24 @@ const topic: Topic = {
       visual: 'commodity-donut-chart',
     },
     {
+      id: 'why-market',
+      title: 'Why Do We Need a Market?',
+      body: `Picture the coffee chain without an exchange: **millions of growers**, thousands of exporters and roasters, scattered across continents, each negotiating bilaterally in the dark. Nobody knows the "right" price; everybody carries price risk from harvest to delivery; and if your buyer disappears, so does your sale.\n\nA **futures exchange** solves all three problems at once. It is a single, **centrally-cleared marketplace** where the whole supply chain can transfer price risk and read **one transparent price** — and, because the contract is physically deliverable, it acts as the **buyer and seller of last resort** for standard-spec coffee.\n\nThe three functions feed each other through **liquidity**: deep participation makes the price meaningful (**price discovery**), a meaningful price makes hedging work (**risk management**), and guaranteed delivery anchors it all to physical reality.\n\nFor coffee, that marketplace is the **Intercontinental Exchange (ICE)** — a Fortune 500 exchange operator (NYSE: ICE, also owner of the New York Stock Exchange) that runs the benchmark **Arabica (New York)** and **Robusta (London)** futures used to price and hedge physical coffee worldwide. The scale is striking: ICE reports the equivalent of roughly **400 million tonnes** traded across its coffee markets in a single year — more than **2,000 times** the world's physical crop.`,
+      visual: 'exchange-functions',
+    },
+    {
+      id: 'robusta-contract',
+      title: 'Anatomy of a Futures Contract: ICE Robusta',
+      body: `What does "standard-spec" actually mean? A futures contract standardises **everything except price** — that is what makes thousands of strangers able to trade it.\n\nThe **ICE Robusta Coffee (RC)** contract shows the machinery. Delivery runs through **ICE-registered warehouses**: physical coffee is turned into a **warrant**, sampled and **graded** against a quality ladder, and that warrant can then be delivered against a short futures position.\n\nThe **quality ladder** is the bridge between an idealised contract and messy real-world coffee: Class 1 delivers at the contract price, better coffee earns a fixed premium, worse coffee a fixed discount. The differentials are set by the exchange — not negotiated — which is exactly what keeps delivery predictable.`,
+      visual: 'robusta-contract',
+    },
+    {
+      id: 'buyer-last-resort',
+      title: 'Case Study: The Buyer of Last Resort at Work',
+      body: `"Buyer of last resort" sounds abstract — until you watch it happen.\n\n**Vietnam, 2024–25.** Robusta futures spiked above **\\$5,000/t**. Physical demand couldn't keep up with the screen, so the **cash differential** for Vietnamese Grade 2 collapsed — at the trough, Gd2 traded around **\\$298/t *under* the futures price** (FOB Ho Chi Minh).\n\nWhen the physical market pays you less than the exchange, the arbitrage is mechanical: sell futures, grade your coffee, **deliver it to the exchange**. And that is what the data shows — Vietnamese gradings at ICE surged (630 lots in a single month) with a **roughly three-month lag** behind the differential's collapse: the time it takes to ship, warehouse and grade.\n\nRead the three panels in order and you are watching the exchange do its job: absorbing physical supply the market doesn't want at the prevailing price, and publishing the price signal that eventually pulls the differential back.`,
+      visual: 'vietnam-case-study',
+    },
+    {
       id: 'trader-types',
       title: 'Who Are the Players? — The Trade Flow',
       body: `The commodity world is structured in four tiers — from the physical producers at the top to the pure financial speculators at the bottom. Each tier has a distinct role, a distinct risk profile, and a distinct relationship with the physical commodity.

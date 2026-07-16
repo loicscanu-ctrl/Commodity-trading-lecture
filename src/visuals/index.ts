@@ -39,6 +39,9 @@ import TechnicalSchematics, { textDef as technicalSchematicsText } from './Techn
 import PriceVolumeOI, { textDef as priceVolumeOIText } from './PriceVolumeOI'
 import CoffeeOdyssey, { textDef as coffeeOdysseyText } from './CoffeeOdyssey'
 import ArabicaRobusta, { textDef as arabicaRobustaText } from './ArabicaRobusta'
+import ExchangeFunctions, { textDef as exchangeFunctionsText } from './ExchangeFunctions'
+import RobustaContract, { textDef as robustaContractText } from './RobustaContract'
+import VietnamCaseStudy, { textDef as vietnamCaseStudyText } from './VietnamCaseStudy'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -80,6 +83,9 @@ export const visualRegistry: Record<string, ComponentType> = {
   'price-volume-oi': PriceVolumeOI,
   'coffee-odyssey': CoffeeOdyssey,
   'arabica-robusta': ArabicaRobusta,
+  'exchange-functions': ExchangeFunctions,
+  'robusta-contract': RobustaContract,
+  'vietnam-case-study': VietnamCaseStudy,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -107,4 +113,7 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'price-volume-oi': priceVolumeOIText,
   'coffee-odyssey': coffeeOdysseyText,
   'arabica-robusta': arabicaRobustaText,
+  'exchange-functions': exchangeFunctionsText,
+  'robusta-contract': robustaContractText,
+  'vietnam-case-study': vietnamCaseStudyText,
 }

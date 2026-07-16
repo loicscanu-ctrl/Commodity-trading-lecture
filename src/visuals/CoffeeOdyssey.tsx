@@ -4,11 +4,11 @@ import { defineVisualText, useVisualText } from '@/lib/visualText'
 
 export const textDef = defineVisualText({
   heading: { label: 'Heading', value: 'One seed’s journey around the world' },
-  caption: { label: 'Caption', multiline: true, value: 'Nine centuries, four continents: from wild forests in Kaffa to a guarded monopoly at Mocha, smuggled to India and Java, gifted to a king, carried across the Atlantic by one obsessive lieutenant — then spread through the colonial system to Vietnam and West Africa. Today’s production map is this journey, frozen.' },
+  caption: { label: 'Caption', multiline: true, value: 'Centuries, four continents: from wild forests in Kaffa to a guarded export monopoly at Mocha, carried to India and Java, gifted to a king, shipped across the Atlantic by a naval officer — then spread through the colonial system to Vietnam and West Africa. Today’s production map is this journey, frozen.' },
   s1: { label: 'Station 1 · name', value: 'Kaffa forests, Ethiopia' },
-  d1: { label: 'Station 1 · date', value: '~850 · wild arabica' },
+  d1: { label: 'Station 1 · date', value: 'origin · wild arabica' },
   s2: { label: 'Station 2 · name', value: 'Mocha, Yemen' },
-  d2: { label: 'Station 2 · date', value: '1400s · Ottoman monopoly' },
+  d2: { label: 'Station 2 · date', value: '1400s on · the Mocha monopoly' },
   s3: { label: 'Station 3 · name', value: 'Constantinople' },
   d3: { label: 'Station 3 · date', value: '1554 · first coffeehouses' },
   s4: { label: 'Station 4 · name', value: 'Mysore, India' },

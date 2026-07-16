@@ -11,10 +11,10 @@ import type { Topic } from '@/types/content'
 export const topics: Topic[] = [
   intro,
   panorama,
-  panoramaQuiz,
   keyconcept,
   keyconceptQuiz,
   marketStructure,
+  panoramaQuiz, // 10-question checkpoint: commodities, traders & market structure
   supplyDemand,
   dayInLife,
 ]
