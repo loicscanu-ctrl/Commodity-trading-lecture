@@ -37,6 +37,8 @@ import RefineryTypes, { textDef as refineryTypesText } from './RefineryTypes'
 import SupplyDemandRegion, { textDef as supplyDemandRegionText } from './SupplyDemandRegion'
 import TechnicalSchematics, { textDef as technicalSchematicsText } from './TechnicalSchematics'
 import PriceVolumeOI, { textDef as priceVolumeOIText } from './PriceVolumeOI'
+import CoffeeOdyssey, { textDef as coffeeOdysseyText } from './CoffeeOdyssey'
+import ArabicaRobusta, { textDef as arabicaRobustaText } from './ArabicaRobusta'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -76,6 +78,8 @@ export const visualRegistry: Record<string, ComponentType> = {
   'supply-demand-region': SupplyDemandRegion,
   'technical-schematics': TechnicalSchematics,
   'price-volume-oi': PriceVolumeOI,
+  'coffee-odyssey': CoffeeOdyssey,
+  'arabica-robusta': ArabicaRobusta,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -101,4 +105,6 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'supply-demand-region': supplyDemandRegionText,
   'technical-schematics': technicalSchematicsText,
   'price-volume-oi': priceVolumeOIText,
+  'coffee-odyssey': coffeeOdysseyText,
+  'arabica-robusta': arabicaRobustaText,
 }
