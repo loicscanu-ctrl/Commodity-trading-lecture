@@ -1,4 +1,4 @@
-import { render, fireEvent, screen } from '@testing-library/react'
+import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
@@ -108,6 +108,33 @@ test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sa
   expect(text).toContain('−$170')
   expect(text).toContain('+$1,000')
   expect(text).toContain('FLAT — trade complete')
+})
+
+test('PtbfMechanics live market: predetermined path, no typing, round-stamped blotter', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // T0 values on the feed; typing is disabled (no market spinbuttons)
+    expect(container.textContent).toContain('Round T0/4')
+    expect(container.textContent).toContain('120,000')
+    expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton', { name: /London futures/ })).not.toBeInTheDocument()
+    // One minute later the market ticks to T1 for everyone
+    act(() => { jest.advanceTimersByTime(60_000) })
+    expect(container.textContent).toContain('Round T1/4')
+    expect(container.textContent).toContain('121,500')
+    // Buy at T1, advance to T2 and hedge: buying diff = 121,500/25.5k − 5,100 = −$335.3
+    fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
+    act(() => { jest.advanceTimersByTime(60_000) })
+    fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+    expect(container.textContent).toContain('−$335.3')
+    // The blotter stamps the execution rounds — the anti-cheat audit trail
+    expect(container.textContent).toContain('Bought local · T1')
+    expect(container.textContent).toContain('buying diff · T2')
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 test('PtbfMechanics: typed values beyond the slider scale are accepted', () => {
