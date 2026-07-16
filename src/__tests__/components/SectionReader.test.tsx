@@ -4,6 +4,7 @@ import type { Section } from '@/types/content'
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }))
 jest.mock('react-markdown', () => ({ __esModule: true, default: ({ children }: { children: string }) => <p>{children}</p> }))
+jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined })) // ESM-only; not needed under the react-markdown mock
 
 const sections: Section[] = [
   { id: 's1', title: 'Section One', body: 'Body of section one' },

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { VisualTextField } from '@/lib/visualText'
 
 const PREVIEW_PROSE =
@@ -140,7 +141,7 @@ export default function SlideEditor({ title, body, visualFields, visualValues, i
           <div className="eyebrow mb-2 text-slate-500">Preview {hasVisual && '· notes'}</div>
           <div className="glass flex-1 overflow-y-auto p-5">
             <div className={PREVIEW_PROSE}>
-              <ReactMarkdown>{draftBody || '_Nothing yet…_'}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{draftBody || '_Nothing yet…_'}</ReactMarkdown>
             </div>
           </div>
           {hasVisual && (

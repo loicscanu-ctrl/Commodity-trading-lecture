@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Section } from '@/types/content'
 import Breadcrumb from './Breadcrumb'
 import ProgressBar from './ProgressBar'
@@ -188,7 +189,7 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-5">
               <div className={`${PROSE} prose-sm`}>
-                <ReactMarkdown>{body}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
               </div>
             </div>
           </aside>
@@ -300,7 +301,7 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
                   </VisualTextProvider>
                 ) : (
                   <div className={`${PROSE} prose-lg max-w-3xl`}>
-                    <ReactMarkdown>{body}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
                   </div>
                 )}
               </div>

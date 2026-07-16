@@ -28,15 +28,31 @@ type Deal = {
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
 }
 
-// Live-market mode: a predetermined path, identical for every student.
-// One round per minute; the market freezes on the final round.
-const ROUND_SECONDS = 60
+// Live-market mode: a predetermined multi-season path, identical for every
+// student. 90 seconds per round; the market freezes on the final round.
+// Each round carries a news flash — the prices react the way the news says.
+const ROUND_SECONDS = 90
 const LIVE_SCRIPT = [
-  { vnd: 120000, fut: 4800, fob: -60, freight: 70, eur: 4100 }, // T0 quiet open
-  { vnd: 121500, fut: 4950, fob: -70, freight: 70, eur: 4200 }, // T1 dry spell — funds buy London
-  { vnd: 128500, fut: 5100, fob: -40, freight: 75, eur: 4330 }, // T2 rally extends, local lags
-  { vnd: 124000, fut: 4850, fob: 10, freight: 80, eur: 4150 },  // T3 profit-taking, physical firm
-  { vnd: 125000, fut: 4900, fob: 25, freight: 85, eur: 4180 },  // T4 last call
+  { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -90, freight: 70, eur: 4090,
+    news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
+  { label: 'Y1 Jul', vnd: 114000, fut: 4650, fob: -120, freight: 70, eur: 3980,
+    news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
+  { label: 'Y1 Nov', vnd: 113000, fut: 4950, fob: -280, freight: 270, eur: 4290,
+    news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
+  { label: 'Y2 Mar', vnd: 138500, fut: 5400, fob: 80, freight: 150, eur: 4620,
+    news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
+  { label: 'Y2 Sep', vnd: 144500, fut: 5600, fob: 150, freight: 140, eur: 4800,
+    news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
+  { label: 'Y2 Oct', vnd: 142000, fut: 5450, fob: 200, freight: 45, eur: 4690,
+    news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
+  { label: 'Y3 Dec', vnd: 133500, fut: 5300, fob: 60, freight: 50, eur: 4470,
+    news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
+  { label: 'Y4 Aug', vnd: 111500, fut: 4700, fob: -150, freight: 55, eur: 4000,
+    news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
+  { label: 'Y4 Dec', vnd: 127000, fut: 4850, fob: 90, freight: 60, eur: 4180,
+    news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
+  { label: 'Y5 Jan', vnd: 114000, fut: 4600, fob: -80, freight: 60, eur: 3950,
+    news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
@@ -188,7 +204,7 @@ export default function PtbfMechanics() {
     }
   }
 
-  const roundTag = (i: number) => (deal.stamps?.[i] !== undefined ? ` · T${deal.stamps[i]}` : '')
+  const roundTag = (i: number) => (deal.stamps?.[i] !== undefined ? ` · ${LIVE_SCRIPT[deal.stamps[i]].label}` : '')
 
   // Derived economics
   const dBuyExp = mode === 'exporter' && hedged ? deal.buy! - deal.fHedge! : null
@@ -259,16 +275,24 @@ export default function PtbfMechanics() {
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
           }`}>
-          {live ? '■ Stop live market' : '▶ Live market (5 rounds × 1 min)'}
+          {live ? '■ Stop live market' : '▶ Live market (10 rounds × 1:30)'}
         </button>
         {live && (
           <span className="rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1 font-mono text-[11px] text-cyan-200">
-            Round T{liveRound}/{LIVE_SCRIPT.length - 1}{liveFinal
-              ? ' · final round — complete your actions'
+            Round {liveRound + 1}/{LIVE_SCRIPT.length} · {LIVE_SCRIPT[liveRound].label}{liveFinal
+              ? ' · final round'
               : ` · next tick ${Math.floor(nextTickIn / 60)}:${String(nextTickIn % 60).padStart(2, '0')}`}
           </span>
         )}
       </div>
+
+      {/* News flash — the round's story; prices below react the way it says */}
+      {live && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-brand-cyan/25 bg-brand-cyan/[0.05] p-3">
+          <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS · {LIVE_SCRIPT[liveRound].label}</span>
+          <p className="text-xs leading-relaxed text-slate-300">{LIVE_SCRIPT[liveRound].news}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT: the market */}
