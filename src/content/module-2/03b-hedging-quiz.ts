@@ -29,7 +29,7 @@ const topic: Topic = {
           'When the buyer takes delivery at their warehouse',
         ],
         correctIndex: 1,
-        explanation: 'FOB = Free on Board. Risk and responsibility transfer from seller to buyer when goods cross the ship\'s rail at the origin port.',
+        explanation: 'FOB = Free on Board. Risk and responsibility transfer from seller to buyer once the goods are on board the vessel at the origin port (the old "ship\'s rail" test was retired in Incoterms 2010).',
       },
     ],
   },

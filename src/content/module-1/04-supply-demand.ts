@@ -19,7 +19,7 @@ const topic: Topic = {
     {
       id: 'balance',
       title: 'The Balance: Stocks-to-Use Ratio',
-      body: `The single most important S&D indicator is the **stocks-to-use ratio (STU)**:\n\n**STU = Ending stocks ÷ Annual consumption × 100%**\n\nA high STU signals comfortable supply — prices tend to be low.\nA low STU signals tight supply — prices tend to be elevated.\n\nExample thresholds (coffee, approximate):\n- STU > 25%: ample supply, weak price pressure\n- STU 15–25%: balanced market\n- STU < 15%: tightening — watch for backwardation and price spikes`,
+      body: `The single most important S&D indicator is the **stocks-to-use ratio (STU)**:\n\n**STU = Ending stocks ÷ Annual consumption × 100%**\n\nA high STU signals comfortable supply — prices tend to be low.\nA low STU signals tight supply — prices tend to be elevated.\n\nIllustrative bands (rules of thumb, not published thresholds — calibrate them per commodity against its own history):\n- STU > 25%: ample supply, weak price pressure\n- STU 15–25%: balanced market\n- STU < 15%: tightening — watch for backwardation and price spikes\n\nThe relationship is famously **non-linear**: below some critical STU, each further point of tightness produces a disproportionate price response. That convexity is why traders obsess over the stocks line of the balance sheet.`,
     },
     {
       id: 'sources',
