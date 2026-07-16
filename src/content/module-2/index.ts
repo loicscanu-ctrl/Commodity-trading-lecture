@@ -5,6 +5,7 @@ import hedging from './03-hedgingstrategies'
 import hedgingQuiz from './03b-hedging-quiz'
 import shipping from './04-shipping'
 import fobToCif from './05-FOBtoCIFtrades'
+import liveTrading from './06-live-trading-exercise'
 import type { Topic } from '@/types/content'
 
 export const topics: Topic[] = [
@@ -14,5 +15,6 @@ export const topics: Topic[] = [
   hedging,
   hedgingQuiz,
   shipping,
-  fobToCif,
+  fobToCif,       // guided solo simulation (theory → practice)
+  liveTrading,    // timed live-market exercise (the capstone of the module)
 ]
