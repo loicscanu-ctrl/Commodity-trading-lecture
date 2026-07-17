@@ -56,25 +56,25 @@ type Deal = {
 const TICK_SECONDS = 5
 const DRIFT_TICKS_MAX = 8 // the drift completes in at most 8 ticks (40 s)
 const LIVE_SCRIPT = [
-  { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090,
+  { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
-  { label: 'Y1 Jul', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980,
+  { label: 'Y1 Jul', headline: 'Demand fading', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
-  { label: 'Y1 Nov', vnd: 113000, fut: 4950, fob: -350, freight: 270, eur: 4290,
+  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -350, freight: 270, eur: 4290,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
-  { label: 'Y2 Mar', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620,
+  { label: 'Y2 Mar', headline: 'Drought risk', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
-  { label: 'Y2 Sep', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800,
+  { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
-  { label: 'Y2 Oct', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690,
+  { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
-  { label: 'Y3 Dec', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470,
+  { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
-  { label: 'Y4 Aug', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000,
+  { label: 'Y4 Aug', headline: 'Record crop!', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
-  { label: 'Y4 Dec', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180,
+  { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180,
     news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
-  { label: 'Y5 Jan', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950,
+  { label: 'Y5 Jan', headline: 'Harvest in', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950,
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
@@ -449,7 +449,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
                   <circle cx={bx} cy={fy2} r="2" fill="#22d3ee" opacity="0.9">
                     <title>{`NEWS · ${r.label} — ${r.news}`}</title>
                   </circle>
-                  <text x={bx + 3} y={fy2 + 6} fill="#22d3ee" fontSize="6.5" fontFamily="monospace" opacity="0.85">{r.label}</text>
+                  <text x={bx + 3} y={fy2 + 6} fill="#22d3ee" fontSize="6.5" fontFamily="monospace" opacity="0.9">{r.headline}</text>
                 </g>
               )
             })}
