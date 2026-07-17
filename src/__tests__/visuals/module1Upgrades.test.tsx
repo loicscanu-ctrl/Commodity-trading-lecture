@@ -5,6 +5,8 @@ import ParcelJourney from '@/visuals/ParcelJourney'
 import MarketBenefits from '@/visuals/MarketBenefits'
 import MarginSimulator from '@/visuals/MarginSimulator'
 import RollYield from '@/visuals/RollYield'
+import BackwardationChart from '@/visuals/BackwardationChart'
+import DeskOrganisation from '@/visuals/DeskOrganisation'
 import StuScatter from '@/visuals/StuScatter'
 import CropCalendar from '@/visuals/CropCalendar'
 import WarrantLifecycle from '@/visuals/WarrantLifecycle'
@@ -84,11 +86,41 @@ test('MarginSimulator: exhausting the funding line forces the position closed', 
   expect(text).toContain('the funding did')
 })
 
-test('RollYield: default contango shows a negative annual roll yield', () => {
+test('RollYield: contango taxes the long and pays the short', () => {
   const { container } = render(<RollYield />)
   const text = container.textContent ?? ''
+  // Default: LONG in 0.6%/month contango → (1/1.006)^12 − 1 = −6.9%
   expect(text).toContain('-6.9')
+  expect(text).toContain('CONTANGO × LONG')
   expect(text).toContain('Spot never moved')
+  // Flip to SHORT: same curve, +7.4% — the rule of thumb made visible
+  fireEvent.click(screen.getByRole('button', { name: 'SHORT futures' }))
+  expect(container.textContent).toContain('+7.4')
+  expect(container.textContent).toContain('CONTANGO × SHORT')
+  expect(container.textContent).toContain('backwardation favours the LONG')
+})
+
+test('BackwardationChart: $60 spot, priced points and the three illustrated causes', () => {
+  const { container } = render(<BackwardationChart />)
+  const text = container.textContent ?? ''
+  expect(text).toContain('SPOT $60.00')
+  expect(text).toContain('shortage premium')
+  expect(text).toContain('Supply shortage')
+  expect(text).toContain('Seasonal demand peak')
+  expect(text).toContain('Inventory drawdown')
+})
+
+test('DeskOrganisation: three offices, the trade lifecycle and the Barings lesson', () => {
+  const { container } = render(<DeskOrganisation />)
+  const text = container.textContent ?? ''
+  expect(text).toContain('FRONT OFFICE')
+  expect(text).toContain('MIDDLE OFFICE')
+  expect(text).toContain('BACK OFFICE')
+  expect(text).toContain('Owns the P&L')
+  expect(text).toContain('Owns the limits & the marks')
+  expect(text).toContain('through the back office')
+  expect(text).toContain('Barings, 1995')
+  expect(text).toContain('account 88888')
 })
 
 test('StuScatter: the real 12.4% STU lands in the convexity zone', () => {
