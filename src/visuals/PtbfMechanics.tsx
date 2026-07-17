@@ -28,6 +28,7 @@ const SETTLE_SECONDS = 30    // a trade takes 30 s to execute & settle: capital 
 const FIN_RATE = 0.08        // 8% p.a. financing on drawn capital (intermediate level)
 const AUTO_FIX_SECONDS = 10  // intermediate: once the diff is sold (business BOOKED), the futures must be squared within 10 s…
 const AUTO_FIX_PENALTY = 20_000 // …or the desk auto-fixes at market and charges this penalty
+const MARGIN_PER_LOT = 6_000 // $ maintenance margin per net futures lot (≈ ICE Robusta at these levels), posted from capital
 
 type Mode = 'exporter' | 'importer'
 type Side = 'buy' | 'sell'
@@ -47,6 +48,7 @@ type Deal = {
   order?: number[]                     // action numbers in execution order (free order on intermediate)
   clipPx?: number[]                    // each execution's own clip price (for the scaling readout)
   penalty?: number                     // $ auto-fix penalty (intermediate: futures not squared in time)
+  cut?: number                         // lots force-closed by the exchange on a margin call
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -227,6 +229,7 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
         if (c > 1 && avg !== undefined) L.push(`  Scaling — ${name}: ${c} clips · first ${f(firstPx(n))} → avg ${f(avg)}`)
       })
     }
+    if ((d.cut ?? 0) > 0) L.push(`  MARGIN CALL: the exchange cut ${d.cut} lot${d.cut === 1 ? '' : 's'} at market (capital below maintenance margin)`)
     L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}${t.penaltyD > 0 ? ` · AUTO-FIX PENALTY: −${fmtUsd(t.penaltyD)}` : ''}`)
     L.push(`  NET: ${sgn(t.netD)} (${sgn(t.netD / t.tonnes, 1)}/t on ${t.tonnes} t)`)
     L.push('')
@@ -728,6 +731,7 @@ export default function PtbfMechanics() {
 
   const canExec = (n: number) => {
     if (complete) return false
+    if (marginBlockedAct(n)) return false
     const hedgeN = mode === 'exporter' ? 2 : 3
     const sellN = mode === 'exporter' ? 3 : 4
     if (n === lastStep) return level === 'easy' ? outstanding > 0 : true // easy: buy-back needs an open short; inter: outright longs allowed — know why
@@ -751,8 +755,19 @@ export default function PtbfMechanics() {
   // Realized P&L joins the capital base once its trade has settled
   const settledPnl = commitments.filter(c => c.freesAt <= elapsed).reduce((s, c) => s + c.pnl, 0)
   const capitalBase = CAPITAL_START + settledPnl
-  const drawn = committedDrawn + (deal.draw !== undefined ? deal.draw : 0)
+  // Maintenance margin on the NET futures position is posted from capital —
+  // over-hedging is no longer free.
+  const marginReq = live ? Math.abs(outstanding) * MARGIN_PER_LOT : 0
+  const drawn = committedDrawn + (deal.draw !== undefined ? deal.draw : 0) + marginReq
   const available = capitalBase - drawn
+  // Would action n GROW the net futures position beyond the margin headroom?
+  const marginBlockedAct = (n: number): boolean => {
+    if (!live) return false
+    const hedgeN = mode === 'exporter' ? 2 : 3
+    if (n === hedgeN) return (Math.abs(outstanding + lotsIn) - Math.abs(outstanding)) * MARGIN_PER_LOT > available
+    if (n === lastStep && level !== 'easy') return (Math.abs(outstanding - fixLotsIn) - Math.abs(outstanding)) * MARGIN_PER_LOT > available
+    return false
+  }
   const estDraw = (mode === 'exporter' ? localUsd : Math.max(0, curFut + fobDiff)) * vol
   const capitalBlocked = live && estDraw > available
   const nextFreeIn = openCommitments.length > 0 ? Math.max(0, Math.min(...openCommitments.map(c => c.freesAt)) - elapsed) : 0
@@ -886,6 +901,30 @@ export default function PtbfMechanics() {
     if (!bookedNow && bookedAt !== null) setBookedAt(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, level, bookedNow, elapsed])
+
+  // MARGIN CALL: if capital falls below the total maintenance margin, the
+  // exchange force-closes futures at market until the margin fits again.
+  useEffect(() => {
+    if (!live || outstanding === 0 || available >= 0) return
+    const deficitLots = Math.min(Math.abs(outstanding), Math.ceil(-available / MARGIN_PER_LOT))
+    if (deficitLots <= 0) return
+    setDeal(d => {
+      const l0 = d.lots ?? 0, x0 = d.fixedLots ?? 0
+      const out = l0 - x0
+      const cut = Math.min(Math.abs(out), deficitLots)
+      if (cut === 0) return d
+      const snap = (extra: Partial<Deal>): Deal => ({ ...d, ...extra,
+        cut: (d.cut ?? 0) + cut,
+        futMarks: [...(d.futMarks ?? []), curFut], diffMarks: [...(d.diffMarks ?? []), fobDiff],
+        clipPx: [...(d.clipPx ?? []), out > 0 ? futFix : fut],
+        order: [...(d.order ?? []), out > 0 ? lastStep : (mode === 'exporter' ? 2 : 3)],
+        stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] })
+      return out > 0
+        ? snap({ fFix: wavg(d.fFix, x0, futFix, cut), fixedLots: x0 + cut })
+        : snap({ fHedge: wavg(d.fHedge, l0, fut, cut), lots: l0 + cut })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, available, outstanding])
 
   // …and if the futures are not squared within 10 s of booking, the desk
   // auto-fixes at market and charges the penalty.
@@ -1116,6 +1155,7 @@ export default function PtbfMechanics() {
               line <span className={`font-bold ${capitalBase >= CAPITAL_START ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtUsd(capitalBase)}</span>
               {settledPnl !== 0 && <span className="text-slate-500"> ({sgn(settledPnl)} realized)</span>}
               {' · drawn '}<span className={drawn > 0 ? 'text-amber-300 font-bold' : 'text-slate-300'}>{fmtUsd(drawn)}</span>
+              {marginReq > 0 && <span className="text-slate-500"> (incl. margin {fmtUsd(marginReq)} · {Math.abs(outstanding)} net lots × ${MARGIN_PER_LOT / 1000}k)</span>}
               {' · available '}<span className={available < estDraw ? 'text-rose-300 font-bold' : 'text-emerald-300 font-bold'}>{fmtUsd(Math.max(0, available))}</span>
             </span>
           </div>
@@ -1129,6 +1169,11 @@ export default function PtbfMechanics() {
                 <span key={i} className="mr-3">{fmtUsd(c.amount)} settling ({sgn(c.pnl)} P&L lands with it) — frees in {Math.max(0, c.freesAt - elapsed)}s</span>
               ))}
             </p>
+          )}
+          {(deal.cut ?? 0) > 0 && (
+            <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-500/[0.10] p-2 font-mono text-[11px] font-bold text-rose-200">
+              MARGIN CALL — capital fell below the maintenance margin: the exchange CUT {deal.cut} lot{deal.cut === 1 ? '' : 's'} at market.
+            </div>
           )}
           {capitalBlocked && (
             <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/[0.08] p-2 font-mono text-[11px] text-rose-200">
@@ -1170,6 +1215,28 @@ export default function PtbfMechanics() {
         {/* Actions — clip by clip: buy and sell little by little */}
         <div className="space-y-1.5 self-start">
           <div className="eyebrow">Actions · clip by clip</div>
+          <div className="rounded-xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-2 font-mono text-[10px] tabular-nums space-y-0.5">
+            <div className="eyebrow mb-0.5">Live conversion</div>
+            {mode === 'exporter' ? (
+              <>
+                <div className="flex justify-between"><span className="text-slate-400">Local price in USD</span><span className="text-white">{fmtUsd(localUsd, 1)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - curFut, 1)}</span></div>
+                {dBuyExp !== null && (
+                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR buying diff (VND buy vs hedge)</span><span className="text-amber-300 font-bold">{dfmt(dBuyExp, 1)}</span></div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between"><span className="text-slate-400">Purchase price</span><span className="text-white">{impInvoice !== null ? `${fmtUsd(impInvoice)}/t (fixed)` : 'floating — fix + diff'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd(boxesS > 0 ? deal.sell! : eurUsd)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((boxesS > 0 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
+                {dSellImp !== null && (
+                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR selling diff (locked at the buy-back)</span><span className="text-amber-300 font-bold">{dfmt(dSellImp, 0)}</span></div>
+                )}
+              </>
+            )}
+          </div>
+
           {ACTIONS.map(a => {
             const usable = canExec(a.n)
             const blocked = usable && a.n === 1 && capitalBlocked
@@ -1186,7 +1253,7 @@ export default function PtbfMechanics() {
                     <span className="truncate font-mono text-xs font-bold text-white">{a.label}</span>
                     <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={a.label}
                       className={`chip !py-0.5 shrink-0 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
-                      {blocked ? 'no capital' : 'execute'}
+                      {blocked ? 'no capital' : marginBlockedAct(a.n) ? 'no margin' : 'execute'}
                     </button>
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-slate-500">
@@ -1243,28 +1310,6 @@ export default function PtbfMechanics() {
             <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot} locked={false} />
           )}
 
-          {/* Live conversion */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums space-y-1">
-            <div className="eyebrow mb-1">Live conversion</div>
-            {mode === 'exporter' ? (
-              <>
-                <div className="flex justify-between"><span className="text-slate-400">Local price in USD</span><span className="text-white">{fmtUsd(localUsd, 1)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - curFut, 1)}</span></div>
-                {dBuyExp !== null && (
-                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR buying diff (VND buy vs hedge)</span><span className="text-amber-300 font-bold">{dfmt(dBuyExp, 1)}</span></div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between"><span className="text-slate-400">Purchase price</span><span className="text-white">{impInvoice !== null ? `${fmtUsd(impInvoice)}/t (fixed)` : 'floating — fix + diff'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd(boxesS > 0 ? deal.sell! : eurUsd)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((boxesS > 0 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
-                {dSellImp !== null && (
-                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR selling diff (locked at the buy-back)</span><span className="text-amber-300 font-bold">{dfmt(dSellImp, 0)}</span></div>
-                )}
-              </>
-            )}
-          </div>
         </div>
 
         {/* RIGHT: blotter, P&L */}
