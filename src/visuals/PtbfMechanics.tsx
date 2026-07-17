@@ -80,6 +80,10 @@ const SESSION_SECONDS = LIVE_SCRIPT.length * ROUND_SECONDS // 450 s of live mark
 const ROUND_MONTHS = [0, 3, 7, 11, 17, 18, 32, 40, 44, 45]
 const TOTAL_MONTHS = ROUND_MONTHS[ROUND_MONTHS.length - 1]
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// Calendar label of month index m (m = 0 is Y1 Apr)
+const monthLabel = (m: number) => { const abs = 3 + m; return `Y${1 + Math.floor(abs / 12)} ${MONTH_NAMES[abs % 12]}` }
+
 // Session second → calendar month position (piecewise linear across rounds)
 function calAt(t: number): number {
   const r = Math.min(LIVE_SCRIPT.length - 1, Math.floor(t / ROUND_SECONDS))
@@ -325,7 +329,14 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
   return (
     <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <div className="eyebrow">London futures — the price path of your trade</div>
+        <div className="flex items-center gap-3">
+          <div className="eyebrow">London futures — the price path of your trade</div>
+          {isTime && (
+            <span className="rounded-full border border-brand-cyan/50 bg-brand-cyan/15 px-3 py-0.5 font-mono text-sm font-bold tabular-nums text-cyan-100">
+              {monthLabel(Math.floor(calAt(elapsed!)))}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> buy</span>
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-rose-500" /> sell</span>
@@ -340,23 +351,44 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
           </g>
         ))}
 
-        {/* X axis: calendar time (live) or T1/T2… (manual) */}
+        {/* X axis: a REGULAR calendar (live) or T1/T2… (manual). News events
+            only appear on the axis once the market has reached them. */}
         {isTime ? (
-          LIVE_SCRIPT.map((r, ri) => {
-            const bx = xM(ROUND_MONTHS[ri])
-            const current = ri === Math.min(LIVE_SCRIPT.length - 1, Math.floor(elapsed! / ROUND_SECONDS))
-            const ly = H - 16 + (ri % 2) * 9
-            return (
-              <g key={r.label}>
-                <line x1={bx} y1={mt} x2={bx} y2={D.top + D.h} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                <text x={bx + 2} y={ly} textAnchor="start"
-                  fill={current ? '#e2e8f0' : ri * ROUND_SECONDS < tickNow ? '#94a3b8' : '#475569'}
-                  fontSize="8" fontFamily="monospace" transform={`rotate(-33 ${bx + 2} ${ly})`}>
-                  {r.label}
-                </text>
-              </g>
-            )
-          })
+          <g>
+            {/* month ticks, quarterly labels, faint year lines */}
+            {Array.from({ length: TOTAL_MONTHS + 1 }, (_, m) => m).map(m => {
+              const bx = xM(m)
+              const isYear = (3 + m) % 12 === 0
+              const labelled = m % 3 === 0
+              return (
+                <g key={`mo-${m}`}>
+                  {isYear && <line x1={bx} y1={mt} x2={bx} y2={D.top + D.h} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />}
+                  <line x1={bx} y1={D.top + D.h} x2={bx} y2={D.top + D.h + (labelled ? 5 : 3)} stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+                  {labelled && (
+                    <text x={bx + 2} y={H - 8} textAnchor="start" fill="#64748b" fontSize="7.5" fontFamily="monospace"
+                      transform={`rotate(-33 ${bx + 2} ${H - 8})`}>
+                      {monthLabel(m)}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+            {/* news flags — revealed only once the market reaches them */}
+            {LIVE_SCRIPT.map((r, ri) => {
+              if (ri * ROUND_SECONDS > elapsed!) return null
+              const bx = xM(ROUND_MONTHS[ri])
+              const fy2 = mt + 2 + (ri % 2) * 10
+              return (
+                <g key={`news-${r.label}`}>
+                  <line x1={bx} y1={fy2} x2={bx} y2={fy2 + 7} stroke="#22d3ee" strokeWidth="1.2" opacity="0.8" />
+                  <circle cx={bx} cy={fy2} r="2" fill="#22d3ee" opacity="0.9">
+                    <title>{`NEWS · ${r.label} — ${r.news}`}</title>
+                  </circle>
+                  <text x={bx + 3} y={fy2 + 6} fill="#22d3ee" fontSize="6.5" fontFamily="monospace" opacity="0.85">{r.label}</text>
+                </g>
+              )
+            })}
+          </g>
         ) : (
           Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
             <text key={stp} x={xStep(stp)} y={H - 6} textAnchor="middle"
