@@ -23,10 +23,10 @@ type Tier = {
 const TIERS: Tier[] = [
   {
     name: 'Farmer', where: 'Dak Lak',
-    buys: 'grows it — cash cost ≈ 95,000 VND/kg (≈ $3,725/t)',
+    buys: 'grows it — cash cost ≈ 45,000 VND/kg (≈ $1,765/t)',
     sells: '118,000 VND/kg (≈ $4,627/t) to the cooperative',
     form: 'VND/kg · outright',
-    margin: '≈ +$900/t over cash cost — the crop’s reward, and its risk',
+    margin: '≈ +$2,860/t over cash cost — at today’s historic prices the farmer captures by far the fattest margin in the chain',
     flat: true, diff: true,
     riskNote: 'Carries EVERYTHING from flowering to sale: flat price, differential, weather, and has no direct access to the futures market.',
     hedge: 'No screen access — the only "hedges" are selling early, forward deals with the coop, or (increasingly) coop-run programs.',
