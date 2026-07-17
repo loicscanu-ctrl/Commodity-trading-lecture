@@ -26,6 +26,8 @@ const DEFAULT_VOL = 96  // 96 t = exactly 5 containers (and 9.6 lots — never r
 const CAPITAL_START = 1_000_000 // $ starting capital (live mode) — realized P&L adds to / subtracts from it as trades settle
 const SETTLE_SECONDS = 30    // a trade takes 30 s to execute & settle: capital stays locked that long after the sale
 const FIN_RATE = 0.08        // 8% p.a. financing on drawn capital (intermediate level)
+const AUTO_FIX_SECONDS = 10  // intermediate: once the diff is sold (business BOOKED), the futures must be squared within 10 s…
+const AUTO_FIX_PENALTY = 20_000 // …or the desk auto-fixes at market and charges this penalty
 
 type Mode = 'exporter' | 'importer'
 type Side = 'buy' | 'sell'
@@ -44,6 +46,7 @@ type Deal = {
   draw?: number                        // $ of working capital this trade draws (live)
   order?: number[]                     // action numbers in execution order (free order on intermediate)
   clipPx?: number[]                    // each execution's own clip price (for the scaling readout)
+  penalty?: number                     // $ auto-fix penalty (intermediate: futures not squared in time)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -172,6 +175,7 @@ export type TradeRecord = {
   futuresD: number    // $ absolute
   costsD: number      // $ absolute
   financingD: number  // $ absolute (intermediate level: 8% p.a. on drawn capital)
+  penaltyD: number    // $ absolute auto-fix penalty
   netD: number        // $ absolute
 }
 
@@ -223,7 +227,7 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
         if (c > 1 && avg !== undefined) L.push(`  Scaling — ${name}: ${c} clips · first ${f(firstPx(n))} → avg ${f(avg)}`)
       })
     }
-    L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}`)
+    L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}${t.penaltyD > 0 ? ` · AUTO-FIX PENALTY: −${fmtUsd(t.penaltyD)}` : ''}`)
     L.push(`  NET: ${sgn(t.netD)} (${sgn(t.netD / t.tonnes, 1)}/t on ${t.tonnes} t)`)
     L.push('')
   })
@@ -647,6 +651,9 @@ export default function PtbfMechanics() {
   const [lastName, setLastName] = useState('')
   const [nameErr, setNameErr] = useState(false)
 
+  // Intermediate: the second at which the business got BOOKED (diff fully sold)
+  const [bookedAt, setBookedAt] = useState<number | null>(null)
+
   // Working capital (live): every trade takes 30 seconds to execute & settle,
   // so a recorded trade keeps its capital locked until freesAt (in seconds) —
   // and its P&L joins the capital base only once it settles.
@@ -690,6 +697,7 @@ export default function PtbfMechanics() {
     startRef.current = Date.now()
     setElapsed(0)
     setDeal({})
+    setBookedAt(null)
     setPins([])
     setCommitments([])
     setLive(true)
@@ -749,7 +757,7 @@ export default function PtbfMechanics() {
   const capitalBlocked = live && estDraw > available
   const nextFreeIn = openCommitments.length > 0 ? Math.max(0, Math.min(...openCommitments.map(c => c.freesAt)) - elapsed) : 0
 
-  function switchMode(m: Mode) { setMode(m); setDeal({}) }
+  function switchMode(m: Mode) { setMode(m); setDeal({}); setBookedAt(null) }
 
   // Weighted-average accumulator: fold a new clip into a running average
   const wavg = (avg0: number | undefined, qty0: number, px: number, qty: number) =>
@@ -828,22 +836,26 @@ export default function PtbfMechanics() {
     finMonths = Math.max(0, calAt(endT) - calAt(buyT))
     financingD = -(deal.draw * FIN_RATE * finMonths / 12)
   }
-  const netD = physicalD !== null ? physicalD + futuresD! + costsD + financingD : null
+  const penaltyD = deal.penalty ?? 0
+  const netD = physicalD !== null ? physicalD + futuresD! + costsD + financingD - penaltyD : null
 
   // Record the completed trade into the log; in live mode this is AUTOMATIC —
   // in real life you cannot cancel a bad trade.
   function recordTrade() {
     if (!complete || physicalD === null || netD === null) return
     const rec: TradeRecord = {
-      mode, tonnes: deal.vol!, soldT: soldT!, lots: deal.lots!, boxes: deal.boxes!,
-      deal, physicalD, futuresD: futuresD!, costsD, financingD, netD,
+      mode, tonnes: deal.vol!, soldT: soldT, lots: deal.lots!, boxes: deal.boxes!,
+      deal, physicalD, futuresD: futuresD!, costsD, financingD, penaltyD, netD,
     }
     setHistory(h => [...h, rec])
     if (live) {
       // The trade takes 30 s to execute & settle: capital stays locked
       // for 30 seconds after the final action.
+      // Intermediate: the settlement clock runs from the BOOKING (diff sold),
+      // not from the last action.
       const doneAt = deal.stampTimes?.[deal.stampTimes.length - 1] ?? elapsed
-      setCommitments(c => [...c, { amount: deal.draw ?? 0, freesAt: doneAt + SETTLE_SECONDS, pnl: netD }])
+      const settleFrom = level === 'inter' && bookedAt !== null ? bookedAt : doneAt
+      setCommitments(c => [...c, { amount: deal.draw ?? 0, freesAt: settleFrom + SETTLE_SECONDS, pnl: netD }])
       // Keep the trade's dots on the graph — the session's decision history.
       const spec = mode === 'exporter' ? EXP_DOTS : IMP_DOTS
       const newPins: Pin[] = []
@@ -857,6 +869,7 @@ export default function PtbfMechanics() {
       })
       setPins(p => [...p, ...newPins])
     }
+    setBookedAt(null)
     setDeal({})
   }
 
@@ -865,6 +878,41 @@ export default function PtbfMechanics() {
     if (live && complete) recordTrade()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, complete])
+
+  // Intermediate: the business is BOOKED once the diff is fully sold.
+  const bookedNow = volT > 0 && boxesS > 0 && remainingT < CONTAINER_T
+  useEffect(() => {
+    if (live && level === 'inter' && bookedNow && bookedAt === null) setBookedAt(elapsed)
+    if (!bookedNow && bookedAt !== null) setBookedAt(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, level, bookedNow, elapsed])
+
+  // …and if the futures are not squared within 10 s of booking, the desk
+  // auto-fixes at market and charges the penalty.
+  const autoFixIn = bookedAt !== null && !complete ? Math.max(0, AUTO_FIX_SECONDS - (elapsed - bookedAt)) : null
+  useEffect(() => {
+    if (!live || level !== 'inter' || bookedAt === null || complete) return
+    if (elapsed - bookedAt < AUTO_FIX_SECONDS) return
+    setDeal(d => {
+      const l0 = d.lots ?? 0, x0 = d.fixedLots ?? 0
+      const out = l0 - x0
+      if (out === 0) return d
+      const snap = (extra: Partial<Deal>): Deal => ({
+        ...d, ...extra,
+        penalty: AUTO_FIX_PENALTY,
+        futMarks: [...(d.futMarks ?? []), curFut],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff],
+        clipPx: [...(d.clipPx ?? []), out > 0 ? futFix : fut],
+        order: [...(d.order ?? []), out > 0 ? lastStep : (mode === 'exporter' ? 2 : 3)],
+        stamps: [...(d.stamps ?? []), liveRound],
+        stampTimes: [...(d.stampTimes ?? []), elapsed],
+      })
+      return out > 0
+        ? snap({ fFix: wavg(d.fFix, x0, futFix, out), fixedLots: x0 + out })
+        : snap({ fHedge: wavg(d.fHedge, l0, fut, -out), lots: l0 - out })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, level, bookedAt, elapsed, complete])
 
   function exportReport() {
     const trader = `${firstName.trim()} ${lastName.trim()}`.trim()
@@ -998,7 +1046,7 @@ export default function PtbfMechanics() {
       {/* Difficulty level */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         {([['easy', 'Easy · guided order'], ['inter', 'Intermediate · free order + 8% financing']] as const).map(([k, label]) => (
-          <button key={k} disabled={live} onClick={() => { if (level !== k) { setLevel(k); setDeal({}) } }}
+          <button key={k} disabled={live} onClick={() => { if (level !== k) { setLevel(k); setDeal({}); setBookedAt(null) } }}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
               level === k ? 'border-amber-500/60 bg-amber-500/15 text-amber-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
             } ${live ? 'cursor-not-allowed opacity-60' : ''}`}>
@@ -1011,7 +1059,7 @@ export default function PtbfMechanics() {
         <span className="font-mono text-[10px] text-slate-500">
           {level === 'easy'
             ? 'actions execute in a fixed, guided order'
-            : 'any order — sell first, or even buy futures with nothing to fix (know why!) · locked capital costs 8% p.a. of calendar time in live mode'}
+            : 'any order — sell first, even buy futures naked (know why!) · 8% p.a. financing on drawn capital · booked = diff sold: square the futures within 10 s or auto-fix, −$20k'}
         </span>
       </div>
 
@@ -1087,6 +1135,13 @@ export default function PtbfMechanics() {
               CAPITAL LIMIT HIT — every trade takes {SETTLE_SECONDS} s to execute and settle: the capital from your last sale is still locked{nextFreeIn > 0 ? ` (frees in ${nextFreeIn}s)` : ''} and cannot finance another {vol} t purchase ({fmtUsd(estDraw)}).
             </div>
           )}
+        </div>
+      )}
+
+      {/* Intermediate: booked business countdown — square the futures or eat the penalty */}
+      {live && level === 'inter' && autoFixIn !== null && outstanding !== 0 && (
+        <div className="mb-4 rounded-xl border border-rose-500/50 bg-rose-500/[0.10] p-3 font-mono text-xs text-rose-200">
+          ⏱ BUSINESS BOOKED — the differential is sold. Square your futures within <span className="text-base font-bold">{autoFixIn}s</span> or the desk auto-fixes at market with a −{fmtUsd(AUTO_FIX_PENALTY)} penalty.
         </div>
       )}
 
@@ -1246,6 +1301,7 @@ export default function PtbfMechanics() {
                 {mode === 'importer' && <div className="flex justify-between"><span className="text-slate-400">Freight + instore costs</span><span className="text-rose-300">{sgn(costsD / soldT!, 1)}/t × {soldT!.toFixed(1)} t = {sgn(costsD)}</span></div>}
                 <div className="flex justify-between"><span className="text-slate-400">Futures P&L (sold − bought back)</span><span className={futuresD! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(deal.fHedge! - deal.fFix!, 0)}/t × {deal.lots! * LOT_T} t = {sgn(futuresD!)}</span></div>
                 {financingD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Financing · {(FIN_RATE * 100).toFixed(0)}% p.a. × {finMonths.toFixed(1)} mo on {fmtUsd(deal.draw!)}</span><span className="text-rose-300">{sgn(financingD)}</span></div>}
+                {penaltyD > 0 && <div className="flex justify-between"><span className="text-slate-400">Auto-fix penalty (futures not squared in time)</span><span className="text-rose-300 font-bold">−{fmtUsd(penaltyD)}</span></div>}
                 <div className="flex justify-between border-t border-white/15 pt-1.5">
                   <span className="text-white font-bold">Net · on {deal.vol} t</span>
                   <span className={`font-bold text-base ${netD >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(netD / deal.vol!, 1)}/t · {sgn(netD)}</span>
@@ -1262,7 +1318,7 @@ export default function PtbfMechanics() {
           {/* Live: the record is automatic — a desk cannot cancel a bad trade */}
           {live && step === 0 && lastRec && (
             <div className={`rounded-xl border p-3 font-mono text-[11px] ${lastRec.netD >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200' : 'border-rose-500/40 bg-rose-500/[0.08] text-rose-200'}`}>
-              Trade #{history.length} recorded automatically — net {sgn(lastRec.netD)}. In real life you cannot cancel a bad trade; execution & settlement take {SETTLE_SECONDS} s, then the capital (and this P&L) returns to your line.
+              Trade #{history.length} recorded automatically — net {sgn(lastRec.netD)}{lastRec.penaltyD > 0 ? <> · includes a <span className="font-bold">−{fmtUsd(lastRec.penaltyD)} auto-fix penalty</span> (futures not squared within {AUTO_FIX_SECONDS} s of booking)</> : null}. In real life you cannot cancel a bad trade; execution & settlement take {SETTLE_SECONDS} s, then the capital (and this P&L) returns to your line.
             </div>
           )}
 
