@@ -8,6 +8,7 @@ import FlowTraps from './FlowTraps'
 import GeometricMultiplier from './GeometricMultiplier'
 import TermStructureChart from './TermStructureChart'
 import ContangoChart from './ContangoChart'
+import BackwardationChart from './BackwardationChart'
 import CashCarrySimulator from './CashCarrySimulator'
 import MarketInfluences, { textDef as marketInfluencesText } from './MarketInfluences'
 import ArbitrageExercise from './ArbitrageExercise'
@@ -71,6 +72,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'geometric-multiplier': GeometricMultiplier,
   'term-structure-chart': TermStructureChart,
   'contango-chart': ContangoChart,
+  'backwardation-chart': BackwardationChart,
   'cash-carry-simulator': CashCarrySimulator,
   'market-influences': MarketInfluences,
   'arbitrage-exercise': ArbitrageExercise,
