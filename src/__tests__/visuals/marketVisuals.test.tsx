@@ -2,7 +2,7 @@ import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
-import PtbfMechanics, { buildTradeReport } from '@/visuals/PtbfMechanics'
+import PtbfMechanics, { buildTradeReport, buildPdfString } from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -71,9 +71,9 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
   fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
   const text = container.textContent ?? ''
-  // Physical +$34.1 (4,740 − 4,705.9), futures $0, net = origination margin +$3,412
+  // Physical +$34.1/t (4,740 − 4,705.9) on 5 containers = 96 t → +$3,275; futures $0
   expect(text).toContain('+$34.1')
-  expect(text).toContain('+$3,412')
+  expect(text).toContain('+$3,275')
   expect(text).toContain('FLAT — trade complete')
   // The price graph pinned a point per action (with its side and time) and annotates the hedge→fix leg
   expect(text).toContain('action 2 (sell) · T2 · $4,800')
@@ -108,10 +108,10 @@ test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sa
   fireEvent.click(screen.getByRole('button', { name: /5\. Buy futures/ }))
   const text = container.textContent ?? ''
   expect(text).toContain('+$120')
-  // Physical +180, costs −170, futures 0 → +$10/t · +$1,000
+  // Physical +180/t, costs −170/t, futures 0 → +$10/t on 96 t = +$960
   expect(text).toContain('+$180')
   expect(text).toContain('−$170')
-  expect(text).toContain('+$1,000')
+  expect(text).toContain('+$960')
   expect(text).toContain('FLAT — trade complete')
 })
 
@@ -119,6 +119,11 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
   jest.useFakeTimers()
   try {
     const { container } = render(<PtbfMechanics />)
+    // The live market only starts once the trader is named — the report is issued in their name
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    expect(container.textContent).toContain('enter trader name & surname')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader name' }), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader surname' }), { target: { value: 'Lovelace' } })
     fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
     // Round 1 (Y1 Apr) on the feed, with its news; typing is disabled
     expect(container.textContent).toContain('Round 1/10 · Y1 Apr')
@@ -198,34 +203,42 @@ test('PtbfMechanics: completed trades are recorded and a new trade can start', (
   // Trade #1 in the log with its P&L; the desk is clear for a new trade
   expect(container.textContent).toContain('Trade log')
   expect(container.textContent).toContain('#1')
-  expect(container.textContent).toContain('+$3,412')
+  expect(container.textContent).toContain('+$3,275')
+  expect(container.textContent).toContain('96 t · 10 lots · 5 bx')
   expect(container.textContent).toContain('No position')
   expect(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ })).toBeEnabled()
   // A second identical trade doubles the session total
   runExporterTrade()
   fireEvent.click(screen.getByRole('button', { name: /Record trade/ }))
   expect(container.textContent).toContain('#2')
-  expect(container.textContent).toContain('+$6,824')
+  expect(container.textContent).toContain('+$6,551')
 })
 
-test('buildTradeReport includes every execution, stamps and totals', () => {
+test('buildTradeReport includes volumes, every execution, stamps and totals', () => {
   const buy = 120000000 / 25500 // $4,705.9/t
-  const net = -60 - (buy - 4800) // sell diff − buying diff = +34.1
+  const netT = -60 - (buy - 4800) // sell diff − buying diff = +34.1/t
+  const netD = netT * 96 // on 5 containers = 96 t
   const report = buildTradeReport([{
     mode: 'exporter' as const,
-    tonnes: 100,
-    deal: { vnd: 120000, buy, fHedge: 4800, sell: -60, fFix: 4800, stamps: [1, 2, 2, 3] },
-    physical: net,
-    futures: 0,
-    costs: 0,
-    net,
-  }])
-  expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 100 t')
+    tonnes: 96, soldT: 96, lots: 10, boxes: 5,
+    deal: { vnd: 120000, buy, fHedge: 4800, sell: -60, fFix: 4800, vol: 96, lots: 10, boxes: 5, stamps: [1, 2, 2, 3] },
+    physicalD: netD, futuresD: 0, costsD: 0, netD,
+  }], 'Ada Lovelace')
+  expect(report).toContain('Trader: Ada Lovelace')
+  expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 96 t bought · 10 lots hedged (100 t) · 5 containers shipped (96.0 t)')
   expect(report).toContain('120,000 VND/kg')
   expect(report).toContain('buying diff −$94.1 · Y1 Nov')
   expect(report).toContain('Rounds unhedged (flat risk): 1')
-  expect(report).toContain('NET: +$34.1/t = +$3,412 on 100 t')
-  expect(report).toContain('SESSION TOTAL (1 trade): +$3,412')
+  expect(report).toContain('NET: +$3,275 (+$34.1/t on 96 t)')
+  expect(report).toContain('SESSION TOTAL (1 trade): +$3,275')
+})
+
+test('buildPdfString produces a valid single-font PDF from the report text', () => {
+  const raw = buildPdfString('PTBF TRADE REPORT\nNET: +$3,275')
+  expect(raw.startsWith('%PDF-1.4')).toBe(true)
+  expect(raw).toContain('/BaseFont /Courier')
+  expect(raw).toContain('(PTBF TRADE REPORT) Tj')
+  expect(raw).toContain('%%EOF')
 })
 
 test('module 1 quiz has 10 questions and follows the market-structure topic', () => {
