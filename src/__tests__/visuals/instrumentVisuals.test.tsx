@@ -22,6 +22,9 @@ test('CommodityDonutChart: ticker chips open the real contract spec cards', () =
   expect(container.textContent).toContain('negative print')
   expect(container.textContent).toContain('Origin spec')
   expect(container.textContent).toContain('Incoterm / settlement')
+  // Full year of contracts, not just the next five
+  expect(container.textContent).toContain('Typical year contracts structure')
+  expect(container.textContent).toContain('Dec Z · 73.05')
 
   // Wheat replaces it: the blé MATIF card
   fireEvent.click(screen.getByRole('button', { name: /Milling Wheat/ }))
@@ -66,13 +69,23 @@ test('GasolineSwap shows principals, broker and the settlement walk', () => {
   expect(text).toContain('ISDA')
 })
 
-test('EfpDiagram shows the two legs and the before/after books', () => {
+test('EfpDiagram: the two hedges meet via the broker and the price lands in the contract', () => {
   const { container } = render(<EfpDiagram />)
   const text = container.textContent ?? ''
+  // The two counterparties' books
   expect(text).toContain('PHYSICAL · 100 t robusta')
-  expect(text).toContain('PAPER · 10 lots futures')
-  expect(text).toContain('Short 10 lots @ 4,500 (the hedge)')
+  expect(text).toContain('SHORT hedge · 10 lots Jan @ 4,500')
+  expect(text).toContain('LONG hedge · 10 lots Jan @ 4,250')
+  // Executed through a broker, registered with the exchange
+  expect(text).toContain('Marex, London')
   expect(text).toContain('registered with the exchange')
+  // The price journey ends in the contract document, stamped fixed
+  expect(text).toContain('PTBF CONTRACT')
+  expect(text).toContain('$4,320/t')
+  expect(text).toContain('FIXED')
+  // Both hedges' economics are preserved
+  expect(text).toContain('$4,370/t effective')
+  expect(text).toContain('$4,620/t net')
   expect(text).toContain('EFS — Exchange of Futures for Swaps')
 })
 

@@ -193,11 +193,11 @@ export default function CommodityDonutChart() {
                 <div key={row.label} className="flex gap-2">
                   <span className="w-28 shrink-0 font-mono text-[10px] uppercase tracking-wide text-slate-500 pt-px">{row.label}</span>
                   {Array.isArray(v) ? (
-                    <div className="space-y-0.5 font-mono tabular-nums text-slate-300">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono tabular-nums text-slate-300">
                       {v.map((m, i) => (
-                        <div key={m} className={i === 0 ? 'font-bold text-white' : 'text-slate-400'}>
+                        <span key={m} className={`whitespace-nowrap ${i === 0 ? 'font-bold text-white' : 'text-slate-400'}`}>
                           {m}{i === 0 && <span className="ml-1 text-[9px] text-slate-500">front</span>}
-                        </div>
+                        </span>
                       ))}
                     </div>
                   ) : (
