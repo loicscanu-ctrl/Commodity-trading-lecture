@@ -86,6 +86,9 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
 test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sale, buy-back', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
+  // The spot sale is also quoted as a FOB-equivalent diff: 4,920 − 4,800 − 70 − 100 = −$50
+  expect(container.textContent).toContain('Spot in FOB diff eq.')
+  expect(container.textContent).toContain('−$50')
   // 1. Buy in diff only — price still floating: diff risk open, NO flat risk
   fireEvent.click(screen.getByRole('button', { name: 'Buy FOB HCM' }))
   expect(container.textContent).toContain('96 t bought @ avg diff −$60.0')
