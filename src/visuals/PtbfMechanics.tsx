@@ -44,14 +44,15 @@ type Deal = {
 }
 
 // Live-market mode: a predetermined multi-season path, identical for every
-// student. 45 seconds per round; within a round the market DRIFTS from the
-// previous round's level to this round's published level in 5-second steps
-// (reaching it at 40 s and holding, so the printed level is tradeable),
-// then freezes on the final round. Each round opens with a news flash —
-// the prices move the way the news says.
-const ROUND_SECONDS = 45
+// student. The CLOCK runs at a constant speed — 3 days per second, one month
+// every 10 seconds — and each news event fires when the calendar reaches its
+// date, so rounds have very different real-time lengths (Y2 Sep→Oct is 10 s;
+// Y2 Oct→Y3 Dec is 140 s). After each news the market DRIFTS toward the
+// published level in 5-second steps, reaching it within at most 40 s (or by
+// the next news for short rounds) and holding, so the printed level is
+// always tradeable before the next event.
 const TICK_SECONDS = 5
-const TICKS_TO_TARGET = ROUND_SECONDS / TICK_SECONDS - 1 // target reached one tick early
+const DRIFT_TICKS_MAX = 8 // the drift completes in at most 8 ticks (40 s)
 const LIVE_SCRIPT = [
   { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -90, freight: 70, eur: 4090,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
@@ -75,25 +76,32 @@ const LIVE_SCRIPT = [
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
-const SESSION_SECONDS = LIVE_SCRIPT.length * ROUND_SECONDS // 450 s of live market
-
 // The rounds are NOT evenly spaced in calendar time. Month index of each
-// round from Y1 Apr = 0, so the x-axis spacing is realistic: Y1 Apr→Jul is
-// 3 months of width, Y2 Oct→Y3 Dec is 14.
+// round from Y1 Apr = 0 — the news fires when the calendar reaches its date.
 const ROUND_MONTHS = [0, 3, 7, 11, 17, 18, 32, 40, 44, 45]
 const TOTAL_MONTHS = ROUND_MONTHS[ROUND_MONTHS.length - 1]
+const SECONDS_PER_MONTH = 10 // the clock: 3 days per second
+const ROUND_STARTS = ROUND_MONTHS.map(m => m * SECONDS_PER_MONTH)
+const SESSION_SECONDS = TOTAL_MONTHS * SECONDS_PER_MONTH // 450 s of live market
+
+// Which round (news regime) the market is in at second t
+function roundAt(t: number): number {
+  let r = 0
+  for (let i = 0; i < ROUND_STARTS.length; i++) if (t >= ROUND_STARTS[i]) r = i
+  return r
+}
+// Drift window of round r: at most 8 ticks, less if the next news is sooner
+function ticksToTarget(r: number): number {
+  const len = r < ROUND_STARTS.length - 1 ? ROUND_STARTS[r + 1] - ROUND_STARTS[r] : Infinity
+  return Math.max(1, Math.min(DRIFT_TICKS_MAX, len / TICK_SECONDS - 1))
+}
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 // Calendar label of month index m (m = 0 is Y1 Apr)
 const monthLabel = (m: number) => { const abs = 3 + m; return `Y${1 + Math.floor(abs / 12)} ${MONTH_NAMES[abs % 12]}` }
 
-// Session second → calendar month position (piecewise linear across rounds)
-function calAt(t: number): number {
-  const r = Math.min(LIVE_SCRIPT.length - 1, Math.floor(t / ROUND_SECONDS))
-  const next = Math.min(LIVE_SCRIPT.length - 1, r + 1)
-  const frac = Math.min(1, Math.max(0, (t - r * ROUND_SECONDS) / ROUND_SECONDS))
-  return ROUND_MONTHS[r] + frac * (ROUND_MONTHS[next] - ROUND_MONTHS[r])
-}
+// Session second → calendar month position: LINEAR, one month per 10 s
+const calAt = (t: number) => Math.min(t, SESSION_SECONDS) / SECONDS_PER_MONTH
 
 // Deterministic per-tick noise in [-1, 1] — identical for every student.
 function noise01(k: number): number {
@@ -102,14 +110,14 @@ function noise01(k: number): number {
 }
 
 // Deterministic live value at second t: the round-to-round drift plus a
-// little brownian wiggle. The wiggle fades to zero at the round boundaries
+// little brownian wiggle. The wiggle fades to zero at the drift's ends
 // (scale 4f(1−f)), so each round STARTS at the previous level and the
-// published level is exactly tradeable from the 40-second mark.
+// published level is exactly tradeable once the drift completes.
 function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number, snap: number, seed = 0, amp = 0): number {
-  const r = Math.min(LIVE_SCRIPT.length - 1, Math.floor(t / ROUND_SECONDS))
+  const r = roundAt(t)
   const prev = get(LIVE_SCRIPT[Math.max(0, r - 1)])
   const target = get(LIVE_SCRIPT[r])
-  const f = Math.min(1, Math.floor(Math.max(0, t - r * ROUND_SECONDS) / TICK_SECONDS) / TICKS_TO_TARGET)
+  const f = Math.min(1, Math.floor(Math.max(0, t - ROUND_STARTS[r]) / TICK_SECONDS) / ticksToTarget(r))
   const tick = Math.floor(Math.max(0, t) / TICK_SECONDS)
   const wiggle = amp * 4 * f * (1 - f) * noise01(tick * 7.13 + seed)
   return Math.round((prev + (target - prev) * f + wiggle) / snap) * snap
@@ -411,7 +419,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
             })}
             {/* news flags — revealed only once the market reaches them */}
             {LIVE_SCRIPT.map((r, ri) => {
-              if (ri * ROUND_SECONDS > elapsed!) return null
+              if (ROUND_STARTS[ri] > elapsed!) return null
               const bx = xM(ROUND_MONTHS[ri])
               const fy2 = mt + 2 + (ri % 2) * 10
               return (
@@ -601,9 +609,9 @@ export default function PtbfMechanics() {
   const [live, setLive] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
-  const liveRound = Math.min(LIVE_SCRIPT.length - 1, Math.floor(elapsed / ROUND_SECONDS))
+  const liveRound = roundAt(elapsed)
   const liveFinal = live && liveRound === LIVE_SCRIPT.length - 1
-  const nextTickIn = ROUND_SECONDS - (elapsed % ROUND_SECONDS)
+  const nextNewsIn = liveFinal ? 0 : ROUND_STARTS[liveRound + 1] - elapsed
 
   useEffect(() => {
     if (!live) return
@@ -923,7 +931,7 @@ export default function PtbfMechanics() {
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
           }`}>
-          {live ? '■ Stop live market' : '▶ Live market (10 rounds × 0:45)'}
+          {live ? '■ Stop live market' : '▶ Live market (45 months · 10 s/month)'}
         </button>
         {nameErr && !live && (
           <span className="font-mono text-[10px] text-rose-300">enter trader name & surname — the report is issued in your name</span>
@@ -932,7 +940,7 @@ export default function PtbfMechanics() {
           <span className="rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1 font-mono text-[11px] text-cyan-200">
             Round {liveRound + 1}/{LIVE_SCRIPT.length} · {LIVE_SCRIPT[liveRound].label}{liveFinal
               ? ' · final round'
-              : ` · next tick ${Math.floor(nextTickIn / 60)}:${String(nextTickIn % 60).padStart(2, '0')}`}
+              : ` · next news ${Math.floor(nextNewsIn / 60)}:${String(nextNewsIn % 60).padStart(2, '0')}`}
           </span>
         )}
       </div>
