@@ -26,6 +26,7 @@ type Deal = {
   eur?: number                         // importer step 4: sale in EUR
   fFix?: number                        // futures bought back (final step)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
+  stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
   diffMarks?: number[]                 // FOB differential at each executed action (second graph panel)
 }
@@ -61,6 +62,18 @@ const LIVE_SCRIPT = [
   { label: 'Y5 Jan', vnd: 114000, fut: 4600, fob: -80, freight: 60, eur: 3950,
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
+
+const SESSION_SECONDS = LIVE_SCRIPT.length * ROUND_SECONDS // 450 s of live market
+
+// Deterministic live value at second t — the same lerp+snap as the feed, so
+// the graph can reconstruct the whole tick-by-tick price history from time.
+function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number, snap: number): number {
+  const r = Math.min(LIVE_SCRIPT.length - 1, Math.floor(t / ROUND_SECONDS))
+  const prev = get(LIVE_SCRIPT[Math.max(0, r - 1)])
+  const target = get(LIVE_SCRIPT[r])
+  const f = Math.min(1, Math.floor(Math.max(0, t - r * ROUND_SECONDS) / TICK_SECONDS) / TICKS_TO_TARGET)
+  return Math.round((prev + (target - prev) * f) / snap) * snap
+}
 
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
 const fmtEur = (n: number) => '€' + Math.abs(n).toLocaleString('en-US')
@@ -180,23 +193,42 @@ function RiskSquare({ label, on, active }: { label: string; on: boolean; active:
 // white line is the flat OUTRIGHT (futures + diff); the x-axis shows WHEN
 // each action happened (live-market round labels, or T1/T2… by hand); the
 // hedge→fix window is annotated because it IS the Futures P&L.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, complete, sides, stamps, liveLabel }: {
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, complete, sides, stamps, stampTimes, liveLabel, elapsed }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; lastStep: number; hedgeIdx: number; complete: boolean
-  sides: ReadonlyArray<'buy' | 'sell'>; stamps?: number[]; liveLabel: string
+  sides: ReadonlyArray<'buy' | 'sell'>; stamps?: number[]; stampTimes?: number[]; liveLabel: string
+  elapsed?: number // live mode: seconds since session start → real time axis
 }) {
   const W = 560, H = 320, ml = 56, mr = 16, mt = 12
   const pw = W - ml - mr, ph = 158 - mt // futures panel height
   const PMINg = 3500, PMAXg = 6000
-  const x = (step: number) => ml + ((step - 1) / (lastStep - 1)) * pw
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
   // Second panel: the FOB differential — the risk the desk actually trades
   const D = { top: 196, h: 92, min: -350, max: 300 }
   const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
   const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
-  const diffPath = diffMarks.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${yd(v).toFixed(1)}`).join(' ')
 
-  const path = marks.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  // ── Two x-axes ──
+  // Live mode: REAL TIME — the full 450 s session, the ticker crawling right
+  // one notch every 5-second tick. Manual mode: one slot per action (T1…).
+  const isTime = elapsed !== undefined
+  const tickNow = isTime ? Math.min(SESSION_SECONDS, Math.floor(elapsed! / TICK_SECONDS) * TICK_SECONDS) : 0
+  const xT = (t: number) => ml + (Math.min(t, SESSION_SECONDS) / SESSION_SECONDS) * pw
+  const xStep = (step: number) => ml + ((step - 1) / (lastStep - 1)) * pw
+  // x of executed action i, and of the live point
+  const xa = (i: number) => (isTime ? xT(stampTimes?.[i] ?? 0) : xStep(i + 1))
   const nextStep = marks.length + 1
+  const xLive = isTime ? xT(tickNow) : xStep(nextStep)
+
+  // Live mode: reconstruct the whole tick-by-tick history (deterministic)
+  const times: number[] = isTime ? Array.from({ length: tickNow / TICK_SECONDS + 1 }, (_, k) => k * TICK_SECONDS) : []
+  const futSeries = times.map(t => liveValueAt(t, r => r.fut, 5))
+  const diffSeries = times.map(t => liveValueAt(t, r => r.fob, 1))
+  const seriesPath = (vals: number[], yf: (v: number) => number) =>
+    vals.map((v, k) => `${k === 0 ? 'M' : 'L'}${xT(times[k]).toFixed(1)},${yf(v).toFixed(1)}`).join(' ')
+
+  const path = isTime ? seriesPath(futSeries, y) : marks.map((v, i) => `${i === 0 ? 'M' : 'L'}${xStep(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const diffPath = isTime ? seriesPath(diffSeries, yd) : diffMarks.map((v, i) => `${i === 0 ? 'M' : 'L'}${xStep(i + 1).toFixed(1)},${yd(v).toFixed(1)}`).join(' ')
+
   const hedge = marks[hedgeIdx - 1]
   const fix = complete ? marks[lastStep - 1] : undefined
   const futPnlT = hedge !== undefined && fix !== undefined ? hedge - fix : null
@@ -204,10 +236,14 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
   const sideHex = (i: number) => (sides[i] === 'buy' ? '#34d399' : '#f43f5e')
   // Time label of each executed action: live-round stamp, or T1/T2… by hand
   const timeLabel = (i: number) => (stamps?.[i] !== undefined ? LIVE_SCRIPT[stamps[i]].label : `T${i + 1}`)
-  // The flat outright = futures + differential, per action and live
+  // The flat outright = futures + differential, along the series (live) or the actions (manual)
   const outright = marks.map((v, i) => v + (diffMarks[i] ?? 0))
-  const outrightPath = outright.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const outrightSeries = futSeries.map((v, k) => v + diffSeries[k])
+  const outrightPath = isTime
+    ? seriesPath(outrightSeries, y)
+    : outright.map((v, i) => `${i === 0 ? 'M' : 'L'}${xStep(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
   const liveOutright = liveFut + liveDiff
+  const showOutright = isTime ? times.length > 1 : marks.length > 0
 
   return (
     <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -226,62 +262,83 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
             <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="10" fontFamily="monospace">{p.toLocaleString()}</text>
           </g>
         ))}
-        {/* X axis: the TIME each action happened, not the action number */}
-        {Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
-          <text key={stp} x={x(stp)} y={H - 6} textAnchor="middle"
-            fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="9.5" fontFamily="monospace">
-            {stp <= marks.length ? timeLabel(stp - 1) : stp === nextStep && !complete ? liveLabel : '·'}
-          </text>
-        ))}
+
+        {/* X axis: TIME. Live → the 10 rounds of the session; manual → T1/T2… */}
+        {isTime ? (
+          LIVE_SCRIPT.map((r, ri) => {
+            const bx = xT(ri * ROUND_SECONDS)
+            const current = ri === Math.min(LIVE_SCRIPT.length - 1, Math.floor(elapsed! / ROUND_SECONDS))
+            return (
+              <g key={r.label}>
+                <line x1={bx} y1={mt} x2={bx} y2={H - 22} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                <text x={bx + 3} y={H - 6} textAnchor="start"
+                  fill={current ? '#e2e8f0' : ri * ROUND_SECONDS < tickNow ? '#94a3b8' : '#475569'}
+                  fontSize="8" fontFamily="monospace" transform={`rotate(-30 ${bx + 3} ${H - 6})`}>
+                  {r.label}
+                </text>
+              </g>
+            )
+          })
+        ) : (
+          Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
+            <text key={stp} x={xStep(stp)} y={H - 6} textAnchor="middle"
+              fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="9.5" fontFamily="monospace">
+              {stp <= marks.length ? timeLabel(stp - 1) : stp === nextStep && !complete ? liveLabel : '·'}
+            </text>
+          ))
+        )}
 
         {/* Flat outright — dotted white, above the futures path */}
-        {marks.length > 0 && (
+        {showOutright && (
           <path d={outrightPath} fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="2 4" opacity="0.75" strokeLinecap="round" />
         )}
-        {!complete && marks.length > 0 && (
-          <line x1={x(marks.length)} y1={y(outright[outright.length - 1])} x2={x(nextStep)} y2={y(liveOutright)}
+        {!isTime && !complete && marks.length > 0 && (
+          <line x1={xStep(marks.length)} y1={y(outright[outright.length - 1])} x2={xStep(nextStep)} y2={y(liveOutright)}
             stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 4" opacity="0.45" />
         )}
-        {marks.length > 0 && (
-          <text x={x(1) + 6} y={y(outright[0]) - 6} fill="#e2e8f0" fontSize="8.5" fontFamily="monospace" opacity="0.8">outright</text>
+        {showOutright && (
+          <text x={ml + 6} y={y(isTime ? outrightSeries[0] : outright[0]) - 6} fill="#e2e8f0" fontSize="8.5" fontFamily="monospace" opacity="0.8">outright</text>
         )}
 
         {/* hedge → fix window: the futures leg */}
         {hedge !== undefined && (
           <g>
-            <line x1={x(hedgeIdx)} y1={y(hedge)} x2={complete ? x(lastStep) : x(Math.max(nextStep, hedgeIdx))} y2={y(hedge)}
+            <line x1={xa(hedgeIdx - 1)} y1={y(hedge)} x2={complete ? xa(lastStep - 1) : Math.max(xLive, xa(hedgeIdx - 1))} y2={y(hedge)}
               stroke="#22d3ee" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
-            <text x={x(hedgeIdx)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">hedge</text>
+            <text x={xa(hedgeIdx - 1)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">hedge</text>
           </g>
         )}
         {futPnlT !== null && (
           <g>
-            <line x1={x(lastStep)} y1={y(hedge!)} x2={x(lastStep)} y2={y(fix!)} stroke={futPnlT >= 0 ? '#34d399' : '#f43f5e'} strokeWidth="1.5" />
-            <text x={x(lastStep) - 6} y={(y(hedge!) + y(fix!)) / 2 + 3} textAnchor="end"
+            <line x1={xa(lastStep - 1)} y1={y(hedge!)} x2={xa(lastStep - 1)} y2={y(fix!)} stroke={futPnlT >= 0 ? '#34d399' : '#f43f5e'} strokeWidth="1.5" />
+            <text x={xa(lastStep - 1) - 6} y={(y(hedge!) + y(fix!)) / 2 + 3} textAnchor="end"
               fill={futPnlT >= 0 ? '#34d399' : '#f87171'} fontSize="10" fontFamily="monospace" fontWeight="bold">
               futures leg {futPnlT >= 0 ? '+' : '−'}${Math.abs(futPnlT).toLocaleString('en-US')}/t
             </text>
           </g>
         )}
 
-        {/* Executed path — each locked action is a green (buy) or red (sell) dot */}
-        {marks.length > 0 && <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+        {/* Price path: live → the tick-by-tick market; manual → the executed marks */}
+        {(isTime ? times.length > 1 : marks.length > 0) && (
+          <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        )}
+        {/* Executed actions lock in as green (buy) / red (sell) dots */}
         {marks.map((v, i) => (
-          <circle key={i} cx={x(i + 1)} cy={y(v)} r="4.5" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
+          <circle key={i} cx={xa(i)} cy={y(v)} r="4.5" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
             <title>{`action ${i + 1} (${sides[i]}) · ${timeLabel(i)} · $${v.toLocaleString('en-US')}`}</title>
           </circle>
         ))}
 
-        {/* Live (next) point */}
+        {/* Live ticker — crawls one notch right every 5-second tick */}
         {!complete && (
           <g>
-            {marks.length > 0 && (
-              <line x1={x(marks.length)} y1={y(marks[marks.length - 1])} x2={x(nextStep)} y2={y(liveFut)}
+            {!isTime && marks.length > 0 && (
+              <line x1={xStep(marks.length)} y1={y(marks[marks.length - 1])} x2={xLive} y2={y(liveFut)}
                 stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />
             )}
-            <circle cx={x(nextStep)} cy={y(liveFut)} r="6" fill="#f59e0b" stroke="#070912" strokeWidth="1.5" />
-            <circle cx={x(nextStep)} cy={y(liveFut)} r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.35" />
-            <text x={x(nextStep)} y={y(liveFut) - 12} textAnchor="middle" fill="#fbbf24" fontSize="10.5" fontFamily="monospace" fontWeight="bold">
+            <circle cx={xLive} cy={y(liveFut)} r="6" fill="#f59e0b" stroke="#070912" strokeWidth="1.5" />
+            <circle cx={xLive} cy={y(liveFut)} r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.35" />
+            <text x={xLive} y={y(liveFut) - 12} textAnchor={isTime && xLive > ml + pw - 40 ? 'end' : 'middle'} fill="#fbbf24" fontSize="10.5" fontFamily="monospace" fontWeight="bold">
               {liveFut.toLocaleString('en-US')}
             </text>
           </g>
@@ -296,20 +353,22 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
             <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="10" fontFamily="monospace">{v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v)}</text>
           </g>
         ))}
-        {diffMarks.length > 0 && <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+        {(isTime ? times.length > 1 : diffMarks.length > 0) && (
+          <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        )}
         {diffMarks.map((v, i) => (
-          <circle key={`dm-${i}`} cx={x(i + 1)} cy={yd(v)} r="4" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
+          <circle key={`dm-${i}`} cx={xa(i)} cy={yd(v)} r="4" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
             <title>{`action ${i + 1} (${sides[i]}) · ${timeLabel(i)} · diff ${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('en-US')}`}</title>
           </circle>
         ))}
         {!complete && (
           <g>
-            {diffMarks.length > 0 && (
-              <line x1={x(diffMarks.length)} y1={yd(diffMarks[diffMarks.length - 1])} x2={x(nextStep)} y2={yd(liveDiff)}
+            {!isTime && diffMarks.length > 0 && (
+              <line x1={xStep(diffMarks.length)} y1={yd(diffMarks[diffMarks.length - 1])} x2={xLive} y2={yd(liveDiff)}
                 stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" />
             )}
-            <circle cx={x(nextStep)} cy={yd(liveDiff)} r="5" fill="#f59e0b" stroke="#070912" strokeWidth="1.2" />
-            <text x={x(nextStep)} y={yd(liveDiff) - 9} textAnchor="middle" fill="#fbbf24" fontSize="10" fontFamily="monospace" fontWeight="bold">
+            <circle cx={xLive} cy={yd(liveDiff)} r="5" fill="#f59e0b" stroke="#070912" strokeWidth="1.2" />
+            <text x={xLive} y={yd(liveDiff) - 9} textAnchor={isTime && xLive > ml + pw - 40 ? 'end' : 'middle'} fill="#fbbf24" fontSize="10" fontFamily="monospace" fontWeight="bold">
               {liveDiff >= 0 ? '+' : '−'}{Math.abs(liveDiff).toLocaleString('en-US')}
             </text>
           </g>
@@ -404,10 +463,10 @@ export default function PtbfMechanics() {
   function act() {
     // Every execution stamps the current futures level (for the price graph)
     // and, in live mode, the round it happened in.
-    const stamp = (d: Deal): Pick<Deal, 'stamps' | 'futMarks' | 'diffMarks'> => ({
+    const stamp = (d: Deal): Pick<Deal, 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
       futMarks: [...(d.futMarks ?? []), curFut],
       diffMarks: [...(d.diffMarks ?? []), fobDiff],
-      ...(live ? { stamps: [...(d.stamps ?? []), liveRound] } : {}),
+      ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}),
     })
     if (mode === 'exporter') {
       if (step === 0) setDeal(d => ({ vnd, buy: localUsd, ...stamp(d) }))
@@ -544,7 +603,9 @@ export default function PtbfMechanics() {
         complete={complete}
         sides={mode === 'exporter' ? EXP_SIDES : IMP_SIDES}
         stamps={deal.stamps}
+        stampTimes={deal.stampTimes}
         liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
+        elapsed={live ? elapsed : undefined}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
