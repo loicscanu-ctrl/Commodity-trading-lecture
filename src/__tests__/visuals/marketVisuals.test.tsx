@@ -133,6 +133,28 @@ test('PtbfMechanics intermediate level: sell the diff first — and even buy fut
   expect(container.textContent).toContain('+$3,275')
 })
 
+test('PtbfMechanics intermediate live: booked business auto-fixes after 10 s with the penalty', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader name' }), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader surname' }), { target: { value: 'Lovelace' } })
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Build the book and sell the diff at the opening prints: the business is BOOKED
+    fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
+    expect(container.textContent).toContain('BUSINESS BOOKED')
+    // 11 s later the desk has auto-fixed the open short, recorded, and charged −$20,000
+    act(() => { jest.advanceTimersByTime(11_000) })
+    expect(container.textContent).toContain('auto-fix penalty')
+    expect(container.textContent).toContain('Trade #1 recorded automatically')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
@@ -281,7 +303,7 @@ test('buildTradeReport includes volumes, every execution, stamps and totals', ()
     mode: 'exporter' as const,
     tonnes: 96, soldT: 96, lots: 10, boxes: 5,
     deal: { vnd: 120000, buy, fHedge: 4800, sell: -60, fFix: 4800, vol: 96, lots: 10, boxes: 5, stamps: [1, 2, 2, 3] },
-    physicalD: netD, futuresD: 0, costsD: 0, financingD: 0, netD,
+    physicalD: netD, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, netD,
   }], 'Ada Lovelace')
   expect(report).toContain('Trader: Ada Lovelace')
   expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 96 t bought · 10 lots hedged (100 t) · 5 containers shipped (96.0 t)')
@@ -301,7 +323,7 @@ test('buildTradeReport shows the scaling readout for multi-clip legs', () => {
       vol: 96, lots: 10, boxes: 5, fixedLots: 10,
       order: [1, 2, 2, 3, 4], clipPx: [4700, 4900, 4800, -60, 4800],
     },
-    physicalD: 0, futuresD: 0, costsD: 0, financingD: 0, netD: 0,
+    physicalD: 0, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, netD: 0,
   }])
   // The hedge was worked in two clips: first at 4,900, average 4,850
   expect(report).toContain('Scaling — hedge: 2 clips · first $4,900 → avg $4,850')
