@@ -32,9 +32,10 @@ type Deal = {
   sell?: number                        // exporter step 3: FOB diff · importer step 4: sale in USD
   eur?: number                         // importer step 4: sale in EUR
   fFix?: number                        // futures bought back (final step)
-  vol?: number                         // tonnes bought (locked at step 1)
-  lots?: number                        // futures lots hedged (locked at the hedge step)
-  boxes?: number                       // containers shipped (locked at the sale step)
+  vol?: number                         // total tonnes bought (clips accumulate; prices are weighted averages)
+  lots?: number                        // total futures lots hedged
+  boxes?: number                       // total containers sold
+  fixedLots?: number                   // total lots bought back (fix clips)
   draw?: number                        // $ of working capital this trade draws (live)
   order?: number[]                     // action numbers in execution order (free order on intermediate)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
@@ -113,27 +114,31 @@ function noise01(k: number): number {
 // little brownian wiggle. The wiggle fades to zero at the drift's ends
 // (scale 4f(1−f)), so each round STARTS at the previous level and the
 // published level is exactly tradeable once the drift completes.
-function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number, snap: number, seed = 0, amp = 0): number {
+function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number, snap: number, seed = 0, amp = 0, holdAmp = 0): number {
   const r = roundAt(t)
   const prev = get(LIVE_SCRIPT[Math.max(0, r - 1)])
   const target = get(LIVE_SCRIPT[r])
   const f = Math.min(1, Math.floor(Math.max(0, t - ROUND_STARTS[r]) / TICK_SECONDS) / ticksToTarget(r))
   const tick = Math.floor(Math.max(0, t) / TICK_SECONDS)
-  const wiggle = amp * 4 * f * (1 - f) * noise01(tick * 7.13 + seed)
+  // Drift wiggle fades at the ends; holdAmp keeps a residual brownian breath
+  // AFTER the target is reached (used for the differential — a quoted, not
+  // printed, market never sits perfectly still).
+  const scale = amp * 4 * f * (1 - f) + (f >= 1 ? holdAmp : 0)
+  const wiggle = scale * noise01(tick * 7.13 + seed)
   return Math.round((prev + (target - prev) * f + wiggle) / snap) * snap
 }
 
 // The whole market derives from time through this table — the graph redraws
 // history with the exact function the live feed uses.
 const FEED = {
-  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1200 },
-  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 45 },
-  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 12 },
-  freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 5 },
-  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 40 },
+  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1200, holdAmp: 0 },
+  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 45,   holdAmp: 0 },
+  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 12,   holdAmp: 8 },
+  freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 5,    holdAmp: 0 },
+  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 40,   holdAmp: 0 },
 } as const
 export const feedAt = (t: number, key: keyof typeof FEED) =>
-  liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp)
+  liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
 
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
 const fmtEur = (n: number) => '€' + Math.abs(n).toLocaleString('en-US')
@@ -338,7 +343,9 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
   const tickNow = isTime ? Math.min(SESSION_SECONDS, Math.floor(elapsed! / TICK_SECONDS) * TICK_SECONDS) : 0
   const xT = (t: number) => ml + (calAt(t) / TOTAL_MONTHS) * pw
   const xM = (m: number) => ml + (m / TOTAL_MONTHS) * pw
-  const xStep = (step: number) => ml + ((step - 1) / (lastStep - 1)) * pw
+  // Manual mode: one slot per EXECUTION — clips can outgrow the nominal step count
+  const slots = Math.max(lastStep, marks.length + (complete ? 0 : 1))
+  const xStep = (step: number) => ml + ((step - 1) / Math.max(1, slots - 1)) * pw
   const xa = (i: number) => (isTime ? xT(stampTimes?.[i] ?? 0) : xStep(i + 1))
   const nextStep = marks.length + 1
   const xLive = isTime ? xT(tickNow) : xStep(nextStep)
@@ -434,7 +441,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
             })}
           </g>
         ) : (
-          Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
+          Array.from({ length: slots }, (_, i) => i + 1).map(stp => (
             <text key={stp} x={xStep(stp)} y={H - 6} textAnchor="middle"
               fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="9.5" fontFamily="monospace">
               {stp <= marks.length ? timeLabel(stp - 1) : stp === nextStep && !complete ? liveLabel : '·'}
@@ -457,7 +464,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
         {/* hedge → fix window: the futures leg */}
         {hedge !== undefined && (
           <g>
-            <line x1={xa(hedgeIdx - 1)} y1={y(hedge)} x2={complete ? xa(lastStep - 1) : Math.max(xLive, xa(hedgeIdx - 1))} y2={y(hedge)}
+            <line x1={xa(hedgeIdx - 1)} y1={y(hedge)} x2={complete && fixIdx > 0 ? xa(fixIdx - 1) : Math.max(xLive, xa(hedgeIdx - 1))} y2={y(hedge)}
               stroke="#22d3ee" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
             <text x={xa(hedgeIdx - 1)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">hedge</text>
           </g>
@@ -564,8 +571,6 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
   )
 }
 
-const EXP_STATUS = ['No position', 'Long physical (VND) — UNHEDGED', 'Hedged — buying diff locked', 'Sold FOB — fixing pending', 'FLAT — trade complete']
-const IMP_STATUS = ['No position', 'Long the diff — unpriced PTBF, no flat risk yet', 'Freight booked — costs locked', 'Fixed & hedged — long the basis', 'Sold outright (EUR) — short futures open!', 'FLAT — trade complete']
 const CHIP_CLS = (s: string) =>
   s === 'No position' ? 'border-white/10 bg-white/[0.03] text-slate-400'
   : s.includes('UNHEDGED') || s.includes('open!') ? 'border-rose-500/40 bg-rose-500/[0.10] text-rose-300'
@@ -590,6 +595,7 @@ export default function PtbfMechanics() {
   const [vol, setVol] = useState(DEFAULT_VOL)         // tonnes of physical
   const [lotsIn, setLotsIn] = useState(Math.round(DEFAULT_VOL / LOT_T))   // hedge, in lots
   const [boxesIn, setBoxesIn] = useState(Math.floor(DEFAULT_VOL / CONTAINER_T)) // sale, in containers
+  const [fixLotsIn, setFixLotsIn] = useState(Math.round(DEFAULT_VOL / LOT_T))   // buy-back, in lots
 
   const [deal, setDeal] = useState<Deal>({})
   const [history, setHistory] = useState<TradeRecord[]>([])
@@ -650,25 +656,41 @@ export default function PtbfMechanics() {
     setLive(true)
   }
 
-  // Per-action done flags (order-independent, so the intermediate level can
-  // execute out of sequence — e.g. sell the diff before buying the physical)
-  const aBuy = mode === 'exporter' ? deal.buy !== undefined : deal.dBuy !== undefined      // action 1
-  const aHedge = deal.fHedge !== undefined                                                 // exporter 2 / importer 3
-  const aSell = deal.sell !== undefined                                                    // exporter 3 / importer 4
-  const aFix = deal.fFix !== undefined                                                     // final action
-  const doneList = mode === 'exporter' ? [aBuy, aHedge, aSell, aFix] : [aBuy, deal.freight !== undefined, aHedge, aSell, aFix]
-  const doneOf = (n: number) => doneList[n - 1]
-  const step = doneList.filter(Boolean).length
+  // ── The BOOK: clip trading — buy and sell little by little. Prices in the
+  // deal are running weighted averages; volumes accumulate. ──
+  const volT = deal.vol ?? 0
+  const lotsH = deal.lots ?? 0
+  const lotsX = deal.fixedLots ?? 0
+  const boxesS = deal.boxes ?? 0
+  const soldT = boxesS * CONTAINER_T
+  const outstanding = lotsH - lotsX
+  const remainingT = volT - soldT
+  const started = (deal.order?.length ?? 0) > 0
+  const step = deal.order?.length ?? 0 // executions so far
   const lastStep = mode === 'exporter' ? 4 : 5
-  const complete = doneList.every(Boolean)
-  const hedged = deal.fHedge !== undefined
+  const freightDone = mode === 'exporter' || deal.freight !== undefined
+  // The trade squares itself when: physical bought, everything shipped
+  // (less than one container left), futures flat, freight booked.
+  const complete = volT > 0 && lotsH > 0 && lotsX === lotsH && boxesS > 0 && remainingT < CONTAINER_T && freightDone
+  const hedged = lotsH > 0
+
+  // Containers can never ship more than the (planned) physical
+  const plannedVol = Math.max(volT, vol)
+  const maxBoxesTotal = Math.max(1, Math.floor((plannedVol + 1e-9) / CONTAINER_T))
+  const remainingBoxes = Math.max(0, maxBoxesTotal - boxesS)
 
   const canExec = (n: number) => {
-    if (complete || doneOf(n)) return false
-    if (level === 'easy') return doneList.slice(0, n - 1).every(Boolean)
-    // Intermediate: any order — but buying futures back still needs the hedge
-    if (mode === 'exporter' && n === 4) return aHedge
-    if (mode === 'importer' && n === 5) return aHedge
+    if (complete) return false
+    const hedgeN = mode === 'exporter' ? 2 : 3
+    const sellN = mode === 'exporter' ? 3 : 4
+    if (n === lastStep) return outstanding > 0 // buy-back needs an open short
+    if (mode === 'importer' && n === 2) return level === 'easy' ? volT > 0 && deal.freight === undefined : deal.freight === undefined
+    if (n === sellN && remainingBoxes === 0) return false
+    if (level === 'easy') {
+      // Guided: each leg unlocks once the previous leg EXISTS — then clips freely
+      if (n === hedgeN) return volT > 0
+      if (n === sellN) return lotsH > 0 && (mode === 'exporter' || freightDone)
+    }
     return true
   }
 
@@ -685,41 +707,56 @@ export default function PtbfMechanics() {
   const drawn = committedDrawn + (deal.draw !== undefined ? deal.draw : 0)
   const available = capitalBase - drawn
   const estDraw = (mode === 'exporter' ? localUsd : Math.max(0, curFut + fobDiff)) * vol
-  const capitalBlocked = live && deal.draw === undefined && estDraw > available
+  const capitalBlocked = live && estDraw > available
   const nextFreeIn = openCommitments.length > 0 ? Math.max(0, Math.min(...openCommitments.map(c => c.freesAt)) - elapsed) : 0
 
   function switchMode(m: Mode) { setMode(m); setDeal({}) }
 
-  const maxBoxes = Math.max(1, Math.floor(((deal.vol ?? vol) + 1e-9) / CONTAINER_T))
+  // Weighted-average accumulator: fold a new clip into a running average
+  const wavg = (avg0: number | undefined, qty0: number, px: number, qty: number) =>
+    ((avg0 ?? 0) * qty0 + px * qty) / (qty0 + qty)
 
   function act(n: number) {
     if (!canExec(n)) return
     // Every execution stamps the current futures level (for the price graph),
-    // the action number (for free order), and — live — the round + second.
+    // the action number (for free order/clips), and — live — round + second.
     const stamp = (d: Deal): Pick<Deal, 'order' | 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
       futMarks: [...(d.futMarks ?? []), curFut],
       diffMarks: [...(d.diffMarks ?? []), fobDiff],
       order: [...(d.order ?? []), n],
       ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}),
     })
-    const boxesCapped = Math.min(boxesIn, maxBoxes)
     if (mode === 'exporter') {
       if (n === 1) {
         if (capitalBlocked) return
-        setDeal(d => ({ ...d, vnd, buy: localUsd, vol, draw: localUsd * vol, ...stamp(d) }))
+        setDeal(d => {
+          const v0 = d.vol ?? 0
+          return { ...d, vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol),
+            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d) }
+        })
       }
-      else if (n === 2) { setFutFix(fut); setDeal(d => ({ ...d, fHedge: fut, lots: lotsIn, ...stamp(d) })) }
-      else if (n === 3) setDeal(d => ({ ...d, sell: fobDiff, boxes: boxesCapped, ...stamp(d) }))
-      else if (n === 4) setDeal(d => ({ ...d, fFix: futFix, ...stamp(d) }))
+      else if (n === 2) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d) } }) }
+      else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
+        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d) } }) }
+      else if (n === 4) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d) } }) }
     } else {
       if (n === 1) {
         if (capitalBlocked) return
-        setDeal(d => ({ ...d, dBuy: fobDiff, vol, draw: Math.max(0, curFut + fobDiff) * vol, ...stamp(d) }))
+        setDeal(d => {
+          const v0 = d.vol ?? 0
+          return { ...d, dBuy: wavg(d.dBuy, v0, fobDiff, vol),
+            vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d) }
+        })
       }
       else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d) }))
-      else if (n === 3) { setFutFix(fut); setDeal(d => ({ ...d, fHedge: fut, lots: lotsIn, ...stamp(d) })) }
-      else if (n === 4) setDeal(d => ({ ...d, eur: eurSpot, sell: eurUsd, boxes: boxesCapped, ...stamp(d) }))
-      else if (n === 5) setDeal(d => ({ ...d, fFix: futFix, ...stamp(d) }))
+      else if (n === 3) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d) } }) }
+      else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
+        return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d) } }) }
+      else if (n === 5) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d) } }) }
     }
   }
 
@@ -732,16 +769,14 @@ export default function PtbfMechanics() {
   const impInvoice = mode === 'importer' && hedged && deal.dBuy !== undefined ? deal.fHedge! + deal.dBuy : null
   const dSellImp = mode === 'importer' && deal.fFix !== undefined && deal.sell !== undefined ? deal.sell - deal.fFix : null
 
-  const soldT = deal.boxes !== undefined ? deal.boxes * CONTAINER_T : null
-  const hedgedT = deal.lots !== undefined ? deal.lots * LOT_T : null
   let physicalD: number | null = null, futuresD: number | null = null, costsD = 0
   if (complete) {
-    futuresD = (deal.fHedge! - deal.fFix!) * deal.lots! * LOT_T
+    futuresD = (deal.fHedge! - deal.fFix!) * lotsX * LOT_T
     if (mode === 'exporter') {
-      physicalD = ((deal.fFix! + deal.sell!) - deal.buy!) * soldT!
+      physicalD = ((deal.fFix! + deal.sell!) - deal.buy!) * soldT
     } else {
-      costsD = -(deal.freight! + CIF_INSTORE) * soldT!
-      physicalD = (deal.sell! - impInvoice!) * soldT!
+      costsD = -(deal.freight! + CIF_INSTORE) * soldT
+      physicalD = (deal.sell! - impInvoice!) * soldT
     }
   }
   // Intermediate level: locked capital costs 8% p.a. for the CALENDAR months
@@ -810,38 +845,62 @@ export default function PtbfMechanics() {
         { n: 1, label: 'Buy physical (VND)', detail: `${vnd.toLocaleString()} VND/kg = ${fmtUsd(localUsd, 1)}/t at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
         { n: 2, label: 'Sell futures', detail: `hedge at ${fmtUsd(fut)} → sets your buying differential`, qty: 'lots' as const },
         { n: 3, label: 'Sell physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF`, qty: 'boxes' as const },
-        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(curFut)} → invoice = fix + diff`, qty: null },
+        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(curFut)} → invoice = fix + diff`, qty: 'fixlots' as const },
       ]
     : [
         { n: 1, label: 'Buy physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF — price still floating`, qty: 'vol' as const },
         { n: 2, label: 'Buy freight', detail: `HCM → Antwerp at $${freight}/t (+$${CIF_INSTORE} CIF→instore)`, qty: null },
         { n: 3, label: 'Fix before export (sell futures)', detail: `at ${fmtUsd(fut)} → purchase prices at fix + diff, and you are hedged`, qty: 'lots' as const },
         { n: 4, label: 'Sell spot (outright, EUR)', detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)} = ${fmtUsd(eurUsd)}/t`, qty: 'boxes' as const },
-        { n: 5, label: 'Buy futures', detail: `at ${fmtUsd(curFut)} → locks your selling differential`, qty: null },
+        { n: 5, label: 'Buy futures', detail: `at ${fmtUsd(curFut)} → locks your selling differential`, qty: 'fixlots' as const },
       ]
 
-  const STATUS = mode === 'exporter' ? EXP_STATUS : IMP_STATUS
-  const statusText = level === 'easy'
-    ? STATUS[step]
-    : complete ? 'FLAT — trade complete' : step === 0 ? 'No position' : `${step}/${lastStep} legs executed`
+  // Running summary shown under each action row (the book so far)
+  const actionSummary = (n: number): string | null => {
+    const hedgeN = mode === 'exporter' ? 2 : 3
+    const sellN = mode === 'exporter' ? 3 : 4
+    if (n === 1 && volT > 0) return mode === 'exporter'
+      ? `${volT} t bought @ avg ${fmtUsd(deal.buy!, 1)}/t`
+      : `${volT} t bought @ avg diff ${dfmt(deal.dBuy!, 1)}`
+    if (n === 2 && mode === 'importer' && deal.freight !== undefined) return `booked @ $${deal.freight}/t`
+    if (n === hedgeN && lotsH > 0) {
+      const hT = lotsH * LOT_T
+      const warn = volT > 0 && hT !== volT ? ` · ⚠ ${Math.abs(hT - volT)} t ${hT < volT ? 'UNHEDGED' : 'over-hedged'}` : ''
+      return `${lotsH} lots (${hT} t) @ avg ${fmtUsd(deal.fHedge!)}${warn}`
+    }
+    if (n === sellN && boxesS > 0) {
+      const rest = remainingT >= CONTAINER_T ? ` · ${remainingT.toFixed(1)} t still in store` : ''
+      return mode === 'exporter'
+        ? `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${dfmt(deal.sell!, 1)}${rest}`
+        : `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${fmtUsd(deal.sell!)}/t${rest}`
+    }
+    if (n === lastStep && lotsX > 0) return `${lotsX}/${lotsH} lots bought back @ avg ${fmtUsd(deal.fFix!)}`
+    return null
+  }
 
-  // Which risks are OPEN, computed from the done flags so free order works:
-  //  Exporter FLAT: physical and hedge must pair (naked long OR naked short
-  //  futures if hedged first). DIFF: open until buy+hedge+sale all locked.
-  //  Importer FLAT: sold outright while the buy-back is missing. DIFF: open
+  const statusText = complete
+    ? 'FLAT — trade complete'
+    : !started ? 'No position'
+    : `Book: ${volT} t phys · short ${outstanding} lot${outstanding === 1 ? '' : 's'} · ${soldT.toFixed(0)} t sold`
+
+  // Which risks are OPEN, computed from the live book so clips work:
+  //  Exporter FLAT: physical and hedge must pair (naked long, or naked short
+  //  futures if hedged first). DIFF: open until buy+hedge+sale all exist.
+  //  Importer FLAT: sold outright with the buy-back still open. DIFF: open
   //  until the outright sale prices the selling side.
   const flatRisk = mode === 'exporter'
-    ? step > 0 && !complete && aBuy !== aHedge
-    : step > 0 && !complete && aSell && !aFix
+    ? started && !complete && (volT > 0) !== (lotsH > 0)
+    : started && !complete && soldT > 0 && outstanding > 0
   const diffRisk = mode === 'exporter'
-    ? step > 0 && !complete && !(aBuy && aHedge && aSell)
-    : step > 0 && !complete && !aSell
+    ? started && !complete && !(volT > 0 && lotsH > 0 && boxesS > 0)
+    : started && !complete && boxesS === 0
 
-  const qtyInput = (kind: 'vol' | 'lots' | 'boxes') => {
+  const numCls = 'w-14 rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 text-right tabular-nums text-white outline-none focus:border-brand-blue'
+  const qtyInput = (kind: 'vol' | 'lots' | 'boxes' | 'fixlots') => {
     if (kind === 'vol') return (
-      <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
-        Volume
-        <input type="number" min={CONTAINER_T} max={500} step={1} value={vol} aria-label="Volume to buy (t)"
+      <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
+        Clip
+        <input type="number" min={1} max={500} step={1} value={vol} aria-label="Volume to buy (t)"
           onChange={e => {
             const v = parseFloat(e.target.value)
             if (!Number.isFinite(v)) return
@@ -849,26 +908,35 @@ export default function PtbfMechanics() {
             setLotsIn(Math.max(1, Math.round(v / LOT_T)))
             setBoxesIn(Math.max(1, Math.floor(v / CONTAINER_T)))
           }}
-          className="w-16 rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 text-right tabular-nums text-white outline-none focus:border-brand-blue" />
-        t <span className="text-slate-500">(≈ {Math.floor(vol / CONTAINER_T)} containers)</span>
+          className={`${numCls} w-16`} />
+        t {volT > 0 && <span className="text-slate-500">(book: {volT} t)</span>}
       </span>
     )
     if (kind === 'lots') return (
-      <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
-        Hedge
+      <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
+        Clip
         <input type="number" min={0} max={60} step={1} value={lotsIn} aria-label="Hedge volume (lots)"
           onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setLotsIn(Math.max(0, v)) }}
-          className="w-14 rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 text-right tabular-nums text-white outline-none focus:border-brand-blue" />
-        lots <span className="text-slate-500">(= {lotsIn * LOT_T} t vs {(deal.vol ?? vol)} t physical)</span>
+          className={numCls} />
+        lots <span className="text-slate-500">(= {lotsIn * LOT_T} t vs {Math.max(volT, vol)} t phys)</span>
+      </span>
+    )
+    if (kind === 'boxes') return (
+      <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
+        Clip
+        <input type="number" min={1} max={Math.max(1, remainingBoxes)} step={1} value={Math.max(1, Math.min(boxesIn, remainingBoxes))} aria-label="Containers to ship"
+          onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setBoxesIn(Math.max(1, Math.min(Math.max(1, remainingBoxes), v))) }}
+          className={numCls} />
+        boxes <span className="text-slate-500">(× {CONTAINER_T} t · {remainingBoxes} left)</span>
       </span>
     )
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
-        Ship
-        <input type="number" min={1} max={maxBoxes} step={1} value={Math.min(boxesIn, maxBoxes)} aria-label="Containers to ship"
-          onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setBoxesIn(Math.max(1, Math.min(maxBoxes, v))) }}
-          className="w-14 rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 text-right tabular-nums text-white outline-none focus:border-brand-blue" />
-        containers <span className="text-slate-500">(× {CONTAINER_T} t = {(Math.min(boxesIn, maxBoxes) * CONTAINER_T).toFixed(1)} t)</span>
+      <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
+        Clip
+        <input type="number" min={1} max={Math.max(1, outstanding)} step={1} value={Math.max(1, Math.min(fixLotsIn, Math.max(1, outstanding)))} aria-label="Lots to buy back"
+          onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setFixLotsIn(Math.max(1, v)) }}
+          className={numCls} />
+        lots <span className="text-slate-500">(of {outstanding} outstanding)</span>
       </span>
     )
   }
@@ -984,25 +1052,57 @@ export default function PtbfMechanics() {
         </div>
       )}
 
-      {/* Futures price graph — points pin as actions execute */}
-      <PriceGraph
-        marks={deal.futMarks ?? []}
-        liveFut={curFut}
-        diffMarks={deal.diffMarks ?? []}
-        liveDiff={fobDiff}
-        lastStep={lastStep}
-        hedgeIdx={execIdx(mode === 'exporter' ? 2 : 3) + 1}
-        fixIdx={execIdx(lastStep) + 1}
-        complete={complete}
-        dots={mode === 'exporter' ? EXP_DOTS : IMP_DOTS}
-        sides={mode === 'exporter' ? EXP_SIDES : IMP_SIDES}
-        order={deal.order}
-        stamps={deal.stamps}
-        stampTimes={deal.stampTimes}
-        liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
-        elapsed={live ? elapsed : undefined}
-        pins={pins}
-      />
+      {/* Graph + actions SIDE BY SIDE — execute without scrolling away */}
+      <div className="mb-4 grid grid-cols-1 xl:grid-cols-[1fr_330px] gap-4">
+        <PriceGraph
+          marks={deal.futMarks ?? []}
+          liveFut={curFut}
+          diffMarks={deal.diffMarks ?? []}
+          liveDiff={fobDiff}
+          lastStep={lastStep}
+          hedgeIdx={execIdx(mode === 'exporter' ? 2 : 3) + 1}
+          fixIdx={(deal.order?.lastIndexOf(lastStep) ?? -1) + 1}
+          complete={complete}
+          dots={mode === 'exporter' ? EXP_DOTS : IMP_DOTS}
+          sides={mode === 'exporter' ? EXP_SIDES : IMP_SIDES}
+          order={deal.order}
+          stamps={deal.stamps}
+          stampTimes={deal.stampTimes}
+          liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
+          elapsed={live ? elapsed : undefined}
+          pins={pins}
+        />
+
+        {/* Actions — clip by clip: buy and sell little by little */}
+        <div className="space-y-1.5 self-start">
+          <div className="eyebrow">Actions · clip by clip</div>
+          {ACTIONS.map(a => {
+            const usable = canExec(a.n)
+            const blocked = usable && a.n === 1 && capitalBlocked
+            const summary = actionSummary(a.n)
+            return (
+              <div key={a.n}
+                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                  blocked ? 'border-rose-500/30 bg-rose-500/[0.04]'
+                  : usable ? 'border-brand-blue/50 bg-brand-blue/10'
+                  : summary ? 'border-emerald-500/30 bg-emerald-500/[0.04] opacity-80'
+                  : 'border-white/5 bg-white/[0.01] opacity-40'
+                }`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-bold text-white">{a.n}. {a.label}</span>
+                  <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={`${a.n}. ${a.label}`}
+                    className={`chip !py-0.5 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
+                    {blocked ? 'no capital' : 'execute'}
+                  </button>
+                </div>
+                <div className="mt-0.5 font-mono text-[10px] text-slate-500">{a.detail}</div>
+                {usable && !blocked && a.qty && <div className="mt-1.5">{qtyInput(a.qty)}</div>}
+                {summary && <div className="mt-1 font-mono text-[10px] text-emerald-400/80">{summary}</div>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT: the market */}
@@ -1010,12 +1110,10 @@ export default function PtbfMechanics() {
           <div className="eyebrow mb-1">{live ? 'The market — LIVE feed (identical for everyone)' : 'The market — type any value or slide'}</div>
 
           {mode === 'exporter' ? (
-            <Field live={live} label="Spot HCM (VND/kg)" value={vnd} min={80000} max={160000} step={500} onChange={setVnd}
-              locked={aBuy} lockedAt={aBuy ? `@ ${deal.vnd!.toLocaleString()}` : undefined} />
+            <Field live={live} label="Spot HCM (VND/kg)" value={vnd} min={80000} max={160000} step={500} onChange={setVnd} locked={false} />
           ) : (
             <>
-              <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff}
-                locked={aBuy} lockedAt={aBuy ? `@ ${dfmt(deal.dBuy!)}` : undefined} />
+              <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff} locked={false} />
               <p className="-mt-1 text-[10px] text-slate-500">Scale floor −$350 ≈ tenderable parity: below it, delivering to the exchange beats the cash market.</p>
             </>
           )}
@@ -1025,23 +1123,19 @@ export default function PtbfMechanics() {
               locked={deal.freight !== undefined} lockedAt={deal.freight !== undefined ? `@ $${deal.freight}` : undefined} />
           )}
 
-          <Field live={live} label="London futures — hedge leg ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut}
-            locked={hedged} lockedAt={hedged ? `@ ${fmtUsd(deal.fHedge!)}` : undefined} />
+          <Field live={live} label="London futures — hedge leg ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut} locked={false} />
 
           {hedged && (
-            <Field live={live} label="London futures — since the hedge ($/t)" value={futFix} min={3500} max={6000} step={5} onChange={setFutFix}
-              locked={deal.fFix !== undefined} lockedAt={deal.fFix !== undefined ? `@ ${fmtUsd(deal.fFix)}` : undefined} />
+            <Field live={live} label="London futures — since the hedge ($/t)" value={futFix} min={3500} max={6000} step={5} onChange={setFutFix} locked={false} />
           )}
 
           {mode === 'exporter' ? (
             <>
-              <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff}
-                locked={aSell} lockedAt={aSell ? `@ ${dfmt(deal.sell!)}` : undefined} />
+              <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff} locked={false} />
               <p className="-mt-1 text-[10px] text-slate-500">Scale floor −$350 ≈ tenderable parity: below it, delivering to the exchange beats the cash market.</p>
             </>
           ) : (
-            <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot}
-              locked={aSell} lockedAt={aSell ? `@ ${fmtEur(deal.eur!)}` : undefined} />
+            <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot} locked={false} />
           )}
 
           {/* Live conversion */}
@@ -1058,8 +1152,8 @@ export default function PtbfMechanics() {
             ) : (
               <>
                 <div className="flex justify-between"><span className="text-slate-400">Purchase price</span><span className="text-white">{impInvoice !== null ? `${fmtUsd(impInvoice)}/t (fixed)` : 'floating — fix + diff'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd((step >= 4 ? deal.sell! : eurUsd))}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((step >= 4 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd(boxesS > 0 ? deal.sell! : eurUsd)}/t</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((boxesS > 0 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
                 {dSellImp !== null && (
                   <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR selling diff (locked at the buy-back)</span><span className="text-amber-300 font-bold">{dfmt(dSellImp, 0)}</span></div>
                 )}
@@ -1068,74 +1162,26 @@ export default function PtbfMechanics() {
           </div>
         </div>
 
-        {/* RIGHT: actions, blotter, P&L */}
+        {/* RIGHT: blotter, P&L */}
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            {ACTIONS.map(a => {
-              const done = doneOf(a.n)
-              const usable = canExec(a.n)
-              const blocked = usable && a.n === 1 && capitalBlocked
-              return (
-                <div key={a.n}
-                  className={`w-full rounded-xl border p-2.5 text-left transition-all ${
-                    done ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
-                    : blocked ? 'border-rose-500/30 bg-rose-500/[0.04]'
-                    : usable ? 'border-brand-blue/50 bg-brand-blue/10'
-                    : 'border-white/5 bg-white/[0.01] opacity-40'
-                  }`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold text-white">{a.n}. {a.label}</span>
-                    {done ? (
-                      <span className="text-emerald-400 text-xs">✓ locked</span>
-                    ) : (
-                      <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={`${a.n}. ${a.label}`}
-                        className={`chip !py-0.5 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
-                        {blocked ? 'no capital' : 'execute'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-0.5 font-mono text-[10px] text-slate-500">{a.detail}</div>
-                  {usable && !blocked && a.qty && <div className="mt-1.5">{qtyInput(a.qty)}</div>}
-                  {done && a.qty === 'vol' && deal.vol !== undefined && (
-                    <div className="mt-1 font-mono text-[10px] text-emerald-400/80">{deal.vol} t bought</div>
-                  )}
-                  {done && a.qty === 'lots' && deal.lots !== undefined && (
-                    <div className="mt-1 font-mono text-[10px] text-emerald-400/80">
-                      {deal.lots} lots = {deal.lots * LOT_T} t hedged{hedgedT !== null && deal.vol !== undefined && hedgedT !== deal.vol
-                        ? ` · ⚠ ${Math.abs(hedgedT - deal.vol)} t ${hedgedT < deal.vol ? 'UNHEDGED (naked long)' : 'over-hedged (naked short)'}`
-                        : ''}
-                    </div>
-                  )}
-                  {done && a.qty === 'boxes' && deal.boxes !== undefined && (
-                    <div className="mt-1 font-mono text-[10px] text-emerald-400/80">
-                      {deal.boxes} containers = {(deal.boxes * CONTAINER_T).toFixed(1)} t shipped{deal.vol !== undefined && deal.boxes * CONTAINER_T < deal.vol
-                        ? ` · ⚠ ${(deal.vol - deal.boxes * CONTAINER_T).toFixed(1)} t left in store`
-                        : ''}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
           {/* Blotter */}
           {step > 0 && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums space-y-1">
-              <div className="eyebrow mb-1">Deal blotter (locked at execution)</div>
+              <div className="eyebrow mb-1">Deal blotter (running averages)</div>
               {mode === 'exporter' ? (
                 <>
-                  {aBuy && <div className="flex justify-between"><span className="text-slate-400">1 · Bought local{roundTagA(1)}</span><span className="text-white">{deal.vnd?.toLocaleString()} VND/kg = {fmtUsd(deal.buy!, 1)}/t × {deal.vol} t</span></div>}
-                  {aHedge && <div className="flex justify-between"><span className="text-slate-400">2 · Sold futures → buying diff{roundTagA(2)}</span><span className="text-white">{fmtUsd(deal.fHedge!)} × {deal.lots} lots{dBuyExp !== null ? <> → {dfmt(dBuyExp, 1)}</> : <span className="text-slate-500"> · diff TBD (no physical yet)</span>}</span></div>}
-                  {aSell && <div className="flex justify-between"><span className="text-slate-400">3 · Sold FOB (PTBF){roundTagA(3)}</span><span className="text-white">London {dfmt(deal.sell!)} × {deal.boxes} boxes</span></div>}
-                  {aFix && <div className="flex justify-between"><span className="text-slate-400">4 · Fixed — invoice{roundTagA(4)}</span><span className="text-white">{fmtUsd(deal.fFix!)} {deal.sell! < 0 ? '−' : '+'} {fmtUsd(Math.abs(deal.sell!))} = {fmtUsd(deal.fFix! + deal.sell!)}/t</span></div>}
+                  {volT > 0 && <div className="flex justify-between"><span className="text-slate-400">1 · Bought local{roundTagA(1)}</span><span className="text-white">{deal.vnd?.toLocaleString()} VND/kg = {fmtUsd(deal.buy!, 1)}/t × {volT} t</span></div>}
+                  {lotsH > 0 && <div className="flex justify-between"><span className="text-slate-400">2 · Sold futures → buying diff{roundTagA(2)}</span><span className="text-white">{fmtUsd(deal.fHedge!)} × {lotsH} lots{dBuyExp !== null ? <> → {dfmt(dBuyExp, 1)}</> : <span className="text-slate-500"> · diff TBD (no physical yet)</span>}</span></div>}
+                  {boxesS > 0 && <div className="flex justify-between"><span className="text-slate-400">3 · Sold FOB (PTBF){roundTagA(3)}</span><span className="text-white">London {dfmt(deal.sell!)} × {boxesS} boxes</span></div>}
+                  {lotsX > 0 && deal.sell !== undefined && <div className="flex justify-between"><span className="text-slate-400">4 · Fixed — invoice{roundTagA(4)}</span><span className="text-white">{fmtUsd(deal.fFix!)} {deal.sell < 0 ? '−' : '+'} {fmtUsd(Math.abs(deal.sell))} = {fmtUsd(deal.fFix! + deal.sell)}/t</span></div>}
                 </>
               ) : (
                 <>
-                  {aBuy && <div className="flex justify-between"><span className="text-slate-400">1 · Bought FOB (diff){roundTagA(1)}</span><span className="text-white">London {dfmt(deal.dBuy!)} · price TBF · {deal.vol} t</span></div>}
+                  {volT > 0 && <div className="flex justify-between"><span className="text-slate-400">1 · Bought FOB (diff){roundTagA(1)}</span><span className="text-white">London {dfmt(deal.dBuy!)} · price TBF · {volT} t</span></div>}
                   {deal.freight !== undefined && <div className="flex justify-between"><span className="text-slate-400">2 · Freight booked{roundTagA(2)}</span><span className="text-white">${deal.freight}/t + ${CIF_INSTORE} instore</span></div>}
-                  {aHedge && <div className="flex justify-between"><span className="text-slate-400">3 · Fixed & hedged{roundTagA(3)}</span><span className="text-white">{fmtUsd(deal.fHedge!)} × {deal.lots} lots{impInvoice !== null ? <> → purchase {fmtUsd(impInvoice)}/t</> : <span className="text-slate-500"> · purchase TBD (no diff yet)</span>}</span></div>}
-                  {aSell && <div className="flex justify-between"><span className="text-slate-400">4 · Sold outright{roundTagA(4)}</span><span className="text-white">{fmtEur(deal.eur!)}/t = {fmtUsd(deal.sell!)}/t × {deal.boxes} boxes</span></div>}
-                  {aFix && <div className="flex justify-between"><span className="text-slate-400">5 · Bought futures → selling diff{roundTagA(5)}</span><span className="text-white">{fmtUsd(deal.fFix!)}{dSellImp !== null ? <> → {dfmt(dSellImp, 0)}</> : null}</span></div>}
+                  {lotsH > 0 && <div className="flex justify-between"><span className="text-slate-400">3 · Fixed & hedged{roundTagA(3)}</span><span className="text-white">{fmtUsd(deal.fHedge!)} × {lotsH} lots{impInvoice !== null ? <> → purchase {fmtUsd(impInvoice)}/t</> : <span className="text-slate-500"> · purchase TBD (no diff yet)</span>}</span></div>}
+                  {boxesS > 0 && <div className="flex justify-between"><span className="text-slate-400">4 · Sold outright{roundTagA(4)}</span><span className="text-white">{fmtEur(deal.eur!)}/t = {fmtUsd(deal.sell!)}/t × {boxesS} boxes</span></div>}
+                  {lotsX > 0 && <div className="flex justify-between"><span className="text-slate-400">5 · Bought futures → selling diff{roundTagA(5)}</span><span className="text-white">{fmtUsd(deal.fFix!)}{dSellImp !== null ? <> → {dfmt(dSellImp, 0)}</> : null}</span></div>}
                 </>
               )}
             </div>
