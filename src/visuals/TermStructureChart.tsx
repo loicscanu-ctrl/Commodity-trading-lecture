@@ -23,14 +23,16 @@ export default function TermStructureChart() {
   const ph = H - mt - mb
 
   const MONTHS = 13
-  const SPOT = 100
-  const PMIN = 40, PMAX = 155
+  // Crude oil in $/bbl: spot at $60, contango adding ~$9 of carry over the
+  // strip, backwardation stripping ~$10 of shortage premium off the deferred.
+  const SPOT = 60
+  const PMIN = 46, PMAX = 74
 
   const x = (m: number) => ml + (m / MONTHS) * pw
   const y = (p: number) => mt + (1 - (p - PMIN) / (PMAX - PMIN)) * ph
 
-  const contangoPrice = (t: number) => SPOT + 48 * (1 - Math.exp(-t / 3.5))
-  const backwardPrice = (t: number) => SPOT - 55 * (1 - Math.exp(-t / 3.5))
+  const contangoPrice = (t: number) => SPOT + 9 * (1 - Math.exp(-t / 3.5))
+  const backwardPrice = (t: number) => SPOT - 10 * (1 - Math.exp(-t / 3.5))
 
   const N = 80
   const contangoPath = Array.from({ length: N }, (_, i) => {
@@ -65,14 +67,23 @@ export default function TermStructureChart() {
 
         {ticks.map((t, i) => {
           const cx = x(t)
-          const cyC = y(contangoPrice(t))
-          const cyB = y(backwardPrice(t))
+          const pC = contangoPrice(t)
+          const pB = backwardPrice(t)
+          const cyC = y(pC)
+          const cyB = y(pB)
           const lx = cx, ly = axisBottom + 10
           return (
             <g key={t}>
               <line x1={cx} y1={axisBottom} x2={cx} y2={axisBottom + 5} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
               <circle cx={cx} cy={cyC} r="3.5" fill="#fb923c" stroke="#070912" strokeWidth="1" />
               <circle cx={cx} cy={cyB} r="3.5" fill="#34d399" stroke="#070912" strokeWidth="1" />
+              {/* example prices: contango above its points, backwardation below */}
+              <text x={cx} y={cyC - 7} textAnchor="middle" fill="#fdba74" fontSize="7" fontFamily="monospace">
+                {pC.toFixed(1)}
+              </text>
+              <text x={cx} y={cyB + 13} textAnchor="middle" fill="#6ee7b7" fontSize="7" fontFamily="monospace">
+                {pB.toFixed(1)}
+              </text>
               <text x={lx} y={ly} textAnchor="end" fill="#94a3b8" fontSize="8.5" fontFamily="monospace"
                 transform={`rotate(-45 ${lx} ${ly})`}>{CONTRACTS[i]}</text>
             </g>
@@ -82,12 +93,12 @@ export default function TermStructureChart() {
         <circle cx={spotX} cy={spotY} r="5.5" fill="#3b82f6" />
         <circle cx={spotX} cy={spotY} r="9" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3" />
         <text x={11} y={mt + ph / 2} textAnchor="middle" fill="#64748b" fontSize="9" fontFamily="monospace"
-          transform={`rotate(-90 11 ${mt + ph / 2})`}>PRICE</text>
-        <text x={spotX + 12} y={spotY - 6} fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">SPOT</text>
-        <text x={x(tLabel) + 8} y={contangoLabelY - 8} fill="#fb923c" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
-        <text x={x(tLabel) + 8} y={contangoLabelY + 5} fill="#94a3b8" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
-        <text x={x(tLabel) + 8} y={backwardLabelY + 16} fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="bold">BACKWARDATION</text>
-        <text x={x(tLabel) + 8} y={backwardLabelY + 29} fill="#94a3b8" fontSize="8" fontFamily="monospace">futures {'<'} spot</text>
+          transform={`rotate(-90 11 ${mt + ph / 2})`}>PRICE $/bbl</text>
+        <text x={spotX + 12} y={spotY - 6} fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">SPOT $60.00</text>
+        <text x={x(tLabel) + 8} y={contangoLabelY - 20} fill="#fb923c" fontSize="10" fontFamily="monospace" fontWeight="bold">CONTANGO</text>
+        <text x={x(tLabel) + 8} y={contangoLabelY - 8} fill="#94a3b8" fontSize="8" fontFamily="monospace">futures {'>'} spot</text>
+        <text x={x(tLabel) + 8} y={backwardLabelY + 26} fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="bold">BACKWARDATION</text>
+        <text x={x(tLabel) + 8} y={backwardLabelY + 39} fill="#94a3b8" fontSize="8" fontFamily="monospace">futures {'<'} spot</text>
       </svg>
     </div>
   )
