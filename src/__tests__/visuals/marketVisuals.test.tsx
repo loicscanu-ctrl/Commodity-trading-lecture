@@ -172,9 +172,10 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     act(() => { jest.advanceTimersByTime(20_000) })
     expect(container.textContent).toContain('114,000')
     // Buy at Y1 Jul's level; Y1 Nov's news fires at t=70 (Bab-el-Mandeb) and
-    // its drift completes by t=105: buying diff = 114,000/25.5k − 4,950 = −$479.4
+    // its short round (Tet follows at t=90) completes its drift by t=85:
+    // buying diff = 114,000/25.5k − 4,950 = −$479.4
     fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
-    act(() => { jest.advanceTimersByTime(40_000) })
+    act(() => { jest.advanceTimersByTime(20_000) })
     expect(container.textContent).toContain('Bab-el-Mandeb')
     fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
     expect(container.textContent).toContain('−$479.4')

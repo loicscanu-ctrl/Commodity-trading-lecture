@@ -65,18 +65,28 @@ const LIVE_SCRIPT = [
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
   { label: 'Y1 Jul', headline: 'Demand fading', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
-  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -350, freight: 270, eur: 4290,
+  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4290,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
+  { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 121000, fut: 5000, fob: -250, freight: 180, eur: 4230,
+    news: 'Tet: farmers withhold coffee for the holiday and internal logistics pause — local prices firm while vessels slowly return after Bab-el-Mandeb.' },
   { label: 'Y2 Mar', headline: 'Drought risk', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
   { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
   { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
+  { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 136000, fut: 5350, fob: 550, freight: 50, eur: 5170,
+    news: 'EUDR enforcement wave: EU importers scramble for deforestation-compliant coffee. Antwerp premiums jump — compliant Vietnamese parcels bid up.' },
+  { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 143000, fut: 5650, fob: 350, freight: 55, eur: 5170,
+    news: 'A trade house stands for delivery on London: certified stocks cornered, the front month spikes. Bullish screen — differentials compress as paper outruns physical.' },
   { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
+  { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 128000, fut: 5380, fob: -80, freight: 190, eur: 4700,
+    news: 'A typhoon closes Central Highlands roads and suspends HCM loading for two weeks. Freight jumps; FOB sellers who cannot load dump their differentials.' },
   { label: 'Y4 Aug', headline: 'Record crop!', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
+  { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 115000, fut: 4750, fob: -230, freight: 50, eur: 3930,
+    news: 'European roasters run stocks down, waiting for the record crop to land. Differentials drift toward tenderable parity — the exchange floor beckons.' },
   { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180,
     news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
   { label: 'Y5 Jan', headline: 'Harvest in', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950,
@@ -85,7 +95,7 @@ const LIVE_SCRIPT = [
 
 // The rounds are NOT evenly spaced in calendar time. Month index of each
 // round from Y1 Apr = 0 — the news fires when the calendar reaches its date.
-const ROUND_MONTHS = [0, 3, 7, 11, 17, 18, 32, 40, 44, 45]
+const ROUND_MONTHS = [0, 3, 7, 9, 11, 17, 18, 23, 27, 32, 35, 40, 42, 44, 45]
 const TOTAL_MONTHS = ROUND_MONTHS[ROUND_MONTHS.length - 1]
 const SECONDS_PER_MONTH = 10 // the clock: 3 days per second
 const ROUND_STARTS = ROUND_MONTHS.map(m => m * SECONDS_PER_MONTH)
