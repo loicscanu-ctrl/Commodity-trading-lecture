@@ -27,6 +27,7 @@ type Deal = {
   fFix?: number                        // futures bought back (final step)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
+  diffMarks?: number[]                 // FOB differential at each executed action (second graph panel)
 }
 
 // Live-market mode: a predetermined multi-season path, identical for every
@@ -176,14 +177,19 @@ function RiskSquare({ label, on, active }: { label: string; on: boolean; active:
 // London-futures price graph, margin-simulator style: each executed action
 // pins a point on the path; the live market is the movable dashed point;
 // the hedge→fix window is annotated because it IS the Futures P&L.
-function PriceGraph({ marks, liveFut, lastStep, hedgeIdx, complete }: {
-  marks: number[]; liveFut: number; lastStep: number; hedgeIdx: number; complete: boolean
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, complete }: {
+  marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; lastStep: number; hedgeIdx: number; complete: boolean
 }) {
-  const W = 560, H = 190, ml = 56, mr = 16, mt = 12, mb = 26
-  const pw = W - ml - mr, ph = H - mt - mb
+  const W = 560, H = 320, ml = 56, mr = 16, mt = 12
+  const pw = W - ml - mr, ph = 158 - mt // futures panel height
   const PMINg = 3500, PMAXg = 6000
   const x = (step: number) => ml + ((step - 1) / (lastStep - 1)) * pw
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
+  // Second panel: the FOB differential — the risk the desk actually trades
+  const D = { top: 196, h: 92, min: -350, max: 300 }
+  const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
+  const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
+  const diffPath = diffMarks.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${yd(v).toFixed(1)}`).join(' ')
 
   const path = marks.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
   const nextStep = marks.length + 1
@@ -202,7 +208,7 @@ function PriceGraph({ marks, liveFut, lastStep, hedgeIdx, complete }: {
           </g>
         ))}
         {Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
-          <text key={stp} x={x(stp)} y={mt + ph + 14} textAnchor="middle"
+          <text key={stp} x={x(stp)} y={H - 6} textAnchor="middle"
             fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="8.5" fontFamily="monospace">
             {stp <= marks.length ? `✓${stp}` : stp === nextStep && !complete ? `action ${stp}` : stp}
           </text>
@@ -245,6 +251,34 @@ function PriceGraph({ marks, liveFut, lastStep, hedgeIdx, complete }: {
             <circle cx={x(nextStep)} cy={y(liveFut)} r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.35" />
             <text x={x(nextStep)} y={y(liveFut) - 12} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">
               {liveFut.toLocaleString('en-US')}
+            </text>
+          </g>
+        )}
+
+        {/* ── FOB differential panel — the DIFF tile as a chart ── */}
+        <text x={ml} y={D.top - 8} fill="#94a3b8" fontSize="9" fontFamily="monospace">FOB HCM DIFFERENTIAL ($/t vs London)</text>
+        {[-200, 0, 200].map(v => (
+          <g key={`d-${v}`}>
+            <line x1={ml} y1={yd(v)} x2={ml + pw} y2={yd(v)}
+              stroke={v === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.05)'} strokeWidth="1" strokeDasharray={v === 0 ? '4 3' : undefined} />
+            <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="8.5" fontFamily="monospace">{v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v)}</text>
+          </g>
+        ))}
+        {diffMarks.length > 0 && <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+        {diffMarks.map((v, i) => (
+          <circle key={`dm-${i}`} cx={x(i + 1)} cy={yd(v)} r="3.5" fill="#0891b2" stroke="#070912" strokeWidth="1.2">
+            <title>{`action ${i + 1} · diff ${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('en-US')}`}</title>
+          </circle>
+        ))}
+        {!complete && (
+          <g>
+            {diffMarks.length > 0 && (
+              <line x1={x(diffMarks.length)} y1={yd(diffMarks[diffMarks.length - 1])} x2={x(nextStep)} y2={yd(liveDiff)}
+                stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" />
+            )}
+            <circle cx={x(nextStep)} cy={yd(liveDiff)} r="5" fill="#f59e0b" stroke="#070912" strokeWidth="1.2" />
+            <text x={x(nextStep)} y={yd(liveDiff) - 9} textAnchor="middle" fill="#fbbf24" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+              {liveDiff >= 0 ? '+' : '−'}{Math.abs(liveDiff).toLocaleString('en-US')}
             </text>
           </g>
         )}
@@ -332,8 +366,9 @@ export default function PtbfMechanics() {
   function act() {
     // Every execution stamps the current futures level (for the price graph)
     // and, in live mode, the round it happened in.
-    const stamp = (d: Deal): Pick<Deal, 'stamps' | 'futMarks'> => ({
+    const stamp = (d: Deal): Pick<Deal, 'stamps' | 'futMarks' | 'diffMarks'> => ({
       futMarks: [...(d.futMarks ?? []), curFut],
+      diffMarks: [...(d.diffMarks ?? []), fobDiff],
       ...(live ? { stamps: [...(d.stamps ?? []), liveRound] } : {}),
     })
     if (mode === 'exporter') {
@@ -464,6 +499,8 @@ export default function PtbfMechanics() {
       <PriceGraph
         marks={deal.futMarks ?? []}
         liveFut={curFut}
+        diffMarks={deal.diffMarks ?? []}
+        liveDiff={fobDiff}
         lastStep={lastStep}
         hedgeIdx={mode === 'exporter' ? 2 : 3}
         complete={complete}
