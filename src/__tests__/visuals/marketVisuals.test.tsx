@@ -56,10 +56,9 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   // Order enforced
   expect(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ })).toBeEnabled()
   expect(screen.getByRole('button', { name: /2\. Sell futures/ })).toBeDisabled()
-  // Step 1: buy local — the VND component locks; outright long = BOTH risks open
+  // Step 1: buy local — the book shows the clip; outright long = BOTH risks open
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
-  expect(container.textContent).toContain('locked @ 120,000')
-  expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
+  expect(container.textContent).toContain('96 t bought @ avg $4,705.9/t')
   expect(screen.getByTestId('risk-flat').textContent).toContain('AT RISK')
   expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
   // Step 2: hedge → buying diff = 4,705.9 − 4,800 = −$94.1; flat covered, diff still open
@@ -87,7 +86,7 @@ test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sa
   fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
   // 1. Buy in diff only — price still floating: diff risk open, NO flat risk
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical FOB/ }))
-  expect(container.textContent).toContain('locked @ −$60')
+  expect(container.textContent).toContain('96 t bought @ avg diff −$60.0')
   expect(container.textContent).toContain('price TBF')
   expect(screen.getByTestId('risk-flat').textContent).toContain('covered')
   expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
@@ -180,31 +179,58 @@ test('PtbfMechanics: typed values beyond the slider scale are accepted', () => {
   fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — hedge leg/ }), { target: { value: '6500' } })
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
   fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
-  expect(container.textContent).toContain('locked @ $6,500')
+  expect(container.textContent).toContain('10 lots (100 t) @ avg $6,500')
   // Buying diff = 4,705.9 − 6,500 = −$1,794.1
   expect(container.textContent).toContain('−$1,794.1')
 })
 
-test('PtbfMechanics: typeable inputs, and the two futures legs lock independently', () => {
+test('PtbfMechanics: the two futures legs stay independent through the fix', () => {
   const { container } = render(<PtbfMechanics />)
   // Type the hedge-leg futures level directly instead of sliding
   fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — hedge leg/ }), { target: { value: '5000' } })
   fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
   fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
-  // Hedge leg is now locked at 5,000; buying diff = 4,705.9 − 5,000 = −$294.1
-  expect(container.textContent).toContain('locked @ $5,000')
+  // Hedge average books at 5,000; buying diff = 4,705.9 − 5,000 = −$294.1
+  expect(container.textContent).toContain('@ avg $5,000')
   expect(container.textContent).toContain('−$294.1')
-  expect(screen.queryByRole('spinbutton', { name: /London futures — hedge leg/ })).not.toBeInTheDocument()
   // A second futures price ("since the hedge") drives the fixing — move it
   fireEvent.change(screen.getByRole('spinbutton', { name: /London futures — since the hedge/ }), { target: { value: '4900' } })
-  // The locked hedge did not move
-  expect(container.textContent).toContain('locked @ $5,000')
+  // The booked hedge average did not move
+  expect(container.textContent).toContain('@ avg $5,000')
   expect(container.textContent).toContain('−$294.1')
   fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
   fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
-  expect(container.textContent).toContain('locked @ $4,900')
+  expect(container.textContent).toContain('10/10 lots bought back @ avg $4,900')
   // Futures P&L = 5,000 − 4,900 = +$100
   expect(container.textContent).toContain('+$100')
+})
+
+test('PtbfMechanics: clip trading — buy little by little, sell little by little', () => {
+  const { container } = render(<PtbfMechanics />)
+  // Two buy clips of 48 t each → 96 t at the same price
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Volume to buy (t)' }), { target: { value: '48' } })
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
+  expect(container.textContent).toContain('48 t bought @ avg $4,705.9/t')
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
+  expect(container.textContent).toContain('96 t bought @ avg $4,705.9/t')
+  // Hedge in two clips of 5 lots
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Hedge volume (lots)' }), { target: { value: '5' } })
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  expect(container.textContent).toContain('10 lots (100 t) @ avg $4,800')
+  // Sell 2 boxes, then the remaining 3
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Containers to ship' }), { target: { value: '2' } })
+  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
+  expect(container.textContent).toContain('2 boxes (38.4 t)')
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Containers to ship' }), { target: { value: '3' } })
+  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
+  // Fix in two clips: 4 lots then the last 6 → book squares, same P&L as one shot
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Lots to buy back' }), { target: { value: '4' } })
+  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Lots to buy back' }), { target: { value: '6' } })
+  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
+  expect(container.textContent).toContain('FLAT — trade complete')
+  expect(container.textContent).toContain('+$3,275')
 })
 
 test('PtbfMechanics: completed trades are recorded and a new trade can start', () => {
