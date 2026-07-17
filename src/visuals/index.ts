@@ -48,6 +48,9 @@ import BasisPnl from './BasisPnl'
 import SdScenario from './SdScenario'
 import GuidedTradeSim from './GuidedTradeSim'
 import TraderInbox from './TraderInbox'
+import ContractExplorer from './ContractExplorer'
+import GasolineSwap, { textDef as gasolineSwapText } from './GasolineSwap'
+import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -98,6 +101,9 @@ export const visualRegistry: Record<string, ComponentType> = {
   'sd-scenario': SdScenario,
   'guided-trade-sim': GuidedTradeSim,
   'trader-inbox': TraderInbox,
+  'contract-explorer': ContractExplorer,
+  'gasoline-swap': GasolineSwap,
+  'efp-diagram': EfpDiagram,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -128,4 +134,6 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'exchange-functions': exchangeFunctionsText,
   'robusta-contract': robustaContractText,
   'vietnam-case-study': vietnamCaseStudyText,
+  'gasoline-swap': gasolineSwapText,
+  'efp-diagram': efpDiagramText,
 }
