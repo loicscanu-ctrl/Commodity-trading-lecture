@@ -883,17 +883,17 @@ export default function PtbfMechanics() {
   // Each tile leads with ITS executable price — $/t outright or differential
   const ACTIONS = mode === 'exporter'
     ? [
-        { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
-        { n: 2, label: 'Sell futures', px: fmtUsd(fut), detail: 'hedge → sets your buying differential', qty: 'lots' as const },
-        { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), detail: 'diff vs London · PTBF', qty: 'boxes' as const },
-        { n: 4, label: 'Buy futures', px: fmtUsd(curFut), detail: 'fix · EFP → invoice = fix + diff', qty: 'fixlots' as const },
+        { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, px2: `diff eq. ${dfmt(localUsd - curFut, 0)}`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
+        { n: 2, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'hedge → sets your buying differential', qty: 'lots' as const },
+        { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF', qty: 'boxes' as const },
+        { n: 4, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'fix · EFP → invoice = fix + diff', qty: 'fixlots' as const },
       ]
     : [
-        { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
-        { n: 2, label: 'Buy freight', px: `$${freight}/t`, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore)`, qty: null },
-        { n: 3, label: 'Sell futures', px: fmtUsd(fut), detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
-        { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
-        { n: 5, label: 'Buy futures', px: fmtUsd(curFut), detail: 'locks your selling differential', qty: 'fixlots' as const },
+        { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
+        { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore)`, qty: null },
+        { n: 3, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
+        { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, px2: `diff eq. ${dfmt(eurUsd - curFut, 0)}`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
+        { n: 5, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'locks your selling differential', qty: 'fixlots' as const },
       ]
 
   // Running summary shown under each action row (the book so far)
@@ -1120,26 +1120,34 @@ export default function PtbfMechanics() {
             const blocked = usable && a.n === 1 && capitalBlocked
             const summary = actionSummary(a.n)
             return (
-              <div key={a.n}
-                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
-                  blocked ? 'border-rose-500/30 bg-rose-500/[0.04]'
-                  : usable ? 'border-brand-blue/50 bg-brand-blue/10'
-                  : summary ? 'border-emerald-500/30 bg-emerald-500/[0.04] opacity-80'
-                  : 'border-white/5 bg-white/[0.01] opacity-40'
-                }`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-bold text-white">{a.label}</span>
-                  <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={a.label}
-                    className={`chip !py-0.5 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
-                    {blocked ? 'no capital' : 'execute'}
-                  </button>
+              <div key={a.n} className="flex items-stretch gap-1.5">
+                <div
+                  className={`min-w-0 flex-1 rounded-xl border p-2 text-left transition-all ${
+                    blocked ? 'border-rose-500/30 bg-rose-500/[0.04]'
+                    : usable ? 'border-brand-blue/50 bg-brand-blue/10'
+                    : 'border-white/5 bg-white/[0.01] opacity-40'
+                  }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-xs font-bold text-white">{a.label}</span>
+                    <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={a.label}
+                      className={`chip !py-0.5 shrink-0 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
+                      {blocked ? 'no capital' : 'execute'}
+                    </button>
+                  </div>
+                  <div className="mt-0.5 font-mono text-[10px] text-slate-500">
+                    <span className="rounded bg-amber-500/10 px-1 py-px text-[11px] font-bold text-amber-300">{a.px}</span>
+                    {a.px2 && <span className="ml-1 rounded bg-brand-cyan/10 px-1 py-px text-[10px] font-bold text-brand-cyan">{a.px2}</span>}
+                    {' '}{a.detail}
+                  </div>
+                  {usable && !blocked && a.qty && <div className="mt-1">{qtyInput(a.qty)}</div>}
                 </div>
-                <div className="mt-0.5 font-mono text-[10px] text-slate-500">
-                  <span className="rounded bg-amber-500/10 px-1 py-px text-[11px] font-bold text-amber-300">{a.px}</span>
-                  {' '}{a.detail}
-                </div>
-                {usable && !blocked && a.qty && <div className="mt-1.5">{qtyInput(a.qty)}</div>}
-                {summary && <div className="mt-1 font-mono text-[10px] text-emerald-400/80">{summary}</div>}
+                {/* the related position, in its own tile beside the action */}
+                {summary && (
+                  <div className="w-[118px] shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-2">
+                    <div className="font-mono text-[8px] uppercase tracking-wide text-emerald-400/70">position</div>
+                    <div className="mt-0.5 font-mono text-[9.5px] leading-snug text-emerald-300">{summary}</div>
+                  </div>
+                )}
               </div>
             )
           })}

@@ -56,6 +56,8 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   // Order enforced
   expect(screen.getByRole('button', { name: 'Buy G2 spot HCM' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Sell futures' })).toBeDisabled()
+  // The spot-buy tile also quotes the purchase as a differential equivalent
+  expect(container.textContent).toContain('diff eq. −$94')
   // Step 1: buy local — the book shows the clip; outright long = BOTH risks open
   fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
   expect(container.textContent).toContain('96 t bought @ avg $4,705.9/t')
