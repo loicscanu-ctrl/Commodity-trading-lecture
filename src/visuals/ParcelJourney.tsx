@@ -15,6 +15,7 @@ type Tier = {
   margin: string
   flat: boolean
   diff: boolean
+  fx?: boolean
   riskNote: string
   hedge: string
   accent: string
@@ -48,10 +49,10 @@ const TIERS: Tier[] = [
     buys: '120,200 VND/kg (≈ $4,714/t) — outright',
     sells: 'FOB HCM at London Jan −$60 (≈ $4,740/t) — PTBF',
     form: 'buys VND outright → sells FOB differential',
-    margin: '+$26/t — the origination margin (your simulator’s exporter trade)',
-    flat: false, diff: true,
-    riskNote: 'Hedges the futures leg at execution, so flat risk lives for minutes. What remains — and what the business IS — is the differential.',
-    hedge: 'Sells London futures the moment the VND purchase is done; unwinds via EFP at the buyer’s fixing.',
+    margin: '+$26/t — the origination margin',
+    flat: false, diff: true, fx: true,
+    riskNote: 'Hedges the futures leg at execution, so flat risk lives for minutes. What remains is the differential — and a risk nobody upstream had: CURRENCY. The exporter pays in VND but hedges and sells in USD; if the dollar weakens against the dong between purchase and receipt, the VND cost translates into more dollars and the $26 margin evaporates. Try it below.',
+    hedge: 'Sells London futures the moment the VND purchase is done; unwinds via EFP at the buyer’s fixing. The currency leg is hedged separately — USD/VND forwards (offshore, as NDFs: the dong is not freely deliverable).',
     accent: '#f59e0b',
   },
   {
@@ -59,7 +60,7 @@ const TIERS: Tier[] = [
     buys: 'FOB HCM at Jan −$60 — PTBF',
     sells: 'instore Antwerp at Jan +$120 (≈ $4,920/t) — PTBF',
     form: 'differential in, differential out — plus freight & instore costs (~$170/t)',
-    margin: '+$10/t landed — thin, times a million tonnes a year',
+    margin: '+$50/t landed — thin, × hundreds of thousands of tonnes a year',
     flat: false, diff: true,
     riskNote: 'Fully hedged flat book (margin calls and all); runs differential risk, freight risk and claims across the whole voyage. This is the tier where the ABCD-style giants operate.',
     hedge: 'Futures for the flat leg; the diff, freight and quality risks are managed, not hedged — that is the trade house’s edge.',
@@ -83,6 +84,72 @@ function MiniRisk({ label, on }: { label: string; on: boolean }) {
     <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold ${on ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/[0.08] text-emerald-400/80'}`}>
       {label} {on ? 'AT RISK' : 'covered'}
     </span>
+  )
+}
+
+// The exporter's currency exposure: coffee is bought at 120,200 VND/kg (fixed
+// the day of purchase), but the FOB sale, the futures hedge and the margin all
+// live in USD. Between purchase and receipt, USD/VND can move.
+const FX_ENTRY = 25_500 // USD/VND on purchase day
+const VND_COST_PER_T = 120_200 * 1_000 // VND per tonne
+const FOB_SALE_USD = 4_740 // $/t, locked by the FOB sale + futures hedge
+const PARCEL_T = 100
+
+function FxMiniSim() {
+  const [fx, setFx] = useState(FX_ENTRY)
+
+  const costUsd = VND_COST_PER_T / fx
+  const marginT = FOB_SALE_USD - costUsd
+  const parcelPnl = marginT * PARCEL_T
+  const usdMovePct = (fx / FX_ENTRY - 1) * 100
+  const breakeven = Math.round(VND_COST_PER_T / FOB_SALE_USD) // ≈ 25,359
+
+  const fmt = (v: number) => `${v < 0 ? '−' : '+'}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+
+  return (
+    <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-wide text-rose-300">
+        The hidden third risk: currency
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+        The 120,200 VND/kg purchase is fixed — but the sale is in USD. Move the dollar between purchase day and payment day and watch what a &ldquo;fully hedged&rdquo; book does:
+      </p>
+
+      <div className="mt-2 flex items-center gap-3">
+        <span className="font-mono text-[10px] text-slate-500 shrink-0">USD/VND</span>
+        <input type="range" min={24_600} max={26_400} step={20} value={fx}
+          onChange={e => setFx(Number(e.target.value))}
+          aria-label="USD/VND exchange rate"
+          className="w-full h-1.5 cursor-pointer accent-brand-cyan" />
+        <span className="font-mono text-xs font-bold tabular-nums text-brand-cyan shrink-0 w-14 text-right">{fx.toLocaleString('en-US')}</span>
+      </div>
+      <div className="mt-0.5 text-right font-mono text-[9px] text-slate-500">
+        USD {usdMovePct >= 0 ? '+' : '−'}{Math.abs(usdMovePct).toFixed(1)}% vs purchase day ({FX_ENTRY.toLocaleString('en-US')})
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-[10px]">
+        <div className="rounded-lg bg-white/[0.03] p-2">
+          <div className="text-slate-500">VND cost in USD</div>
+          <div className="mt-0.5 text-sm font-bold tabular-nums text-slate-200">${costUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}/t</div>
+        </div>
+        <div className="rounded-lg bg-white/[0.03] p-2">
+          <div className="text-slate-500">FOB sale (locked)</div>
+          <div className="mt-0.5 text-sm font-bold tabular-nums text-slate-200">${FOB_SALE_USD.toLocaleString('en-US')}/t</div>
+        </div>
+        <div className="rounded-lg bg-white/[0.03] p-2">
+          <div className="text-slate-500">Margin</div>
+          <div className={`mt-0.5 text-sm font-bold tabular-nums ${marginT < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{fmt(marginT)}/t</div>
+        </div>
+        <div className="rounded-lg bg-white/[0.03] p-2">
+          <div className="text-slate-500">On the 100 t parcel</div>
+          <div className={`mt-0.5 text-sm font-bold tabular-nums ${parcelPnl < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{fmt(parcelPnl)}</div>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+        The futures hedge protects the <span className="text-slate-300">coffee</span> price, not the <span className="text-slate-300">currency</span>: every leg after the farm gate is in USD, so a weaker dollar makes the already-paid VND cost bigger in USD terms. Breakeven is USD/VND ≈ {breakeven.toLocaleString('en-US')} — a mere <span className="text-rose-300">−0.6% dollar slip erases the entire +$26/t origination margin</span>. That is why real exporters hedge the FX leg too.
+      </p>
+    </div>
   )
 }
 
@@ -127,6 +194,7 @@ export default function ParcelJourney() {
           <div className="flex gap-1.5">
             <MiniRisk label="FLAT" on={t.flat} />
             <MiniRisk label="DIFF" on={t.diff} />
+            {t.fx !== undefined && <MiniRisk label="FX" on={t.fx} />}
           </div>
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-[11px]">
@@ -137,6 +205,7 @@ export default function ParcelJourney() {
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400"><span className="font-bold text-slate-300">Risk: </span>{t.riskNote}</p>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-400"><span className="font-bold text-slate-300">Hedge: </span>{t.hedge}</p>
+        {t.fx && <FxMiniSim />}
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-500">

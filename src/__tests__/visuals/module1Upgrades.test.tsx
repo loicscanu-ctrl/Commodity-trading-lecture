@@ -2,6 +2,7 @@ import { render, fireEvent, screen } from '@testing-library/react'
 import NetworkExplosion from '@/visuals/NetworkExplosion'
 import OrderBook from '@/visuals/OrderBook'
 import ParcelJourney from '@/visuals/ParcelJourney'
+import MarketBenefits from '@/visuals/MarketBenefits'
 import MarginSimulator from '@/visuals/MarginSimulator'
 import RollYield from '@/visuals/RollYield'
 import StuScatter from '@/visuals/StuScatter'
@@ -43,6 +44,33 @@ test('ParcelJourney: risk tiles flip as the parcel moves down the chain', () => 
   expect(container.textContent).toContain('Exporter · Ho Chi Minh City')
   expect(container.textContent).toContain('FLAT covered')
   expect(container.textContent).toContain('origination margin')
+})
+
+test('ParcelJourney: the exporter carries FX risk — a weaker dollar flips the margin', () => {
+  const { container } = render(<ParcelJourney />)
+  fireEvent.click(screen.getByRole('button', { name: /Pass the parcel/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Pass the parcel/ }))
+  // Exporter shows the FX tile and the mini-simulator at the entry rate
+  expect(container.textContent).toContain('FX AT RISK')
+  expect(container.textContent).toContain('+$26/t')
+  // USD weakens to 25,000: cost 120.2m/25,000 = $4,808/t → margin −$68/t, parcel −$6,800
+  fireEvent.change(screen.getByRole('slider', { name: 'USD/VND exchange rate' }), { target: { value: '25000' } })
+  expect(container.textContent).toContain('−$68/t')
+  expect(container.textContent).toContain('−$6,800')
+})
+
+test('MarketBenefits: fixing the two lows beats the cheapest outright day by $210/t', () => {
+  const { container } = render(<MarketBenefits />)
+  // Nothing computed until both legs are fixed
+  expect(container.textContent).toContain('Pick one month for each leg')
+  // Futures low: May 4,250 · diff low: Nov −80 → 4,170, vs best outright 4,380 (May)
+  fireEvent.click(screen.getByRole('button', { name: 'Fix the FUTURES leg in…: May' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Fix the DIFFERENTIAL leg in…: Nov' }))
+  expect(container.textContent).toContain('= $4,170/t')
+  expect(container.textContent).toContain('$210/t BELOW')
+  // Same-day fixing = an outright purchase
+  fireEvent.click(screen.getByRole('button', { name: 'Fix the DIFFERENTIAL leg in…: May' }))
+  expect(container.textContent).toContain('outright purchase')
 })
 
 test('MarginSimulator: exhausting the funding line forces the position closed', () => {
