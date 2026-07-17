@@ -2,7 +2,7 @@ import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
-import PtbfMechanics, { buildTradeReport, buildPdfString } from '@/visuals/PtbfMechanics'
+import PtbfMechanics, { buildTradeReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -115,6 +115,22 @@ test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sa
   expect(text).toContain('FLAT — trade complete')
 })
 
+test('PtbfMechanics intermediate level: sell the diff first, the fix still needs the hedge', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+  // Selling FOB BEFORE buying physical is allowed on this level
+  fireEvent.click(screen.getByRole('button', { name: /3\. Sell physical FOB/ }))
+  expect(container.textContent).toContain('Sold FOB')
+  // …but buying the futures back stays gated on the hedge existing
+  expect(screen.getByRole('button', { name: /4\. Fix it/ })).toBeDisabled()
+  // Complete out of order: buy, hedge, fix → same economics as the guided order
+  fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
+  fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
+  fireEvent.click(screen.getByRole('button', { name: /4\. Fix it/ }))
+  expect(container.textContent).toContain('FLAT — trade complete')
+  expect(container.textContent).toContain('+$3,275')
+})
+
 test('PtbfMechanics live market: predetermined path, no typing, round-stamped blotter', () => {
   jest.useFakeTimers()
   try {
@@ -136,9 +152,10 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     act(() => { jest.advanceTimersByTime(45_000) })
     expect(container.textContent).toContain('Round 2/10 · Y1 Jul')
     expect(container.textContent).toContain('119,000') // still at the old level at the boundary
-    // Halfway through the drift (20 s = 4 of 8 ticks): 119,000 → 114,000 shows 116,500
+    // Halfway through the drift (20 s = 4 of 8 ticks): 119,000 → 114,000 plus
+    // the deterministic brownian wiggle — assert the exact feed value
     act(() => { jest.advanceTimersByTime(20_000) })
-    expect(container.textContent).toContain('116,500')
+    expect(container.textContent).toContain(feedAt(65, 'vnd').toLocaleString('en-US'))
     // At 40 s the round's published level is reached and holds
     act(() => { jest.advanceTimersByTime(20_000) })
     expect(container.textContent).toContain('114,000')
@@ -222,7 +239,7 @@ test('buildTradeReport includes volumes, every execution, stamps and totals', ()
     mode: 'exporter' as const,
     tonnes: 96, soldT: 96, lots: 10, boxes: 5,
     deal: { vnd: 120000, buy, fHedge: 4800, sell: -60, fFix: 4800, vol: 96, lots: 10, boxes: 5, stamps: [1, 2, 2, 3] },
-    physicalD: netD, futuresD: 0, costsD: 0, netD,
+    physicalD: netD, futuresD: 0, costsD: 0, financingD: 0, netD,
   }], 'Ada Lovelace')
   expect(report).toContain('Trader: Ada Lovelace')
   expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 96 t bought · 10 lots hedged (100 t) · 5 containers shipped (96.0 t)')
