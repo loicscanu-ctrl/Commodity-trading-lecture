@@ -75,6 +75,10 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   expect(text).toContain('+$34.1')
   expect(text).toContain('+$3,412')
   expect(text).toContain('FLAT — trade complete')
+  // The price graph pinned a point per action and annotates the hedge→fix leg
+  expect(text).toContain('action 2 · $4,800')
+  expect(text).toContain('futures leg +$0/t')
+  expect(text).toContain('hedge')
 })
 
 test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sale, buy-back', () => {
