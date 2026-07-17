@@ -538,6 +538,13 @@ export default function PtbfMechanics() {
     return () => clearInterval(t)
   }, [live])
 
+  // While the live session runs, the slide is locked: SectionReader listens
+  // and disables all navigation until the session ends (or a page refresh).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('ptbf-live-lock', { detail: live }))
+    return () => { window.dispatchEvent(new CustomEvent('ptbf-live-lock', { detail: false })) }
+  }, [live])
+
   // Feed the market — identical for every student. Within each round the
   // prices step every 5 seconds from the previous round's level toward this
   // round's published level (e.g. 100 → 145 walks 105, 110, … , 145).

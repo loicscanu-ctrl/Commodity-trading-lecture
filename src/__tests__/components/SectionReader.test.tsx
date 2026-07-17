@@ -48,6 +48,29 @@ test('ArrowLeft key goes to previous section', () => {
   expect(screen.getByText('Section One')).toBeInTheDocument()
 })
 
+test('arrow keys inside an input do not change slides', () => {
+  render(<SectionReader sections={sections} moduleId={1} topicTitle="Test" />)
+  const input = document.createElement('input')
+  document.body.appendChild(input)
+  fireEvent.keyDown(input, { key: 'ArrowRight' })
+  expect(screen.getByText('Section One')).toBeInTheDocument()
+  document.body.removeChild(input)
+})
+
+test('a live session locks all navigation until it ends', () => {
+  render(<SectionReader sections={sections} moduleId={1} topicTitle="Test" />)
+  fireEvent(window, new CustomEvent('ptbf-live-lock', { detail: true }))
+  // Buttons disabled, arrows dead, lock banner shown
+  expect(screen.getByRole('button', { name: /Continue/ })).toBeDisabled()
+  expect(screen.getByText(/LIVE session in progress/)).toBeInTheDocument()
+  fireEvent.keyDown(window, { key: 'ArrowRight' })
+  expect(screen.getByText('Section One')).toBeInTheDocument()
+  // Session ends → navigation unlocks
+  fireEvent(window, new CustomEvent('ptbf-live-lock', { detail: false }))
+  fireEvent.keyDown(window, { key: 'ArrowRight' })
+  expect(screen.getByText('Section Two')).toBeInTheDocument()
+})
+
 test('shows section counter', () => {
   render(<SectionReader sections={sections} moduleId={1} topicTitle="Test" />)
   expect(screen.getByText('1 / 3')).toBeInTheDocument()

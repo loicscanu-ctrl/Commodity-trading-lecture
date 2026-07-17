@@ -89,19 +89,33 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
     if (current > total - 1) setCurrent(Math.max(0, total - 1))
   }, [total, current])
 
+  // A live-market session (PTBF simulator) locks navigation: no leaving the
+  // slide until the session is stopped or the page is refreshed.
+  const [liveLocked, setLiveLocked] = useState(false)
+  useEffect(() => {
+    const onLock = (e: Event) => setLiveLocked(Boolean((e as CustomEvent).detail))
+    window.addEventListener('ptbf-live-lock', onLock)
+    return () => window.removeEventListener('ptbf-live-lock', onLock)
+  }, [])
+
   const goNext = useCallback(() => {
+    if (liveLocked) return
     if (isLast) router.push(`/module/${moduleId}`)
     else setCurrent(cur + 1)
-  }, [isLast, cur, moduleId, router])
+  }, [isLast, cur, moduleId, router, liveLocked])
 
   const goPrev = useCallback(() => {
+    if (liveLocked) return
     if (!isFirst) setCurrent(cur - 1)
-  }, [isFirst, cur])
+  }, [isFirst, cur, liveLocked])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       // Don't hijack arrows while typing in the editor or export modal
       if (editing || showExport) return
+      // …or while typing in ANY input (e.g. the simulator's volume fields)
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
       if (e.key === 'ArrowRight') goNext()
       if (e.key === 'ArrowLeft') goPrev()
     }
@@ -313,29 +327,35 @@ export default function SectionReader({ sections, moduleId, topicTitle, topicId 
       {/* Navigation bar */}
       <div className="shrink-0 border-t border-white/[0.06] bg-[#070912]/70 px-6 py-4 backdrop-blur-xl sm:px-8">
         <div className="flex items-center justify-between">
-          <button onClick={goPrev} disabled={isFirst} className="btn-ghost">
+          <button onClick={goPrev} disabled={isFirst || liveLocked} className="btn-ghost">
             ← Back
           </button>
 
-          {/* Dot navigation */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5">
-            {effectiveSections.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => setCurrent(i)}
-                aria-label={`Go to section ${i + 1}`}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === cur
-                    ? 'w-6 bg-gradient-to-r from-brand-cyan to-brand-blue'
-                    : s.inserted
-                      ? 'w-2 bg-emerald-400/40 hover:bg-emerald-400/70'
-                      : 'w-2 bg-white/15 hover:bg-white/35'
-                }`}
-              />
-            ))}
-          </div>
+          {/* Dot navigation — or the live lock */}
+          {liveLocked ? (
+            <span className="rounded-full border border-rose-500/40 bg-rose-500/[0.08] px-3 py-1 font-mono text-[11px] text-rose-300">
+              ● LIVE session in progress — navigation locked until it ends
+            </span>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {effectiveSections.map((s, i) => (
+                <button
+                  key={s.id}
+                  onClick={() => setCurrent(i)}
+                  aria-label={`Go to section ${i + 1}`}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === cur
+                      ? 'w-6 bg-gradient-to-r from-brand-cyan to-brand-blue'
+                      : s.inserted
+                        ? 'w-2 bg-emerald-400/40 hover:bg-emerald-400/70'
+                        : 'w-2 bg-white/15 hover:bg-white/35'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
 
-          <button onClick={goNext} className="btn-primary">
+          <button onClick={goNext} disabled={liveLocked} className="btn-primary">
             {isLast ? 'Back to Module' : 'Continue'} →
           </button>
         </div>
