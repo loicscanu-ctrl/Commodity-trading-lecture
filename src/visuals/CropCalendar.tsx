@@ -11,7 +11,7 @@ export const textDef = defineVisualText({
   caption: {
     label: 'Caption',
     multiline: true,
-    value: 'Somewhere, it is always harvest: supply pressure rotates through the year, which is why softs curves carry crop-year structure (remember wheat’s September break) and why differentials have seasons.',
+    value: 'Somewhere, it is always harvest: supply pressure rotates through the year, which is why softs curves carry crop-year structure (remember wheat’s September break) and why differentials have seasons. And note the needle: on the course’s trading date, Vietnam’s harvest is just beginning — exactly the backdrop of the Y1 Nov round in the live-market exercise.',
   },
 })
 
@@ -143,6 +143,24 @@ export default function CropCalendar() {
               </text>
             )
           })}
+
+          {/* "today" needle — the course's trading date, 12 November */}
+          {(() => {
+            const angle = 10 * 30 + 12; // ~12 Nov
+            const [nx0, ny0] = pt(50, angle)
+            const [nx1, ny1] = pt(155, angle)
+            const [lx, ly] = pt(120, angle - 14)
+            return (
+              <g>
+                <line x1={nx0.toFixed(2)} y1={ny0.toFixed(2)} x2={nx1.toFixed(2)} y2={ny1.toFixed(2)}
+                  stroke="#f43f5e" strokeWidth="1.5" opacity="0.85" />
+                <circle cx={nx1.toFixed(2)} cy={ny1.toFixed(2)} r="3" fill="#f43f5e" />
+                <text x={lx.toFixed(2)} y={ly.toFixed(2)} textAnchor="end" fill="#f43f5e" fontSize="8.5" className="font-mono" fontWeight="bold">
+                  12 Nov · today
+                </text>
+              </g>
+            )
+          })()}
 
           {/* center hub */}
           <circle cx={CX} cy={CY} r="46" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />

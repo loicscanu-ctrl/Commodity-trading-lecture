@@ -111,7 +111,7 @@ export default function NetworkExplosion() {
               onClick={() => setMode(key)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 mode === key
-                  ? 'border-blue-400/50 bg-blue-500/20 text-white'
+                  ? 'border-brand-blue/60 bg-brand-blue/20 text-blue-100'
                   : 'border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -129,7 +129,7 @@ export default function NetworkExplosion() {
             step={2}
             value={n}
             onChange={e => setN(Number(e.target.value))}
-            className="w-36 accent-blue-500"
+            className="w-36 accent-brand-blue"
           />
           <span className="font-mono text-slate-300 tabular-nums w-6 text-right">{n}</span>
         </label>
@@ -170,8 +170,14 @@ export default function NetworkExplosion() {
           <g>
             <circle cx={HUB.x} cy={HUB.y} r={HUB.r} fill="#3b82f6" opacity="0.9" />
             <circle cx={HUB.x} cy={HUB.y} r={HUB.r} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
-            <text x={HUB.x} y={HUB.y + 5} textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">
+            <text x={HUB.x} y={HUB.y + 1} textAnchor="middle" fill="#fff" fontSize="13" fontWeight="bold">
               ICE
+            </text>
+            <text x={HUB.x} y={HUB.y + 13} textAnchor="middle" fill="#dbeafe" fontSize="7.5" fontFamily="monospace">
+              4,800
+            </text>
+            <text x={HUB.x} y={HUB.y + HUB.r + 14} textAnchor="middle" fill="#22d3ee" fontSize="8" fontFamily="monospace">
+              one price, visible to all
             </text>
           </g>
         )}
@@ -185,19 +191,18 @@ export default function NetworkExplosion() {
         ))}
       </svg>
 
-      <div className="mt-3 font-mono text-slate-400 text-sm">
-        Prices to negotiate:{' '}
-        {mode === 'bilateral' ? (
-          <>
-            <span className="text-xl font-bold text-rose-400 tabular-nums">{bilateralLinks}</span>
-            <span className="text-slate-300"> bilateral links</span>
-          </>
-        ) : (
-          <>
-            <span className="text-xl font-bold text-cyan-300 tabular-nums">{n}</span>
-            <span className="text-slate-300"> links to one transparent price</span>
-          </>
-        )}
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 font-mono text-sm">
+        <span className={mode === 'bilateral' ? '' : 'opacity-45'}>
+          <span className="text-slate-400">bilateral: </span>
+          <span className="text-xl font-bold text-rose-400 tabular-nums">{bilateralLinks}</span>
+          <span className="text-slate-300"> private negotiations</span>
+        </span>
+        <span className={mode === 'exchange' ? '' : 'opacity-45'}>
+          <span className="text-slate-400">exchange: </span>
+          <span className="text-xl font-bold text-cyan-300 tabular-nums">{n}</span>
+          <span className="text-slate-300"> links · one public price</span>
+        </span>
+        <span className="text-[11px] text-slate-500">({(bilateralLinks / n).toFixed(1)}× fewer)</span>
       </div>
 
       <p className="mt-2 text-slate-400 text-sm leading-relaxed">{t('takeaway')}</p>
