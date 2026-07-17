@@ -2,9 +2,12 @@
 // Commodity Universe (hard vs soft) chart. The point of reading several is the
 // CONTRAST: origin specs from "US-grown only" to ~28 origins to none at all;
 // delivery from ex-warehouse warrants to FOB the buyer's vessel to a pipeline
-// hub to pure cash settlement; quotes in ¢/lb, €/t, $/t, $/bbl and $/gal.
-// Months & prices are indicative, anchored to the course's mid-November
-// trading date; specs summarise the exchange rulebooks (verify before use).
+// hub to live animals to pure cash settlement; quotes in ¢/lb, €/t, £/t, $/t,
+// $/bbl, $/gal, $/oz, $/MMBtu, €/MWh and $/cwt; calendars from all-12-months
+// (energy) to crop cycles (ags) to daily LME prompts to no storable link at
+// all (power, livestock). Months & prices are indicative, anchored to the
+// course's mid-November trading date; specs summarise the exchange rulebooks
+// (verify before use).
 export type ContractSpec = {
   key: string
   name: string
@@ -68,6 +71,97 @@ export const CONTRACT_SPECS: ContractSpec[] = [
     incoterm: 'Physical — FOB New York Harbor.',
     accent: '#c084fc',
   },
+  // ── Energy · Natural Gas, Coal & Electricity ─────────────────────────────
+  {
+    key: 'natgas', name: 'Henry Hub Natural Gas', symbol: 'NG', segment: 'Natural Gas, Coal & Electricity',
+    exchange: 'NYMEX (CME)', size: '10,000 MMBtu', quote: '$/MMBtu',
+    months: ['Dec Z · 3.20', 'Jan F · 3.35', 'Feb G · 3.30', 'Mar H · 3.05', 'Apr J · 2.70', 'May K · 2.65', 'Jun M · 2.72', 'Jul N · 2.80', 'Aug Q · 2.82', 'Sep U · 2.78', 'Oct V · 2.85', 'Nov X · 3.05'],
+    curve: 'all 12 months listed — read the WINTER premium (Jan peak) and spring trough: storage seasonality written straight into the strip',
+    origin: 'No origin — pipeline-quality gas anywhere in the US grid.',
+    quality: 'Pipeline-specification natural gas: heat content and impurity limits per the hub tariff.',
+    delivery: 'Henry Hub, Erath, Louisiana — the pipeline junction that names the world’s gas benchmark (and prices most LNG maths).',
+    incoterm: 'Physical — in-pipeline transfer at Henry Hub, delivered ratably over the month.',
+    accent: '#38bdf8',
+  },
+  {
+    key: 'coal', name: 'Rotterdam Coal (API2)', symbol: 'ATW', segment: 'Natural Gas, Coal & Electricity',
+    exchange: 'ICE Futures Europe', size: '1,000 t', quote: '$/t',
+    months: ['Dec Z · 105.00', 'Jan F · 104.50', 'Feb G · 104.00', 'Mar H · 103.25', 'Apr J · 102.50', 'May K · 102.00', 'Jun M · 101.75', 'Jul N · 101.50', 'Aug Q · 101.25', 'Sep U · 101.00', 'Oct V · 100.75', 'Nov X · 100.50'],
+    curve: 'gentle backwardation, all 12 months — but most volume trades in quarters and calendar years',
+    origin: 'No physical tender at all — the contract references seaborne steam coal delivered CIF ARA.',
+    quality: '6,000 kcal/kg NAR steam coal — as defined by the API2 index, not graded at a warehouse.',
+    delivery: 'None. CASH-SETTLED against the monthly average of the API2 index (Argus/McCloskey).',
+    incoterm: 'n/a — financial settlement on a published index: Brent’s mechanism, applied to coal.',
+    accent: '#94a3b8',
+  },
+  {
+    key: 'power', name: 'German Baseload Power', symbol: 'DEB', segment: 'Natural Gas, Coal & Electricity',
+    exchange: 'EEX (Leipzig)', size: '1 MW × every hour of the month (~720 MWh)', quote: '€/MWh',
+    months: ['Dec Z · 95.50', 'Jan F · 98.00', 'Feb G · 92.50', 'Mar H · 80.00', 'Apr J · 70.25', 'May K · 62.50', 'Jun M · 65.00', 'Jul N · 68.50', 'Aug Q · 66.75', 'Sep U · 72.00', 'Oct V · 80.50', 'Nov X · 90.00'],
+    curve: 'electricity cannot be stored → NO cost-of-carry link between months: the curve is pure expectation, with a violent winter heating premium',
+    origin: 'No origin, no storage — power is consumed the instant it is generated.',
+    quality: 'Baseload: a flat 1 MW through every hour of every day of the month (peakload variants trade separately).',
+    delivery: 'None at the futures level. CASH-SETTLED against the hourly German spot-auction average.',
+    incoterm: 'n/a — financial settlement; physical flows run through the grid’s own balancing markets.',
+    accent: '#fde047',
+  },
+  // ── Minerals · Precious Stones & Metals ──────────────────────────────────
+  {
+    key: 'gold', name: 'Gold', symbol: 'GC', segment: 'Precious Stones & Metals',
+    exchange: 'COMEX (CME)', size: '100 troy oz', quote: '$/oz',
+    months: ['Dec Z · 2,650', 'Feb G · 2,668', 'Apr J · 2,686', 'Jun M · 2,704', 'Aug Q · 2,722', 'Oct V · 2,740'],
+    curve: 'permanent CONTANGO ≈ the interest rate: above-ground gold never runs out, so the curve is pure cost of carry — no crop year, no season, ever',
+    origin: 'No origin spec — bars from any refiner on the exchange-approved brand list.',
+    quality: 'Minimum 995 fineness, registered brand marks, serial-numbered bars.',
+    delivery: 'COMEX-licensed depositories in and around New York.',
+    incoterm: 'Physical — warrant on vaulted bars (ex-vault).',
+    accent: '#facc15',
+  },
+  {
+    key: 'silver', name: 'Silver', symbol: 'SI', segment: 'Precious Stones & Metals',
+    exchange: 'COMEX (CME)', size: '5,000 troy oz', quote: '$/oz',
+    months: ['Dec Z · 31.50', 'Mar H · 31.82', 'May K · 32.04', 'Jul N · 32.26', 'Sep U · 32.48'],
+    curve: 'full-carry contango, like gold — the financial-metal curve shape',
+    origin: 'No origin spec — approved refiner brands only.',
+    quality: 'Minimum .999 fineness, exchange-approved brands.',
+    delivery: 'COMEX-licensed depositories, New York area.',
+    incoterm: 'Physical — warrant on vaulted bars (ex-vault).',
+    accent: '#cbd5e1',
+  },
+  // ── Minerals · Base Metals & Other Minerals ──────────────────────────────
+  {
+    key: 'copper', name: 'Copper', symbol: 'HG', segment: 'Base Metals & Other Minerals',
+    exchange: 'COMEX (CME)', size: '25,000 lb', quote: '$/lb',
+    months: ['Dec Z · 4.15', 'Mar H · 4.18', 'May K · 4.20', 'Jul N · 4.22', 'Sep U · 4.24'],
+    curve: 'all 12 months listed; H K N U Z carry the volume — mild contango when stocks are ample',
+    origin: 'No origin spec — any producer meeting the grade.',
+    quality: 'Grade 1 electrolytic copper cathode (ASTM B115).',
+    delivery: 'CME-licensed warehouses in the US. (The other world benchmark, LME copper, delivers globally.)',
+    incoterm: 'Physical — warehouse warrant, ex-warehouse.',
+    accent: '#fb923c',
+  },
+  {
+    key: 'aluminium', name: 'Aluminium', symbol: 'AH', segment: 'Base Metals & Other Minerals',
+    exchange: 'LME (London)', size: '25 t', quote: '$/t',
+    months: ['Cash · 2,585', '3-month · 2,610', 'Dec · 2,616', 'Mar+1 · 2,632', 'Jun+1 · 2,648'],
+    curve: 'not a monthly strip at all: DAILY prompt dates out to 3 months, then monthly — the 3M forward is the benchmark. The 3-month convention is a fossil of the age of sail: ~90 days for metal to reach London',
+    origin: 'No origin spec — any LME-registered producer brand.',
+    quality: 'P1020A primary aluminium, min 99.7%, in ingots, T-bars or sows.',
+    delivery: 'LME-approved warehouses across ~30 countries — the only truly global delivery network on this page.',
+    incoterm: 'Physical — LME warrant, ex-warehouse.',
+    accent: '#818cf8',
+  },
+  {
+    key: 'ironore', name: 'Iron Ore 62% Fe', symbol: 'FEF', segment: 'Base Metals & Other Minerals',
+    exchange: 'SGX (Singapore)', size: '100 t', quote: '$/t (dry)',
+    months: ['Dec Z · 104.50', 'Jan F · 103.75', 'Feb G · 103.10', 'Mar H · 102.50', 'Apr J · 101.95', 'May K · 101.50'],
+    curve: 'monthly strip, all 12 listed, flat-to-backwardated — a proxy for Chinese steel demand',
+    origin: 'No tender — references seaborne fines (Australian, Brazilian) landed in China.',
+    quality: '62% Fe fines, CFR Qingdao — as assessed by the TSI/Platts index.',
+    delivery: 'None. CASH-SETTLED monthly against the index average.',
+    incoterm: 'n/a — financial settlement; the physical trade is Pilbara-to-Qingdao by Capesize.',
+    accent: '#f87171',
+  },
   // ── Agriculture · Crop Products & Forestry ───────────────────────────────
   {
     key: 'arabica', name: 'Arabica Coffee "C"', symbol: 'KC', segment: 'Crop Products & Forestry',
@@ -92,6 +186,28 @@ export const CONTRACT_SPECS: ContractSpec[] = [
     accent: '#d97706',
   },
   {
+    key: 'cocoa-london', name: 'London Cocoa', symbol: 'C', segment: 'Crop Products & Forestry',
+    exchange: 'ICE Futures Europe', size: '10 t', quote: '£/t — the only sterling contract on this page',
+    months: ['Dec Z · 6,150', 'Mar H · 6,050', 'May K · 5,960', 'Jul N · 5,880', 'Sep U · 5,810'],
+    curve: 'backwardation — the 2024 West African shortfall still pays for beans NOW · 5 delivery months (H K N U Z)',
+    origin: 'Any origin, in practice West African bulk (Côte d’Ivoire, Ghana, Nigeria, Cameroon); origin differentials fixed by the exchange.',
+    quality: 'Exchange-graded on bean count, defects and slatiness.',
+    delivery: 'Licensed warehouses in the UK, Netherlands, Belgium and Germany (Liverpool, London area, Amsterdam, Antwerp, Hamburg…).',
+    incoterm: 'Physical — ex-warehouse warrant.',
+    accent: '#f472b6',
+  },
+  {
+    key: 'cocoa-ny', name: 'New York Cocoa', symbol: 'CC', segment: 'Crop Products & Forestry',
+    exchange: 'ICE Futures US', size: '10 t', quote: '$/t — the same bean as London, in the other currency',
+    months: ['Dec Z · 7,850', 'Mar H · 7,700', 'May K · 7,580', 'Jul N · 7,470', 'Sep U · 7,380'],
+    curve: 'backwardation, mirroring London — the £/$ pair of contracts on one bean makes a classic arbitrage (and a currency lesson)',
+    origin: 'Deliverable growths with fixed premiums/discounts — Ghana and Côte d’Ivoire main crop at a premium.',
+    quality: 'Exchange-graded on bean count and defects.',
+    delivery: 'Licensed warehouses: Delaware River, NY Harbor, Hampton Roads, Baltimore, Albany.',
+    incoterm: 'Physical — ex-warehouse warrant.',
+    accent: '#fb7185',
+  },
+  {
     key: 'cotton', name: 'Cotton No. 2', symbol: 'CT', segment: 'Crop Products & Forestry',
     exchange: 'ICE Futures US', size: '50,000 lb (~100 bales)', quote: '¢/lb',
     months: ['Dec Z · 70.20', 'Mar H · 71.50', 'May K · 72.40', 'Jul N · 73.10', 'Oct V · 73.80'],
@@ -110,7 +226,7 @@ export const CONTRACT_SPECS: ContractSpec[] = [
     origin: '~28 listed origins (Brazil, Thailand, Australia, India, Guatemala…) — the widest origin menu here.',
     quality: 'Raw centrifugal cane sugar, average 96° polarization.',
     delivery: 'No warehouses: a port in the country of origin — the BUYER charters the vessel and collects.',
-    incoterm: 'Physical — FOB receiver’s vessel, stowed & trimmed, origin port. The only true FOB of the nine.',
+    incoterm: 'Physical — FOB receiver’s vessel, stowed & trimmed, origin port. The only true FOB on this page.',
     accent: '#34d399',
   },
   {
@@ -123,6 +239,62 @@ export const CONTRACT_SPECS: ContractSpec[] = [
     delivery: 'Approved silos in Rouen and Dunkirk (France) — the export ports of the French wheat belt.',
     incoterm: 'Physical — in-silo delivery (ex-silo warrant).',
     accent: '#8b5cf6',
+  },
+  {
+    key: 'oj', name: 'Orange Juice (FCOJ-A)', symbol: 'OJ', segment: 'Crop Products & Forestry',
+    exchange: 'ICE Futures US', size: '15,000 lb of solids', quote: '¢/lb',
+    months: ['Jan F · 420.50', 'Mar H · 415.25', 'May K · 408.00', 'Jul N · 401.50', 'Sep U · 396.75', 'Nov X · 393.00'],
+    curve: 'backwardation at record highs — hurricanes plus citrus greening gutted Florida supply · 6 delivery months (F H K N U X)',
+    origin: 'US, Brazil, Costa Rica and Mexico deliverable — in practice a Florida-and-Brazil market.',
+    quality: 'Frozen concentrated orange juice, USDA Grade A, minimum Brix score.',
+    delivery: 'Exchange-licensed warehouses in Florida, Delaware and New Jersey.',
+    incoterm: 'Physical — warehouse receipt.',
+    accent: '#fdba74',
+  },
+  // ── Agriculture · Animal Products ────────────────────────────────────────
+  {
+    key: 'leanhogs', name: 'Lean Hogs', symbol: 'HE', segment: 'Animal Products',
+    exchange: 'CME (Chicago)', size: '40,000 lb', quote: '¢/lb',
+    months: ['Dec Z · 84.10', 'Feb G · 88.50', 'Apr J · 92.75', 'May K · 96.40', 'Jun M · 99.80', 'Jul N · 100.30', 'Aug Q · 99.10', 'Oct V · 88.60'],
+    curve: 'livestock cannot be stored → months barely arbitrage against each other: each prices its own season (summer grilling premium) · 8 months a year',
+    origin: 'None — you cannot deliver a hog against this contract.',
+    quality: 'Defined by the index: 51–52% lean hog carcasses as reported by the USDA.',
+    delivery: 'None. CASH-SETTLED against the CME Lean Hog Index (two-day weighted average of USDA carcass prices).',
+    incoterm: 'n/a — financial settlement.',
+    accent: '#f9a8d4',
+  },
+  {
+    key: 'livecattle', name: 'Live Cattle', symbol: 'LE', segment: 'Animal Products',
+    exchange: 'CME (Chicago)', size: '40,000 lb', quote: '¢/lb',
+    months: ['Dec Z · 186.50', 'Feb G · 188.20', 'Apr J · 190.10', 'Jun M · 184.75', 'Aug Q · 182.90', 'Oct V · 184.50'],
+    curve: 'no storage, no carry — each month is its own market · 6 months a year (G J M Q V Z)',
+    origin: 'US-origin live steers and heifers, 55% Choice / 45% Select grading mix.',
+    quality: 'USDA-graded live animals within the deliverable weight range.',
+    delivery: 'PHYSICAL — approved stockyards and packing plants in the US plains (Worthing SD, Dodge City KS…).',
+    incoterm: 'Physical — live animals actually change hands: one of the last truly physical livestock contracts.',
+    accent: '#fca5a5',
+  },
+  {
+    key: 'feedercattle', name: 'Feeder Cattle', symbol: 'GF', segment: 'Animal Products',
+    exchange: 'CME (Chicago)', size: '50,000 lb', quote: '¢/lb',
+    months: ['Jan F · 256.00', 'Mar H · 254.50', 'Apr J · 255.25', 'May K · 256.75', 'Aug Q · 260.40', 'Sep U · 259.80', 'Oct V · 258.90', 'Nov X · 258.00'],
+    curve: 'the young-animal leg of the cattle chain — 8 months a year, cash-settled',
+    origin: 'None — index-defined: 700–899 lb steers sold at US auctions.',
+    quality: 'Defined by the CME Feeder Cattle Index (7-day average of reported auction prices).',
+    delivery: 'None. CASH-SETTLED against the index.',
+    incoterm: 'n/a — financial settlement.',
+    accent: '#86efac',
+  },
+  {
+    key: 'milk', name: 'Class III Milk', symbol: 'DC', segment: 'Animal Products',
+    exchange: 'CME (Chicago)', size: '200,000 lb', quote: '$/cwt',
+    months: ['Dec Z · 19.45', 'Jan F · 19.10', 'Feb G · 18.85', 'Mar H · 18.70', 'Apr J · 18.65', 'May K · 18.75', 'Jun M · 18.95', 'Jul N · 19.20', 'Aug Q · 19.45', 'Sep U · 19.60', 'Oct V · 19.55', 'Nov X · 19.50'],
+    curve: 'all 12 months listed — dairy co-ops and cheese makers hedge the whole year forward',
+    origin: 'None — settles on the USDA announced Class III price (milk used for cheese).',
+    quality: 'Defined by the USDA pricing formula: component values of butterfat, protein and other solids.',
+    delivery: 'None. CASH-SETTLED monthly on the USDA announcement.',
+    incoterm: 'n/a — financial settlement.',
+    accent: '#f8fafc',
   },
 ]
 
