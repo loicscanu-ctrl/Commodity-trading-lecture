@@ -53,6 +53,13 @@ import GasolineSwap, { textDef as gasolineSwapText } from './GasolineSwap'
 import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
 import MarginSimulator from './MarginSimulator'
 import SwapTimeline from './SwapTimeline'
+import NetworkExplosion, { textDef as networkExplosionText } from './NetworkExplosion'
+import CropCalendar, { textDef as cropCalendarText } from './CropCalendar'
+import WarrantLifecycle, { textDef as warrantLifecycleText } from './WarrantLifecycle'
+import RollYield from './RollYield'
+import StuScatter from './StuScatter'
+import OrderBook from './OrderBook'
+import ParcelJourney from './ParcelJourney'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -108,6 +115,13 @@ export const visualRegistry: Record<string, ComponentType> = {
   'efp-diagram': EfpDiagram,
   'margin-simulator': MarginSimulator,
   'swap-timeline': SwapTimeline,
+  'network-explosion': NetworkExplosion,
+  'crop-calendar': CropCalendar,
+  'warrant-lifecycle': WarrantLifecycle,
+  'roll-yield': RollYield,
+  'stu-scatter': StuScatter,
+  'order-book': OrderBook,
+  'parcel-journey': ParcelJourney,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
@@ -140,4 +154,7 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'vietnam-case-study': vietnamCaseStudyText,
   'gasoline-swap': gasolineSwapText,
   'efp-diagram': efpDiagramText,
+  'network-explosion': networkExplosionText,
+  'crop-calendar': cropCalendarText,
+  'warrant-lifecycle': warrantLifecycleText,
 }

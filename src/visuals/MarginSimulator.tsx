@@ -10,7 +10,8 @@ const ENTRY = 4500
 const TONNES = 100
 const IM = 60000
 const DAYS = 4
-const PMIN = 4200, PMAX = 5200
+const PMIN = 4200, PMAX = 5600
+const CREDIT = 60000 // the desk's VM funding line
 
 const usd = (n: number) => '$' + Math.abs(Math.round(n)).toLocaleString('en-US')
 const sgn = (n: number) => (n < 0 ? '−' : '+') + usd(n)
@@ -32,6 +33,11 @@ export default function MarginSimulator() {
   })
   const cumulative = vmRows.reduce((a, r) => a + r.vm, 0)
   const liveVm = -(live - prevSettle) * TONNES
+  // Funding: cumulative cash OUT draws the credit line down. Exhaust it and
+  // the clearing member closes the position — the forced-out lesson.
+  const creditLeft = Math.max(0, CREDIT + Math.min(0, cumulative))
+  const busted = cumulative < -CREDIT
+  const liveCreditLeft = Math.max(0, CREDIT + Math.min(0, cumulative + Math.min(0, liveVm)))
 
   // Chart geometry
   const W = 560, H = 250, ml = 56, mr = 16, mt = 14, mb = 30
@@ -60,7 +66,7 @@ export default function MarginSimulator() {
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '250px' }}>
               {/* Grid */}
-              {[4300, 4500, 4700, 4900, 5100].map(p => (
+              {[4300, 4500, 4700, 4900, 5100, 5300, 5500].map(p => (
                 <g key={p}>
                   <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke={p === ENTRY ? 'rgba(34,211,238,0.25)' : 'rgba(255,255,255,0.05)'} strokeWidth="1" strokeDasharray={p === ENTRY ? '4 3' : undefined} />
                   <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill={p === ENTRY ? '#22d3ee' : '#64748b'} fontSize="8.5" fontFamily="monospace">{p.toLocaleString()}</text>
@@ -93,7 +99,7 @@ export default function MarginSimulator() {
           </div>
 
           {/* Control for the live point */}
-          {!done ? (
+          {!done && !busted ? (
             <div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-amber-300">Day {day} settlement — move it, then fix it</span>
@@ -116,12 +122,21 @@ export default function MarginSimulator() {
                 <span className="font-mono text-[11px] text-slate-400">
                   move {sgn(live - prevSettle).replace('$', '$')}/t → today&apos;s VM{' '}
                   <span className={liveVm >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(liveVm)}</span>
+                  {liveVm < 0 && <span className="text-slate-500"> · line after: {usd(liveCreditLeft)}</span>}
                 </span>
                 <button onClick={fix} className="btn-primary !px-3 !py-1.5 text-xs">Fix Day {day} settle</button>
               </div>
             </div>
           ) : (
             <button onClick={() => { setSettles([]); setLive(4520) }} className="btn-ghost mt-3 !px-3 !py-1.5 text-xs">Run another week</button>
+          )}
+          {busted && (
+            <div className="mt-3 rounded-xl border border-rose-500/50 bg-rose-500/[0.12] p-3 font-mono text-xs">
+              <div className="eyebrow mb-1 text-rose-400">FORCED OUT — credit line exhausted</div>
+              <p className="leading-relaxed text-slate-300">
+                Cumulative variation margin ({sgn(cumulative)}) blew through the {usd(CREDIT)} funding line. Your clearing member closes the 10 lots at {settles[settles.length - 1]?.toLocaleString('en-US')} — the loss is locked, and the physical coffee it hedged is still unsold: you are now naked long, at the top. This is the Ashanti mechanism: the hedge didn&rsquo;t fail, the funding did.
+              </p>
+            </div>
           )}
         </div>
 
@@ -140,8 +155,19 @@ export default function MarginSimulator() {
             </div>
           </div>
 
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums">
+            <div className="mb-1 flex justify-between">
+              <span className="eyebrow">VM funding line</span>
+              <span className={creditLeft < CREDIT * 0.35 ? 'text-rose-300 font-bold' : 'text-slate-300'}>{usd(creditLeft)} / {usd(CREDIT)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded bg-white/[0.05]">
+              <div className={`h-full rounded transition-all ${creditLeft < CREDIT * 0.35 ? 'bg-rose-500' : creditLeft < CREDIT * 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                style={{ width: `${(creditLeft / CREDIT) * 100}%` }} />
+            </div>
+          </div>
+
           <div className={`rounded-xl border p-4 font-mono text-xs tabular-nums ${cumulative >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.08]' : 'border-rose-500/40 bg-rose-500/[0.10]'}`}>
-            <div className="eyebrow mb-1">Cumulative cash{done ? ' — week complete' : ''}</div>
+            <div className="eyebrow mb-1">Cumulative cash{busted ? ' — FORCED OUT' : done ? ' — week complete' : ''}</div>
             <div className={`text-2xl font-bold ${cumulative >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(cumulative)}</div>
             <p className="mt-1.5 leading-relaxed text-slate-400">
               {cumulative < 0
