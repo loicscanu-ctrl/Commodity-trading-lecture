@@ -175,10 +175,14 @@ function RiskSquare({ label, on, active }: { label: string; on: boolean; active:
 }
 
 // London-futures price graph, margin-simulator style: each executed action
-// pins a point on the path; the live market is the movable dashed point;
-// the hedge→fix window is annotated because it IS the Futures P&L.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, complete }: {
+// pins a point on the path (GREEN dot = a buy, RED dot = a sell — futures or
+// differential); the live market is the movable dashed point; the dotted
+// white line is the flat OUTRIGHT (futures + diff); the x-axis shows WHEN
+// each action happened (live-market round labels, or T1/T2… by hand); the
+// hedge→fix window is annotated because it IS the Futures P&L.
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, complete, sides, stamps, liveLabel }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; lastStep: number; hedgeIdx: number; complete: boolean
+  sides: ReadonlyArray<'buy' | 'sell'>; stamps?: number[]; liveLabel: string
 }) {
   const W = 560, H = 320, ml = 56, mr = 16, mt = 12
   const pw = W - ml - mr, ph = 158 - mt // futures panel height
@@ -197,46 +201,74 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
   const fix = complete ? marks[lastStep - 1] : undefined
   const futPnlT = hedge !== undefined && fix !== undefined ? hedge - fix : null
 
+  const sideHex = (i: number) => (sides[i] === 'buy' ? '#34d399' : '#f43f5e')
+  // Time label of each executed action: live-round stamp, or T1/T2… by hand
+  const timeLabel = (i: number) => (stamps?.[i] !== undefined ? LIVE_SCRIPT[stamps[i]].label : `T${i + 1}`)
+  // The flat outright = futures + differential, per action and live
+  const outright = marks.map((v, i) => v + (diffMarks[i] ?? 0))
+  const outrightPath = outright.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const liveOutright = liveFut + liveDiff
+
   return (
     <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="eyebrow mb-1">London futures — the price path of your trade</div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '190px' }}>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="eyebrow">London futures — the price path of your trade</div>
+        <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> buy</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-rose-500" /> sell</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-4 border-t border-dotted border-slate-200" /> outright (fut + diff)</span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '360px' }}>
         {[4000, 4500, 5000, 5500].map(p => (
           <g key={p}>
             <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-            <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="8.5" fontFamily="monospace">{p.toLocaleString()}</text>
+            <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="10" fontFamily="monospace">{p.toLocaleString()}</text>
           </g>
         ))}
+        {/* X axis: the TIME each action happened, not the action number */}
         {Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
           <text key={stp} x={x(stp)} y={H - 6} textAnchor="middle"
-            fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="8.5" fontFamily="monospace">
-            {stp <= marks.length ? `✓${stp}` : stp === nextStep && !complete ? `action ${stp}` : stp}
+            fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="9.5" fontFamily="monospace">
+            {stp <= marks.length ? timeLabel(stp - 1) : stp === nextStep && !complete ? liveLabel : '·'}
           </text>
         ))}
+
+        {/* Flat outright — dotted white, above the futures path */}
+        {marks.length > 0 && (
+          <path d={outrightPath} fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="2 4" opacity="0.75" strokeLinecap="round" />
+        )}
+        {!complete && marks.length > 0 && (
+          <line x1={x(marks.length)} y1={y(outright[outright.length - 1])} x2={x(nextStep)} y2={y(liveOutright)}
+            stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 4" opacity="0.45" />
+        )}
+        {marks.length > 0 && (
+          <text x={x(1) + 6} y={y(outright[0]) - 6} fill="#e2e8f0" fontSize="8.5" fontFamily="monospace" opacity="0.8">outright</text>
+        )}
 
         {/* hedge → fix window: the futures leg */}
         {hedge !== undefined && (
           <g>
             <line x1={x(hedgeIdx)} y1={y(hedge)} x2={complete ? x(lastStep) : x(Math.max(nextStep, hedgeIdx))} y2={y(hedge)}
               stroke="#22d3ee" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
-            <text x={x(hedgeIdx)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="8" fontFamily="monospace" fontWeight="bold">hedge</text>
+            <text x={x(hedgeIdx)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="9.5" fontFamily="monospace" fontWeight="bold">hedge</text>
           </g>
         )}
         {futPnlT !== null && (
           <g>
             <line x1={x(lastStep)} y1={y(hedge!)} x2={x(lastStep)} y2={y(fix!)} stroke={futPnlT >= 0 ? '#34d399' : '#f43f5e'} strokeWidth="1.5" />
             <text x={x(lastStep) - 6} y={(y(hedge!) + y(fix!)) / 2 + 3} textAnchor="end"
-              fill={futPnlT >= 0 ? '#34d399' : '#f87171'} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+              fill={futPnlT >= 0 ? '#34d399' : '#f87171'} fontSize="10" fontFamily="monospace" fontWeight="bold">
               futures leg {futPnlT >= 0 ? '+' : '−'}${Math.abs(futPnlT).toLocaleString('en-US')}/t
             </text>
           </g>
         )}
 
-        {/* Executed path */}
+        {/* Executed path — each locked action is a green (buy) or red (sell) dot */}
         {marks.length > 0 && <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
         {marks.map((v, i) => (
-          <circle key={i} cx={x(i + 1)} cy={y(v)} r="4" fill="#3b82f6" stroke="#070912" strokeWidth="1.2">
-            <title>{`action ${i + 1} · $${v.toLocaleString('en-US')}`}</title>
+          <circle key={i} cx={x(i + 1)} cy={y(v)} r="4.5" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
+            <title>{`action ${i + 1} (${sides[i]}) · ${timeLabel(i)} · $${v.toLocaleString('en-US')}`}</title>
           </circle>
         ))}
 
@@ -249,25 +281,25 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
             )}
             <circle cx={x(nextStep)} cy={y(liveFut)} r="6" fill="#f59e0b" stroke="#070912" strokeWidth="1.5" />
             <circle cx={x(nextStep)} cy={y(liveFut)} r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.35" />
-            <text x={x(nextStep)} y={y(liveFut) - 12} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">
+            <text x={x(nextStep)} y={y(liveFut) - 12} textAnchor="middle" fill="#fbbf24" fontSize="10.5" fontFamily="monospace" fontWeight="bold">
               {liveFut.toLocaleString('en-US')}
             </text>
           </g>
         )}
 
         {/* ── FOB differential panel — the DIFF tile as a chart ── */}
-        <text x={ml} y={D.top - 8} fill="#94a3b8" fontSize="9" fontFamily="monospace">FOB HCM DIFFERENTIAL ($/t vs London)</text>
+        <text x={ml} y={D.top - 8} fill="#94a3b8" fontSize="10" fontFamily="monospace">FOB HCM DIFFERENTIAL ($/t vs London)</text>
         {[-200, 0, 200].map(v => (
           <g key={`d-${v}`}>
             <line x1={ml} y1={yd(v)} x2={ml + pw} y2={yd(v)}
               stroke={v === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.05)'} strokeWidth="1" strokeDasharray={v === 0 ? '4 3' : undefined} />
-            <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="8.5" fontFamily="monospace">{v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v)}</text>
+            <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="10" fontFamily="monospace">{v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v)}</text>
           </g>
         ))}
         {diffMarks.length > 0 && <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
         {diffMarks.map((v, i) => (
-          <circle key={`dm-${i}`} cx={x(i + 1)} cy={yd(v)} r="3.5" fill="#0891b2" stroke="#070912" strokeWidth="1.2">
-            <title>{`action ${i + 1} · diff ${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('en-US')}`}</title>
+          <circle key={`dm-${i}`} cx={x(i + 1)} cy={yd(v)} r="4" fill={sideHex(i)} stroke="#070912" strokeWidth="1.2">
+            <title>{`action ${i + 1} (${sides[i]}) · ${timeLabel(i)} · diff ${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('en-US')}`}</title>
           </circle>
         ))}
         {!complete && (
@@ -277,7 +309,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
                 stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" />
             )}
             <circle cx={x(nextStep)} cy={yd(liveDiff)} r="5" fill="#f59e0b" stroke="#070912" strokeWidth="1.2" />
-            <text x={x(nextStep)} y={yd(liveDiff) - 9} textAnchor="middle" fill="#fbbf24" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+            <text x={x(nextStep)} y={yd(liveDiff) - 9} textAnchor="middle" fill="#fbbf24" fontSize="10" fontFamily="monospace" fontWeight="bold">
               {liveDiff >= 0 ? '+' : '−'}{Math.abs(liveDiff).toLocaleString('en-US')}
             </text>
           </g>
@@ -286,6 +318,12 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, c
     </div>
   )
 }
+
+// The side of each action, for the graph's buy/sell dots:
+//  Exporter: buy VND · sell futures · sell FOB · buy futures (fix)
+//  Importer: buy diff · buy freight · sell futures · sell spot EUR · buy futures
+const EXP_SIDES = ['buy', 'sell', 'sell', 'buy'] as const
+const IMP_SIDES = ['buy', 'buy', 'sell', 'sell', 'buy'] as const
 
 const EXP_STATUS = ['No position', 'Long physical (VND) — UNHEDGED', 'Hedged — buying diff locked', 'Sold FOB — fixing pending', 'FLAT — trade complete']
 const IMP_STATUS = ['No position', 'Long the diff — unpriced PTBF, no flat risk yet', 'Freight booked — costs locked', 'Fixed & hedged — long the basis', 'Sold outright (EUR) — short futures open!', 'FLAT — trade complete']
@@ -504,6 +542,9 @@ export default function PtbfMechanics() {
         lastStep={lastStep}
         hedgeIdx={mode === 'exporter' ? 2 : 3}
         complete={complete}
+        sides={mode === 'exporter' ? EXP_SIDES : IMP_SIDES}
+        stamps={deal.stamps}
+        liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
