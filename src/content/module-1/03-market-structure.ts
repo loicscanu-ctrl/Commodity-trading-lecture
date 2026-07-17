@@ -21,13 +21,8 @@ const topic: Topic = {
     {
       id: 'contango',
       title: 'Contango in Detail',
-      body: `In contango, a nearby buyer can:\n1. Buy spot\n2. Store the commodity\n3. Sell forward at a higher price\n4. Earn the spread (minus costs)\n\nIf the forward premium exceeds cost of carry, this **cash-and-carry arbitrage** is profitable and traders exploit it until the premium collapses to fair value.\n\n**Cost of carry** = Storage cost + Insurance + Financing cost (interest)\n\nContango is why oil in tanks, grain in silos, and coffee in warehouses are all "financed" by the forward curve.`,
+      body: `In contango, a nearby buyer can:\n1. Buy spot\n2. Store the commodity\n3. Sell forward at a higher price\n4. Earn the spread (minus costs)\n\nIf the forward premium exceeds cost of carry, this **cash-and-carry arbitrage** is profitable and traders exploit it until the premium collapses to fair value.\n\n**Cost of carry** = Storage cost + Insurance + Financing cost (interest)\n\nContango is why oil in tanks, grain in silos, and coffee in warehouses are all "financed" by the forward curve.\n\n---\n\n**⚠ The contango fallacy — the curve is NOT a forecast**\n\nOn the chart: spot \\$60, 6-month contract ≈ \\$67. Beginners read: *"the market expects \\$67."* **Wrong.** The \\$7 is not an opinion — it is just the bill for storing, insuring and financing a barrel for six months.\n\nProof by arbitrage: if the 6-month jumped to \\$75 on pure bullish sentiment, anyone could buy spot at 60, pay ~7 of carry, and sell forward at 75 — risk-free profit. That selling would crush the forward straight back to ~67. The curve is leashed to spot by the cost of carry.\n\n**Takeaway:** contango describes *today's* fundamentals (ample supply, demand for storage) and the cost of money — not where spot will be at maturity.`,
       visual: 'contango-chart',
-    },
-    {
-      id: 'contango-fallacy',
-      title: '⚠ Warning: The Contango Fallacy',
-      body: `**The common misconception:**\nWhen a market is in contango (e.g. Spot = $80, 6-month Forward = $85), beginners almost always conclude: *"The market expects the spot price to rise to $85 in six months."*\n\n**The reality:**\nForward prices in storable commodity markets are **not price forecasts**. They are pricing formulas dictated by the **Cost of Carry**.\n\nThe $5 premium does not mean traders are bullish. It simply reflects the exact mathematical cost of storing, insuring, and financing that commodity for six months:\n\n**Fair Forward = Spot + Storage cost + Financing cost**\n\n**Why it matters — the arbitrage bound:**\nIf the forward price spiked to $95 based purely on "bullish sentiment," it would immediately break the cost of carry. Arbitrageurs would buy at $80, store for $5, and sell forward at $95 — a risk-free $10 profit. That wave of selling crushes the forward price straight back to $85.\n\n**The key takeaway:** Contango tells you about current **fundamentals** (oversupply today → storage demand) and the **cost of capital**. It does not tell you where the spot price will be at maturity. The forward curve is tied to the spot price by an invisible mathematical leash — the cost of carry.`,
     },
     {
       id: 'arbitrage-exercise',
@@ -49,8 +44,8 @@ const topic: Topic = {
     },
     {
       id: 'roll-yield',
-      title: 'The Cost of Rolling: Why Contango Bleeds',
-      body: `Cash-and-carry explains why the curve has its shape. Here is what that shape **does to anyone holding futures over time**.\n\nA long futures position must be **rolled** every month \u2014 sell the expiring contract, buy the next. In contango the next contract always costs more, and that premium then decays to spot: month after month, the roll quietly taxes the position. In backwardation the same mechanics *pay* the holder. Set the carry below and watch a full year of rolls \u2014 with spot never moving an inch.\n\nThis is why long-only commodity index investors can lose money in a flat market, and why "just buy futures and hold" is a strategy with a built-in rent bill.`,
+      title: 'The Roll: Contango Taxes Longs, Backwardation Pays Them',
+      body: `Cash-and-carry explains why the curve has its shape. Here is what that shape **does to anyone holding futures over time**.\n\nA futures position held beyond one expiry must be **rolled** every month \u2014 close the expiring contract, open the next. Which way the roll cuts depends on the curve *and* on your side of it:\n\n- **Contango \u00d7 LONG:** you keep buying the dearer next contract and watching it decay to spot \u2014 the roll quietly **taxes** you. *Good market to be SHORT:* the short collects exactly that carry.\n- **Backwardation \u00d7 LONG:** you keep buying the next contract at a *discount* and it converges **up** to spot \u2014 the roll **pays** you. *Bad market to be short:* a rolling short hedge pays the shortage premium away every month.\n\n**Rule of thumb: backwardation favours the long, contango favours the short.** Toggle the position and set the carry below \u2014 a full year of rolls, with spot never moving an inch.\n\nThis is why long-only commodity index investors can lose money in a flat contango market ("just buy futures and hold" has a built-in rent bill), and why hedging programs care so much about which structure they roll their shorts in.`,
       visual: 'roll-yield',
     },
     {
@@ -64,11 +59,6 @@ const topic: Topic = {
       title: 'Simulator: Squeeze & Exchange Intervention',
       body: `Use the sliders to build a squeeze scenario: reduce deliverable supply, raise short covering demand, and increase long concentration. Watch the front of the curve spike.\n\nThen toggle exchange interventions one by one to see how each mechanism flattens the curve and restores order.`,
       visual: 'squeeze-simulator',
-    },
-    {
-      id: 'back-middle-front',
-      title: 'Back, Middle & Front Office',
-      body: `In a commodity trading house:\n\n**Front Office** — traders, originators, sales\n- Execute trades, manage positions, engage with counterparties\n- P&L responsible\n\n**Middle Office** — risk management, compliance\n- Monitor trader positions vs limits\n- Mark-to-market, exposure reporting\n\n**Back Office** — operations, settlements, accounting\n- Confirm trades, arrange logistics, process invoices\n- Coordinate shipping documents, warehouse receipts\n- Settle financial transactions\n\nAll three must communicate seamlessly — a breakdown between front and back is how operational losses happen.`,
     },
   ],
 }

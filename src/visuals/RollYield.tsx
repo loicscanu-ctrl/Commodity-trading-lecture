@@ -21,15 +21,19 @@ function Slider({ label, value, min, max, step, onChange, display, amber }: {
 
 export default function RollYield() {
   const [carryPct, setCarryPct] = useState(0.6)
+  const [pos, setPos] = useState<'long' | 'short'>('long')
 
   const c = carryPct / 100
-  // Spot flat at 100. Each month: buy front at 100·(1+c), it converges to 100 at expiry, roll.
-  // E(m) = 100 · (1/(1+c))^m
-  const equity = Array.from({ length: 13 }, (_, m) => 100 * Math.pow(1 / (1 + c), m))
-  const annualRollYield = (Math.pow(1 / (1 + c), 12) - 1) * 100
+  // Spot flat at 100. Each roll the front trades at 100·(1+c) and converges
+  // to 100 at expiry. LONG equity: E(m) = 100·(1/(1+c))^m — the long pays the
+  // carry. SHORT equity: E(m) = 100·(1+c)^m — the same carry, collected.
+  const factor = pos === 'long' ? 1 / (1 + c) : 1 + c
+  const equity = Array.from({ length: 13 }, (_, m) => 100 * Math.pow(factor, m))
+  const annualRollYield = (Math.pow(factor, 12) - 1) * 100
 
   const contango = carryPct > 0.001
   const backwardation = carryPct < -0.001
+  const winning = annualRollYield > 0.01
 
   // ── SVG chart ──
   const W = 560, H = 260
@@ -53,7 +57,20 @@ export default function RollYield() {
 
   return (
     <div className="glass mt-5 p-5 text-white">
-      <div className="eyebrow mb-4">Roll Yield · Long Futures, Rolled Monthly</div>
+      <div className="eyebrow mb-4">Roll Yield · A Futures Position, Rolled Monthly</div>
+
+      <div className="mb-3 flex gap-2">
+        {(['long', 'short'] as const).map(p => (
+          <button key={p} type="button" onClick={() => setPos(p)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              pos === p
+                ? 'border-brand-blue/60 bg-brand-blue/20 text-blue-100'
+                : 'border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200'
+            }`}>
+            {p === 'long' ? 'LONG futures' : 'SHORT futures'}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-4">
         <Slider
@@ -100,7 +117,7 @@ export default function RollYield() {
           {/* SPOT: dashed slate flat at 100 */}
           <line x1={ml} y1={spotY} x2={ml + pw} y2={spotY}
             stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.8" />
-          <text x={ml + pw} y={spotY + (backwardation ? 12 : -6)} textAnchor="end"
+          <text x={ml + pw} y={spotY + (equity[12] >= 100 ? 12 : -6)} textAnchor="end"
             fill="#94a3b8" fontSize="9" fontFamily="monospace" fontWeight="bold">
             SPOT = 100
           </text>
@@ -128,9 +145,9 @@ export default function RollYield() {
             transform={`rotate(-90 11 ${mt + ph / 2})`}>strategy equity</text>
 
           {/* Strategy label near end of line */}
-          <text x={x(12) - 8} y={y(equity[12]) + (contango ? 16 : -10)} textAnchor="end"
+          <text x={x(12) - 8} y={y(equity[12]) + (equity[12] < 100 ? 16 : -10)} textAnchor="end"
             fill="#d97706" fontSize="9.5" fontFamily="monospace" fontWeight="bold">
-            LONG + MONTHLY ROLL
+            {pos === 'long' ? 'LONG' : 'SHORT'} + MONTHLY ROLL
           </text>
         </svg>
       </div>
@@ -162,32 +179,42 @@ export default function RollYield() {
         </div>
 
         <div className={`rounded-xl p-3 border font-mono text-xs leading-relaxed ${
-          contango
-            ? 'border-rose-500/30 bg-rose-500/[0.06] text-rose-200'
-            : backwardation
+          !contango && !backwardation
+            ? 'border-white/10 bg-white/[0.03] text-slate-400'
+            : winning
               ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200'
-              : 'border-white/10 bg-white/[0.03] text-slate-400'
+              : 'border-rose-500/30 bg-rose-500/[0.06] text-rose-200'
         }`}>
-          {contango ? (
+          {contango && pos === 'long' ? (
             <>
-              <div className="font-bold mb-1 text-rose-400">CONTANGO</div>
-              the curve charges you rent for holding paper barrels — this is why long-only index investors underperform spot in contango (the oil ETF USO in 2020’s super-contango is the textbook casualty)
+              <div className="font-bold mb-1 text-rose-400">CONTANGO × LONG — the roll taxes you</div>
+              every month you sell the cheap expiring contract and buy the dearer next one: the curve charges the long rent for holding paper barrels. This is why long-only index investors underperform spot in contango (the oil ETF USO in 2020’s super-contango is the textbook casualty)
             </>
-          ) : backwardation ? (
+          ) : contango && pos === 'short' ? (
             <>
-              <div className="font-bold mb-1 text-emerald-400">BACKWARDATION</div>
-              rolling down the curve pays you — the backwardated market pays holders of the front
+              <div className="font-bold mb-1 text-emerald-400">CONTANGO × SHORT — the roll pays you</div>
+              the mirror image: each month you buy back the expiring contract cheap and re-sell the next one dear, collecting the carry. In a contango market the roll works FOR the short — one reason producers’ rolling short hedges sit comfortably in contango
+            </>
+          ) : backwardation && pos === 'long' ? (
+            <>
+              <div className="font-bold mb-1 text-emerald-400">BACKWARDATION × LONG — the roll pays you</div>
+              rolling down the inverted curve pays the long: you keep re-buying the next contract at a discount and it converges UP to spot — the backwardated market pays holders of the front
+            </>
+          ) : backwardation && pos === 'short' ? (
+            <>
+              <div className="font-bold mb-1 text-rose-400">BACKWARDATION × SHORT — the roll taxes you</div>
+              the short keeps re-selling the next contract at a discount and watching it converge up: a rolling short hedge in backwardation pays the shortage premium away, month after month — this is the hedger’s cost of a tight market
             </>
           ) : (
             <>
               <div className="font-bold mb-1 text-slate-300">FLAT CURVE</div>
-              with zero carry each roll is free — the strategy simply tracks spot
+              with zero carry each roll is free — the strategy simply tracks spot, long or short
             </>
           )}
         </div>
       </div>
 
-      <p className="text-slate-500 text-xs font-mono mt-3">Spot never moved. The whole P&amp;L is the roll.</p>
+      <p className="text-slate-500 text-xs font-mono mt-3">Spot never moved. The whole P&amp;L is the roll. Rule of thumb: <span className="text-emerald-400">backwardation favours the LONG</span>, <span className="text-rose-300">contango favours the SHORT</span>.</p>
       <p className="text-slate-600 text-[10px] mt-1 leading-relaxed">Assumes the curve keeps its shape while each contract converges to spot — the pure roll-down case. In practice the realised roll yield also depends on how the curve itself moves between rolls.</p>
     </div>
   )

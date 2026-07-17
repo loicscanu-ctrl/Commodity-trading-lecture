@@ -6,6 +6,7 @@ import marketStructure from './03-market-structure'
 import supplyDemand from './04-supply-demand'
 import dayInLife from './05-case-study-adayinlife'
 import ptbfTrading from './06-ptbf-trading'
+import careersDesk from './07-careers-desk'
 import type { Topic } from '@/types/content'
 
 // Pedagogical order: what a market is → what a futures contract is (incl.
@@ -19,4 +20,5 @@ export const topics: Topic[] = [
   panoramaQuiz, // 10-question checkpoint: commodities, traders, structure & PTBF
   supplyDemand,
   dayInLife,
+  careersDesk, // the building, not the market: desk organisation as a career map
 ]
