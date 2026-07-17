@@ -1,5 +1,6 @@
 import { render, fireEvent, screen } from '@testing-library/react'
 import CommodityDonutChart from '@/visuals/CommodityDonutChart'
+import FuturesContractDoc from '@/visuals/FuturesContractDoc'
 import GasolineSwap from '@/visuals/GasolineSwap'
 import EfpDiagram from '@/visuals/EfpDiagram'
 import MarginSimulator from '@/visuals/MarginSimulator'
@@ -36,6 +37,21 @@ test('CommodityDonutChart: ticker chips open the real contract spec cards', () =
   fireEvent.click(screen.getByRole('button', { name: /Robusta Coffee/ }))
   expect(container.textContent).toContain('Jan F · 4,800')
   expect(container.textContent).toContain('backwardation')
+})
+
+test('FuturesContractDoc: the standardized document with price as the only blank, stamped by the clearing house', () => {
+  const { container } = render(<FuturesContractDoc />)
+  const text = container.textContent ?? ''
+  expect(text).toContain('STANDARDIZED')
+  expect(text).toContain('Volume')
+  expect(text).toContain('Price')
+  expect(text).toContain('Delivery month')
+  expect(text).toContain('Delivery term')
+  // Price is the one line the exchange does not pre-print
+  expect(text).toContain('the only blank')
+  // The stamp
+  expect(text).toContain('CLEARING HOUSE')
+  expect(text).toContain('GUARANTEED')
 })
 
 test('GasolineSwap shows principals, broker and the settlement walk', () => {
