@@ -125,14 +125,21 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     expect(container.textContent).toContain('119,000')
     expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: /London futures/ })).not.toBeInTheDocument()
-    // 90 seconds later the market ticks to Y1 Jul for everyone
-    act(() => { jest.advanceTimersByTime(90_000) })
+    // 45 seconds later the round rolls to Y1 Jul — but the price does NOT
+    // jump: it starts drifting from the previous level in 5-second steps
+    act(() => { jest.advanceTimersByTime(45_000) })
     expect(container.textContent).toContain('Round 2/10 · Y1 Jul')
+    expect(container.textContent).toContain('119,000') // still at the old level at the boundary
+    // Halfway through the drift (20 s = 4 of 8 ticks): 119,000 → 114,000 shows 116,500
+    act(() => { jest.advanceTimersByTime(20_000) })
+    expect(container.textContent).toContain('116,500')
+    // At 40 s the round's published level is reached and holds
+    act(() => { jest.advanceTimersByTime(20_000) })
     expect(container.textContent).toContain('114,000')
-    // Buy at Y1 Jul, tick to Y1 Nov (Bab-el-Mandeb) and hedge:
-    // buying diff = 114,000/25.5k − 4,950 = −$479.4
+    // Buy at Y1 Jul's level, roll into Y1 Nov (Bab-el-Mandeb) and let the
+    // drift complete: buying diff = 114,000/25.5k − 4,950 = −$479.4
     fireEvent.click(screen.getByRole('button', { name: /1\. Buy physical \(VND\)/ }))
-    act(() => { jest.advanceTimersByTime(90_000) })
+    act(() => { jest.advanceTimersByTime(45_000) })
     expect(container.textContent).toContain('Bab-el-Mandeb')
     fireEvent.click(screen.getByRole('button', { name: /2\. Sell futures/ }))
     expect(container.textContent).toContain('−$479.4')
