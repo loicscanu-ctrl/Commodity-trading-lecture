@@ -40,6 +40,20 @@ test('CommodityDonutChart: ticker chips open the real contract spec cards', () =
   fireEvent.click(screen.getByRole('button', { name: /Robusta Coffee/ }))
   expect(container.textContent).toContain('Jan F · 4,800')
   expect(container.textContent).toContain('backwardation')
+
+  // Every donut segment now carries chips: metals, energy, animal products
+  fireEvent.click(screen.getByRole('button', { name: /Aluminium/ }))
+  expect(container.textContent).toContain('DAILY prompt dates')
+  expect(container.textContent).toContain('LME-approved warehouses')
+  fireEvent.click(screen.getByRole('button', { name: /London Cocoa/ }))
+  expect(container.textContent).toContain('£/t')
+  fireEvent.click(screen.getByRole('button', { name: /Lean Hogs/ }))
+  expect(container.textContent).toContain('you cannot deliver a hog')
+  expect(container.textContent).toContain('CME Lean Hog Index')
+  fireEvent.click(screen.getByRole('button', { name: /German Baseload Power/ }))
+  expect(container.textContent).toContain('NO cost-of-carry')
+  fireEvent.click(screen.getByRole('button', { name: /Class III Milk/ }))
+  expect(container.textContent).toContain('USDA announced Class III price')
 })
 
 test('FuturesContractDoc: the standardized document with price as the only blank, stamped by the clearing house', () => {
