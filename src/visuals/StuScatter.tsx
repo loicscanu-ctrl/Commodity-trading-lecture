@@ -112,6 +112,12 @@ export default function StuScatter() {
           <line x1={ml} y1={mt} x2={ml} y2={axisBottom} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
           <line x1={ml} y1={axisBottom} x2={ml + pw} y2={axisBottom} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
 
+          {/* Permanent reference: the real coffee 2024/25 STU */}
+          <line x1={x(12.4)} y1={mt} x2={x(12.4)} y2={axisBottom} stroke="#22d3ee" strokeWidth="1" strokeDasharray="2 3" opacity="0.5" />
+          <text x={x(12.4) + 4} y={axisBottom - 6} fill="#22d3ee" fontSize="8" fontFamily="monospace">
+            coffee 2024/25 · 12.4%
+          </text>
+
           {/* Uncertainty band at slider value */}
           <rect x={x(stu) - 5} y={bandTop} width="10" height={Math.max(1, bandBot - bandTop)}
             fill="#d97706" opacity="0.22" rx="2" />

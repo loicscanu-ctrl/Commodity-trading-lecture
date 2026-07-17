@@ -171,7 +171,7 @@ export default function RollYield() {
           {contango ? (
             <>
               <div className="font-bold mb-1 text-rose-400">CONTANGO</div>
-              the curve charges you rent for holding paper barrels — this is why long-only index investors underperform spot in contango
+              the curve charges you rent for holding paper barrels — this is why long-only index investors underperform spot in contango (the oil ETF USO in 2020’s super-contango is the textbook casualty)
             </>
           ) : backwardation ? (
             <>
@@ -188,6 +188,7 @@ export default function RollYield() {
       </div>
 
       <p className="text-slate-500 text-xs font-mono mt-3">Spot never moved. The whole P&amp;L is the roll.</p>
+      <p className="text-slate-600 text-[10px] mt-1 leading-relaxed">Assumes the curve keeps its shape while each contract converges to spot — the pure roll-down case. In practice the realised roll yield also depends on how the curve itself moves between rolls.</p>
     </div>
   )
 }

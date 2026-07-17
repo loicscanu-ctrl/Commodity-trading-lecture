@@ -11,7 +11,7 @@ export const textDef = defineVisualText({
   s3Title: { label: 'Step 3 · title', value: 'Sampling' },
   s3Desc: { label: 'Step 3 · description', multiline: true, value: 'Exchange samplers draw from the lot.' },
   s4Title: { label: 'Step 4 · title', value: 'Grading' },
-  s4Desc: { label: 'Step 4 · description', multiline: true, value: 'Graded against the quality ladder → class assigned.' },
+  s4Desc: { label: 'Step 4 · description', multiline: true, value: 'Graded against the quality ladder → class assigned: Class 1 tenders at par, better earns +$30/t, worse costs up to −$90/t — and a lot that fails altogether stays merely physical: cash market only.' },
   s5Title: { label: 'Step 5 · title', value: 'Warrant' },
   s5Desc: { label: 'Step 5 · description', multiline: true, value: 'An electronic warrant is issued: the coffee is now a deliverable instrument.' },
   s6Title: { label: 'Step 6 · title', value: 'Tender' },
@@ -19,7 +19,7 @@ export const textDef = defineVisualText({
   caption: {
     label: 'Caption',
     multiline: true,
-    value: 'A warrant is coffee that has passed the exchange’s exam — that exam is what makes 10 tonnes in Antwerp fungible with 10 tonnes in Hamburg.',
+    value: 'A warrant is coffee that has passed the exchange’s exam — that exam is what makes 10 tonnes in Antwerp fungible with 10 tonnes in Hamburg. The pipeline is not instant: shipping, warehousing, sampling and grading take weeks — which is exactly the ~3-month lag between the differential collapse and the gradings surge in the Vietnam case study.',
   },
 })
 
