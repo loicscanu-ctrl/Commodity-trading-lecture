@@ -38,6 +38,7 @@ type Deal = {
   fixedLots?: number                   // total lots bought back (fix clips)
   draw?: number                        // $ of working capital this trade draws (live)
   order?: number[]                     // action numbers in execution order (free order on intermediate)
+  clipPx?: number[]                    // each execution's own clip price (for the scaling readout)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -55,25 +56,25 @@ type Deal = {
 const TICK_SECONDS = 5
 const DRIFT_TICKS_MAX = 8 // the drift completes in at most 8 ticks (40 s)
 const LIVE_SCRIPT = [
-  { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -90, freight: 70, eur: 4090,
+  { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
-  { label: 'Y1 Jul', vnd: 114000, fut: 4650, fob: -120, freight: 70, eur: 3980,
+  { label: 'Y1 Jul', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
-  { label: 'Y1 Nov', vnd: 113000, fut: 4950, fob: -280, freight: 270, eur: 4290,
+  { label: 'Y1 Nov', vnd: 113000, fut: 4950, fob: -350, freight: 270, eur: 4290,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
-  { label: 'Y2 Mar', vnd: 138500, fut: 5400, fob: 80, freight: 150, eur: 4620,
+  { label: 'Y2 Mar', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
-  { label: 'Y2 Sep', vnd: 144500, fut: 5600, fob: 150, freight: 140, eur: 4800,
+  { label: 'Y2 Sep', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
-  { label: 'Y2 Oct', vnd: 142000, fut: 5450, fob: 200, freight: 45, eur: 4690,
+  { label: 'Y2 Oct', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
-  { label: 'Y3 Dec', vnd: 133500, fut: 5300, fob: 60, freight: 50, eur: 4470,
+  { label: 'Y3 Dec', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
-  { label: 'Y4 Aug', vnd: 111500, fut: 4700, fob: -150, freight: 55, eur: 4000,
+  { label: 'Y4 Aug', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
-  { label: 'Y4 Dec', vnd: 127000, fut: 4850, fob: 90, freight: 60, eur: 4180,
+  { label: 'Y4 Dec', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180,
     news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
-  { label: 'Y5 Jan', vnd: 114000, fut: 4600, fob: -80, freight: 60, eur: 3950,
+  { label: 'Y5 Jan', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950,
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
@@ -133,7 +134,7 @@ function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number
 const FEED = {
   vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1200, holdAmp: 0 },
   fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 45,   holdAmp: 0 },
-  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 12,   holdAmp: 8 },
+  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 30,   holdAmp: 20 },
   freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 5,    holdAmp: 0 },
   eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 40,   holdAmp: 0 },
 } as const
@@ -193,6 +194,19 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
         const i4 = d.order ? d.order.indexOf(4) : 3, i5 = d.order ? d.order.indexOf(5) : 4
         L.push(`  Rounds with naked short (flat risk): ${Math.abs(d.stamps[i5] - d.stamps[i4])}`)
       }
+    }
+    // Scaling discipline: for any leg worked in several clips, show the first
+    // clip vs the achieved average — did the trader improve their price?
+    if (d.order && d.clipPx) {
+      const clipsOf = (n: number) => d.order!.filter(o => o === n).length
+      const firstPx = (n: number) => d.clipPx![d.order!.indexOf(n)]
+      const legs: [number, string, (v: number) => string, number | undefined][] = t.mode === 'exporter'
+        ? [[1, 'physical buy', v => fmtUsd(v, 1) + '/t', d.buy], [2, 'hedge', v => fmtUsd(v), d.fHedge], [3, 'FOB sale (diff)', v => dfmt(v), d.sell], [4, 'fix', v => fmtUsd(v), d.fFix]]
+        : [[1, 'FOB buy (diff)', v => dfmt(v), d.dBuy], [3, 'hedge', v => fmtUsd(v), d.fHedge], [4, 'spot sale', v => fmtUsd(v), d.sell], [5, 'buy-back', v => fmtUsd(v), d.fFix]]
+      legs.forEach(([n, name, f, avg]) => {
+        const c = clipsOf(n)
+        if (c > 1 && avg !== undefined) L.push(`  Scaling — ${name}: ${c} clips · first ${f(firstPx(n))} → avg ${f(avg)}`)
+      })
     }
     L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}`)
     L.push(`  NET: ${sgn(t.netD)} (${sgn(t.netD / t.tonnes, 1)}/t on ${t.tonnes} t)`)
@@ -332,7 +346,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
   const PMINg = 3500, PMAXg = 6000
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
   // Second panel: the FOB differential — the risk the desk actually trades
-  const D = { top: 196, h: 92, min: -350, max: 300 }
+  const D = { top: 196, h: 92, min: -420, max: 760 }
   const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
   const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
 
@@ -529,13 +543,17 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
 
         {/* ── FOB differential panel — the DIFF tile as a chart ── */}
         <text x={ml} y={D.top - 8} fill="#94a3b8" fontSize="10" fontFamily="monospace">FOB HCM DIFFERENTIAL ($/t vs London)</text>
-        {[-200, 0, 200].map(v => (
+        {[0, 350, 700].map(v => (
           <g key={`d-${v}`}>
             <line x1={ml} y1={yd(v)} x2={ml + pw} y2={yd(v)}
               stroke={v === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.05)'} strokeWidth="1" strokeDasharray={v === 0 ? '4 3' : undefined} />
-            <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="10" fontFamily="monospace">{v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v)}</text>
+            <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="10" fontFamily="monospace">{v === 0 ? '0' : '+' + v}</text>
           </g>
         ))}
+        {/* tenderable parity — the floor where delivering to the exchange wins */}
+        <line x1={ml} y1={yd(-350)} x2={ml + pw} y2={yd(-350)} stroke="#f43f5e" strokeWidth="1" strokeDasharray="5 4" opacity="0.55" />
+        <text x={ml - 6} y={yd(-350) + 3} textAnchor="end" fill="#f43f5e" fontSize="9" fontFamily="monospace" opacity="0.9">−350</text>
+        <text x={ml + pw} y={yd(-350) - 4} textAnchor="end" fill="#f43f5e" fontSize="8" fontFamily="monospace" opacity="0.8">tenderable parity</text>
         {(isTime ? times.length > 1 : diffMarks.length > 0) && (
           <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         )}
@@ -616,8 +634,6 @@ export default function PtbfMechanics() {
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
   const liveRound = roundAt(elapsed)
-  const liveFinal = live && liveRound === LIVE_SCRIPT.length - 1
-  const nextNewsIn = liveFinal ? 0 : ROUND_STARTS[liveRound + 1] - elapsed
 
   useEffect(() => {
     if (!live) return
@@ -720,10 +736,11 @@ export default function PtbfMechanics() {
     if (!canExec(n)) return
     // Every execution stamps the current futures level (for the price graph),
     // the action number (for free order/clips), and — live — round + second.
-    const stamp = (d: Deal): Pick<Deal, 'order' | 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
+    const stamp = (d: Deal, px: number): Pick<Deal, 'order' | 'clipPx' | 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
       futMarks: [...(d.futMarks ?? []), curFut],
       diffMarks: [...(d.diffMarks ?? []), fobDiff],
       order: [...(d.order ?? []), n],
+      clipPx: [...(d.clipPx ?? []), px],
       ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}),
     })
     if (mode === 'exporter') {
@@ -732,31 +749,31 @@ export default function PtbfMechanics() {
         setDeal(d => {
           const v0 = d.vol ?? 0
           return { ...d, vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol),
-            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d) }
+            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d, localUsd) }
         })
       }
       else if (n === 2) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d) } }) }
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
       else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
-        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d) } }) }
+        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff) } }) }
       else if (n === 4) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d) } }) }
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
     } else {
       if (n === 1) {
         if (capitalBlocked) return
         setDeal(d => {
           const v0 = d.vol ?? 0
           return { ...d, dBuy: wavg(d.dBuy, v0, fobDiff, vol),
-            vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d) }
+            vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d, fobDiff) }
         })
       }
-      else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d) }))
+      else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d, freight) }))
       else if (n === 3) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d) } }) }
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
       else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
-        return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d) } }) }
+        return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d, eurUsd) } }) }
       else if (n === 5) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d) } }) }
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
     }
   }
 
@@ -840,19 +857,20 @@ export default function PtbfMechanics() {
   const sessionTotal = history.reduce((s, t) => s + t.netD, 0)
   const lastRec = history.length > 0 ? history[history.length - 1] : null
 
+  // Each tile leads with ITS executable price — $/t outright or differential
   const ACTIONS = mode === 'exporter'
     ? [
-        { n: 1, label: 'Buy physical (VND)', detail: `${vnd.toLocaleString()} VND/kg = ${fmtUsd(localUsd, 1)}/t at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
-        { n: 2, label: 'Sell futures', detail: `hedge at ${fmtUsd(fut)} → sets your buying differential`, qty: 'lots' as const },
-        { n: 3, label: 'Sell physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF`, qty: 'boxes' as const },
-        { n: 4, label: 'Fix it (buy futures)', detail: `EFP at ${fmtUsd(curFut)} → invoice = fix + diff`, qty: 'fixlots' as const },
+        { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
+        { n: 2, label: 'Sell futures', px: fmtUsd(fut), detail: 'hedge → sets your buying differential', qty: 'lots' as const },
+        { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), detail: 'diff vs London · PTBF', qty: 'boxes' as const },
+        { n: 4, label: 'Buy futures', px: fmtUsd(curFut), detail: 'fix · EFP → invoice = fix + diff', qty: 'fixlots' as const },
       ]
     : [
-        { n: 1, label: 'Buy physical FOB (diff)', detail: `London ${dfmt(fobDiff)} · PTBF — price still floating`, qty: 'vol' as const },
-        { n: 2, label: 'Buy freight', detail: `HCM → Antwerp at $${freight}/t (+$${CIF_INSTORE} CIF→instore)`, qty: null },
-        { n: 3, label: 'Fix before export (sell futures)', detail: `at ${fmtUsd(fut)} → purchase prices at fix + diff, and you are hedged`, qty: 'lots' as const },
-        { n: 4, label: 'Sell spot (outright, EUR)', detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)} = ${fmtUsd(eurUsd)}/t`, qty: 'boxes' as const },
-        { n: 5, label: 'Buy futures', detail: `at ${fmtUsd(curFut)} → locks your selling differential`, qty: 'fixlots' as const },
+        { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
+        { n: 2, label: 'Buy freight', px: `$${freight}/t`, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore)`, qty: null },
+        { n: 3, label: 'Sell futures', px: fmtUsd(fut), detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
+        { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
+        { n: 5, label: 'Buy futures', px: fmtUsd(curFut), detail: 'locks your selling differential', qty: 'fixlots' as const },
       ]
 
   // Running summary shown under each action row (the book so far)
@@ -1004,13 +1022,8 @@ export default function PtbfMechanics() {
         {nameErr && !live && (
           <span className="font-mono text-[10px] text-rose-300">enter trader name & surname — the report is issued in your name</span>
         )}
-        {live && (
-          <span className="rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1 font-mono text-[11px] text-cyan-200">
-            Round {liveRound + 1}/{LIVE_SCRIPT.length} · {LIVE_SCRIPT[liveRound].label}{liveFinal
-              ? ' · final round'
-              : ` · next news ${Math.floor(nextNewsIn / 60)}:${String(nextNewsIn % 60).padStart(2, '0')}`}
-          </span>
-        )}
+        {/* No round counter, no next-news countdown: when the next news lands
+            — and how many remain — stays a mystery for the students. */}
       </div>
 
       {/* News flash — the round's story; prices below react the way it says */}
@@ -1089,13 +1102,16 @@ export default function PtbfMechanics() {
                   : 'border-white/5 bg-white/[0.01] opacity-40'
                 }`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-bold text-white">{a.n}. {a.label}</span>
-                  <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={`${a.n}. ${a.label}`}
+                  <span className="font-mono text-xs font-bold text-white">{a.label}</span>
+                  <button onClick={() => act(a.n)} disabled={!usable || blocked} aria-label={a.label}
                     className={`chip !py-0.5 ${usable && !blocked ? 'cursor-pointer border-brand-blue/60 bg-brand-blue/20 text-blue-100 hover:bg-brand-blue/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
                     {blocked ? 'no capital' : 'execute'}
                   </button>
                 </div>
-                <div className="mt-0.5 font-mono text-[10px] text-slate-500">{a.detail}</div>
+                <div className="mt-0.5 font-mono text-[10px] text-slate-500">
+                  <span className="rounded bg-amber-500/10 px-1 py-px text-[11px] font-bold text-amber-300">{a.px}</span>
+                  {' '}{a.detail}
+                </div>
                 {usable && !blocked && a.qty && <div className="mt-1.5">{qtyInput(a.qty)}</div>}
                 {summary && <div className="mt-1 font-mono text-[10px] text-emerald-400/80">{summary}</div>}
               </div>
