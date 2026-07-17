@@ -48,7 +48,6 @@ import BasisPnl from './BasisPnl'
 import SdScenario from './SdScenario'
 import GuidedTradeSim from './GuidedTradeSim'
 import TraderInbox from './TraderInbox'
-import ContractExplorer from './ContractExplorer'
 import GasolineSwap, { textDef as gasolineSwapText } from './GasolineSwap'
 import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
 import MarginSimulator from './MarginSimulator'
@@ -60,6 +59,7 @@ import RollYield from './RollYield'
 import StuScatter from './StuScatter'
 import OrderBook from './OrderBook'
 import ParcelJourney from './ParcelJourney'
+import MarketBenefits from './MarketBenefits'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -110,7 +110,6 @@ export const visualRegistry: Record<string, ComponentType> = {
   'sd-scenario': SdScenario,
   'guided-trade-sim': GuidedTradeSim,
   'trader-inbox': TraderInbox,
-  'contract-explorer': ContractExplorer,
   'gasoline-swap': GasolineSwap,
   'efp-diagram': EfpDiagram,
   'margin-simulator': MarginSimulator,
@@ -122,6 +121,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'stu-scatter': StuScatter,
   'order-book': OrderBook,
   'parcel-journey': ParcelJourney,
+  'market-benefits': MarketBenefits,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.

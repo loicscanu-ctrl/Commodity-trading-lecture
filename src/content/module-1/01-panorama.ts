@@ -21,7 +21,7 @@ const topic: Topic = {
     {
       id: 'classification',
       title: 'The Commodity Universe — Hard vs Soft',
-      body: `Coffee is one market among many. Zoom out: commodities divide into two broad families.\n\n**Hard Commodities** — extracted from the earth:\n- Energy: crude oil (Brent, WTI), natural gas, coal\n- Metals: copper, aluminium, gold, iron ore\n\n**Soft Commodities** — grown or raised:\n- Agricultural grains: wheat, corn, soybeans\n- Tropicals: coffee (Arabica, Robusta), cocoa, sugar, cotton\n\nThe distinction matters because hard and soft commodities follow very different supply/demand dynamics, seasonality, and storage constraints — but they all rely on the same market machinery you just saw.`,
+      body: `Coffee is one market among many. Zoom out: commodities divide into two broad families.\n\n**Hard Commodities** — extracted from the earth:\n- Energy: crude oil (Brent, WTI), natural gas, coal\n- Metals: copper, aluminium, gold, iron ore\n\n**Soft Commodities** — grown or raised:\n- Agricultural grains: wheat, corn, soybeans\n- Tropicals: coffee (Arabica, Robusta), cocoa, sugar, cotton\n\nThe distinction matters because hard and soft commodities follow very different supply/demand dynamics, seasonality, and storage constraints — but they all rely on the same market machinery you just saw.\n\nUnder **Petroleum products** and **Crop products** in the chart you will find **ticker chips** — WTI, Brent, Low Sulphur Gasoil, RBOB gasoline on the energy side; Arabica, Robusta, cotton, sugar and milling wheat on the agricultural side. Each one is a real futures contract: **click a chip** to open its spec card — exchange, lot size, quotation, the next five listed months, origin & quality specs, delivery points and Incoterm. Read a few and notice how much the *same legal form* differs underneath: origin runs from "US-grown only" (cotton) to ~28 origins (sugar) to none at all (Brent, cash-settled); delivery runs from a warehouse warrant to FOB the buyer's vessel to one inland pipeline hub — the mechanism behind WTI's famous **negative price of April 2020**.`,
       visual: 'commodity-donut-chart',
     },
     {
@@ -33,6 +33,12 @@ const topic: Topic = {
 
 Understanding which tier a counterparty belongs to tells you immediately what their incentives and constraints are. At the trade-house tier sit the giants of agricultural trading — the **"ABCD"**: **A**rcher Daniels Midland, **B**unge, **C**argill and Louis **D**reyfus — alongside the coffee specialists (Neumann, Volcafe, Sucafina, Olam).\n\nNow follow **one 100 t parcel** through the chain below — watch the price form mutate and the risk tiles flip at every hop.`,
       visual: 'parcel-journey',
+    },
+    {
+      id: 'market-benefits',
+      title: 'What the Market Buys You — Two Theoretical Benefits',
+      body: `You have now seen the chain and its risks. Before diving into the machinery, step back and see what having a liquid futures market **theoretically buys** every player on that chain.\n\n**1. A buyer can beat the market.** An outright buyer gets one price on one day — take it or leave it. But because the market lets you split a physical purchase into a **futures leg** and a **differential leg** (the *price-to-be-fixed* structure, built step by step later in the course), a roaster can fix each leg at *its own* low. The flat price and the differential tend to move **inversely** — a rally squeezes the diff, a break fattens it — so their lows land on different dates, and the combination can be **cheaper than any outright price the market ever quoted**. Try to find both lows in the simulator.\n\n**2. Volatility stops being existential.** Remember the olive-oil world: when price triples, suppliers walk away from old contracts; when it crashes, buyers do. With a hedge, the exporter's futures losses are matched by physical gains (and vice versa), so **performing the contract stays rational in both directions** — and the inverse-moving differential dampens what the physical counterparty actually pays. Volatility becomes cash-flow management, not bankruptcy or default.`,
+      visual: 'market-benefits',
     },
     {
       id: 'robusta-contract',

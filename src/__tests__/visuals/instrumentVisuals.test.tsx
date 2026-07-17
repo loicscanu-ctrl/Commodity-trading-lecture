@@ -1,29 +1,41 @@
 import { render, fireEvent, screen } from '@testing-library/react'
-import ContractExplorer from '@/visuals/ContractExplorer'
+import CommodityDonutChart from '@/visuals/CommodityDonutChart'
 import GasolineSwap from '@/visuals/GasolineSwap'
 import EfpDiagram from '@/visuals/EfpDiagram'
 import MarginSimulator from '@/visuals/MarginSimulator'
 import SwapTimeline from '@/visuals/SwapTimeline'
 
-test('ContractExplorer aligns all six contracts in one matrix', () => {
-  const { container } = render(<ContractExplorer />)
-  const text = container.textContent ?? ''
-  // One column per commodity, all visible at once
-  expect(text).toContain('Arabica Coffee "C"')
-  expect(text).toContain('US-grown cotton ONLY')
-  expect(text).toContain('~28 listed origins')
-  expect(text).toContain('blé MATIF')
-  expect(text).toContain('Rouen and Dunkirk')
-  expect(text).toContain('CASH-SETTLED')
-  // WTI beside Brent: physical delivery at one hub, and the 2020 lesson
-  expect(text).toContain('Cushing, Oklahoma')
-  expect(text).toContain('negative print')
-  // Spec rows present
-  expect(text).toContain('Origin spec')
-  expect(text).toContain('Incoterm / settlement')
-  // Next-5-months row: front months for coffee and wheat
-  expect(text).toContain('Dec Z · 250.00')
-  expect(text).toContain('Dec Z · 228.50')
+test('CommodityDonutChart: ticker chips open the real contract spec cards', () => {
+  const { container } = render(<CommodityDonutChart />)
+  // Chips live under Petroleum Products and Crop Products
+  expect(container.textContent).toContain('WTI Crude')
+  expect(container.textContent).toContain('Low Sulphur Gasoil')
+  expect(container.textContent).toContain('RBOB Gasoline')
+  expect(container.textContent).toContain('Robusta Coffee')
+  // No spec card until a chip is clicked
+  expect(container.textContent).not.toContain('Cushing, Oklahoma')
+
+  // WTI: physical delivery at one hub, and the 2020 lesson
+  fireEvent.click(screen.getByRole('button', { name: /WTI Crude/ }))
+  expect(container.textContent).toContain('Cushing, Oklahoma')
+  expect(container.textContent).toContain('negative print')
+  expect(container.textContent).toContain('Origin spec')
+  expect(container.textContent).toContain('Incoterm / settlement')
+
+  // Wheat replaces it: the blé MATIF card
+  fireEvent.click(screen.getByRole('button', { name: /Milling Wheat/ }))
+  expect(container.textContent).toContain('Rouen and Dunkirk')
+  expect(container.textContent).toContain('Dec Z · 228.50')
+  expect(container.textContent).not.toContain('Cushing, Oklahoma')
+
+  // RBOB: the summer-spec seasonality
+  fireEvent.click(screen.getByRole('button', { name: /RBOB Gasoline/ }))
+  expect(container.textContent).toContain('Reformulated Blendstock')
+
+  // Robusta: the course's own contract, in backwardation
+  fireEvent.click(screen.getByRole('button', { name: /Robusta Coffee/ }))
+  expect(container.textContent).toContain('Jan F · 4,800')
+  expect(container.textContent).toContain('backwardation')
 })
 
 test('GasolineSwap shows principals, broker and the settlement walk', () => {
