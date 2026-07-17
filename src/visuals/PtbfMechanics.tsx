@@ -26,6 +26,7 @@ type Deal = {
   eur?: number                         // importer step 4: sale in EUR
   fFix?: number                        // futures bought back (final step)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
+  futMarks?: number[]                  // London futures level at each executed action (for the price graph)
 }
 
 // Live-market mode: a predetermined multi-season path, identical for every
@@ -167,6 +168,86 @@ function RiskSquare({ label, on, active }: { label: string; on: boolean; active:
   )
 }
 
+// London-futures price graph, margin-simulator style: each executed action
+// pins a point on the path; the live market is the movable dashed point;
+// the hedge→fix window is annotated because it IS the Futures P&L.
+function PriceGraph({ marks, liveFut, lastStep, hedgeIdx, complete }: {
+  marks: number[]; liveFut: number; lastStep: number; hedgeIdx: number; complete: boolean
+}) {
+  const W = 560, H = 190, ml = 56, mr = 16, mt = 12, mb = 26
+  const pw = W - ml - mr, ph = H - mt - mb
+  const PMINg = 3500, PMAXg = 6000
+  const x = (step: number) => ml + ((step - 1) / (lastStep - 1)) * pw
+  const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
+
+  const path = marks.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const nextStep = marks.length + 1
+  const hedge = marks[hedgeIdx - 1]
+  const fix = complete ? marks[lastStep - 1] : undefined
+  const futPnlT = hedge !== undefined && fix !== undefined ? hedge - fix : null
+
+  return (
+    <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="eyebrow mb-1">London futures — the price path of your trade</div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '190px' }}>
+        {[4000, 4500, 5000, 5500].map(p => (
+          <g key={p}>
+            <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="8.5" fontFamily="monospace">{p.toLocaleString()}</text>
+          </g>
+        ))}
+        {Array.from({ length: lastStep }, (_, i) => i + 1).map(stp => (
+          <text key={stp} x={x(stp)} y={mt + ph + 14} textAnchor="middle"
+            fill={stp <= marks.length ? '#94a3b8' : stp === nextStep ? '#e2e8f0' : '#475569'} fontSize="8.5" fontFamily="monospace">
+            {stp <= marks.length ? `✓${stp}` : stp === nextStep && !complete ? `action ${stp}` : stp}
+          </text>
+        ))}
+
+        {/* hedge → fix window: the futures leg */}
+        {hedge !== undefined && (
+          <g>
+            <line x1={x(hedgeIdx)} y1={y(hedge)} x2={complete ? x(lastStep) : x(Math.max(nextStep, hedgeIdx))} y2={y(hedge)}
+              stroke="#22d3ee" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+            <text x={x(hedgeIdx)} y={y(hedge) - 8} textAnchor="middle" fill="#22d3ee" fontSize="8" fontFamily="monospace" fontWeight="bold">hedge</text>
+          </g>
+        )}
+        {futPnlT !== null && (
+          <g>
+            <line x1={x(lastStep)} y1={y(hedge!)} x2={x(lastStep)} y2={y(fix!)} stroke={futPnlT >= 0 ? '#34d399' : '#f43f5e'} strokeWidth="1.5" />
+            <text x={x(lastStep) - 6} y={(y(hedge!) + y(fix!)) / 2 + 3} textAnchor="end"
+              fill={futPnlT >= 0 ? '#34d399' : '#f87171'} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+              futures leg {futPnlT >= 0 ? '+' : '−'}${Math.abs(futPnlT).toLocaleString('en-US')}/t
+            </text>
+          </g>
+        )}
+
+        {/* Executed path */}
+        {marks.length > 0 && <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+        {marks.map((v, i) => (
+          <circle key={i} cx={x(i + 1)} cy={y(v)} r="4" fill="#3b82f6" stroke="#070912" strokeWidth="1.2">
+            <title>{`action ${i + 1} · $${v.toLocaleString('en-US')}`}</title>
+          </circle>
+        ))}
+
+        {/* Live (next) point */}
+        {!complete && (
+          <g>
+            {marks.length > 0 && (
+              <line x1={x(marks.length)} y1={y(marks[marks.length - 1])} x2={x(nextStep)} y2={y(liveFut)}
+                stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />
+            )}
+            <circle cx={x(nextStep)} cy={y(liveFut)} r="6" fill="#f59e0b" stroke="#070912" strokeWidth="1.5" />
+            <circle cx={x(nextStep)} cy={y(liveFut)} r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.35" />
+            <text x={x(nextStep)} y={y(liveFut) - 12} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">
+              {liveFut.toLocaleString('en-US')}
+            </text>
+          </g>
+        )}
+      </svg>
+    </div>
+  )
+}
+
 const EXP_STATUS = ['No position', 'Long physical (VND) — UNHEDGED', 'Hedged — buying diff locked', 'Sold FOB — fixing pending', 'FLAT — trade complete']
 const IMP_STATUS = ['No position', 'Long the diff — unpriced PTBF, no flat risk yet', 'Freight booked — costs locked', 'Fixed & hedged — long the basis', 'Sold outright (EUR) — short futures open!', 'FLAT — trade complete']
 const CHIP_CLS = (s: string) =>
@@ -233,9 +314,12 @@ export default function PtbfMechanics() {
   function switchMode(m: Mode) { setMode(m); setDeal({}) }
 
   function act() {
-    // In live mode every execution is stamped with the round it happened in.
-    const stamp = (d: Deal): Pick<Deal, 'stamps'> =>
-      live ? { stamps: [...(d.stamps ?? []), liveRound] } : {}
+    // Every execution stamps the current futures level (for the price graph)
+    // and, in live mode, the round it happened in.
+    const stamp = (d: Deal): Pick<Deal, 'stamps' | 'futMarks'> => ({
+      futMarks: [...(d.futMarks ?? []), curFut],
+      ...(live ? { stamps: [...(d.stamps ?? []), liveRound] } : {}),
+    })
     if (mode === 'exporter') {
       if (step === 0) setDeal(d => ({ vnd, buy: localUsd, ...stamp(d) }))
       else if (step === 1) { setFutFix(fut); setDeal(d => ({ ...d, fHedge: fut, ...stamp(d) })) }
@@ -359,6 +443,15 @@ export default function PtbfMechanics() {
           <p className="text-xs leading-relaxed text-slate-300">{LIVE_SCRIPT[liveRound].news}</p>
         </div>
       )}
+
+      {/* Futures price graph — points pin as actions execute */}
+      <PriceGraph
+        marks={deal.futMarks ?? []}
+        liveFut={curFut}
+        lastStep={lastStep}
+        hedgeIdx={mode === 'exporter' ? 2 : 3}
+        complete={complete}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT: the market */}
