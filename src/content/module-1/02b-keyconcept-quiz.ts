@@ -59,15 +59,15 @@ const topic: Topic = {
       },
       {
         id: 'q6',
-        question: 'Most commodity futures positions are closed by:',
+        question: 'How is the vast majority of commodity futures volume actually closed out?',
         options: [
-          'Physical delivery at expiry',
-          'An offsetting trade before expiry',
-          'Automatic cash settlement by the exchange',
-          'Conversion into a swap',
+          'By physical delivery at expiry — futures are delivery contracts, so most positions end in coffee changing hands',
+          'By an offsetting trade before expiry — delivery is the rare exception, not the routine',
+          'By automatic cash settlement — physical delivery is impossible on commodity futures',
+          'By converting the position into an OTC swap at expiry',
         ],
         correctIndex: 1,
-        explanation: 'The vast majority of futures are offset before expiry. Physical delivery is the exception — but its mere possibility (the buyer/seller-of-last-resort function) is what anchors futures to the physical market.',
+        explanation: 'Option A is the tempting one: futures ARE deliverable contracts, and deliveries genuinely happen — Vietnamese exporters tendered hundreds of lots in 2024–25 when the FOB differential fell through tenderable parity. But even in that extreme episode, tenders were a tiny fraction of open interest: speculators never want the coffee, and hedgers normally prefer selling their physical through commercial channels at a better differential than the exchange ladder pays. So almost every position is offset before expiry — while delivery’s mere POSSIBILITY (the buyer/seller of last resort) is what anchors the futures price to the physical market. Option C fails the other way: some contracts are cash-settled (Brent, coal, power), but coffee, cotton, sugar and WTI deliver physically if held to expiry.',
       },
       {
         id: 'q7',
