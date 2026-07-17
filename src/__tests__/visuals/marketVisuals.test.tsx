@@ -114,20 +114,31 @@ test('PtbfMechanics importer trade: 5 steps — diff, freight, fix+hedge, EUR sa
   expect(text).toContain('FLAT — trade complete')
 })
 
-test('PtbfMechanics intermediate level: sell the diff first, the fix still needs the hedge', () => {
+test('PtbfMechanics intermediate level: sell the diff first — and even buy futures outright', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+  // Buying futures with NO short to cover is allowed here — the student must know why
+  expect(screen.getByRole('button', { name: 'Buy futures' })).toBeEnabled()
+  expect(container.textContent).toContain('no short — going NAKED LONG')
   // Selling FOB BEFORE buying physical is allowed on this level
   fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
   expect(container.textContent).toContain('Sold FOB')
-  // …but buying the futures back stays gated on the hedge existing
-  expect(screen.getByRole('button', { name: 'Buy futures' })).toBeDisabled()
   // Complete out of order: buy, hedge, fix → same economics as the guided order
   fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
   fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
   fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
   expect(container.textContent).toContain('FLAT — trade complete')
   expect(container.textContent).toContain('+$3,275')
+})
+
+test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  // 10 lots long, no physical, no hedge: naked length
+  expect(container.textContent).toContain('net LONG 10 — naked futures')
+  expect(container.textContent).toContain('LONG 10 lots')
+  expect(screen.getByTestId('risk-flat').textContent).toContain('AT RISK')
 })
 
 test('PtbfMechanics live market: predetermined path, no typing, round-stamped blotter', () => {

@@ -699,7 +699,7 @@ export default function PtbfMechanics() {
     if (complete) return false
     const hedgeN = mode === 'exporter' ? 2 : 3
     const sellN = mode === 'exporter' ? 3 : 4
-    if (n === lastStep) return outstanding > 0 // buy-back needs an open short
+    if (n === lastStep) return level === 'easy' ? outstanding > 0 : true // easy: buy-back needs an open short; inter: outright longs allowed — know why
     if (mode === 'importer' && n === 2) return level === 'easy' ? volT > 0 && deal.freight === undefined : deal.freight === undefined
     if (n === sellN && remainingBoxes === 0) return false
     if (level === 'easy') {
@@ -756,7 +756,7 @@ export default function PtbfMechanics() {
         return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
       else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
         return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff) } }) }
-      else if (n === 4) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
+      else if (n === 4) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
         return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
     } else {
       if (n === 1) {
@@ -772,7 +772,7 @@ export default function PtbfMechanics() {
         return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
       else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
         return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d, eurUsd) } }) }
-      else if (n === 5) { const clip = Math.min(fixLotsIn, outstanding); setDeal(d => { const x0 = d.fixedLots ?? 0
+      else if (n === 5) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
         return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
     }
   }
@@ -892,14 +892,16 @@ export default function PtbfMechanics() {
         ? `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${dfmt(deal.sell!, 1)}${rest}`
         : `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${fmtUsd(deal.sell!)}/t${rest}`
     }
-    if (n === lastStep && lotsX > 0) return `${lotsX}/${lotsH} lots bought back @ avg ${fmtUsd(deal.fFix!)}`
+    if (n === lastStep && lotsX > 0) return lotsX > lotsH
+      ? `${lotsX} lots bought @ avg ${fmtUsd(deal.fFix!)} · net LONG ${lotsX - lotsH} — naked futures`
+      : `${lotsX}/${lotsH} lots bought back @ avg ${fmtUsd(deal.fFix!)}`
     return null
   }
 
   const statusText = complete
     ? 'FLAT — trade complete'
     : !started ? 'No position'
-    : `Book: ${volT} t phys · short ${outstanding} lot${outstanding === 1 ? '' : 's'} · ${soldT.toFixed(0)} t sold`
+    : `Book: ${volT} t phys · ${outstanding >= 0 ? `short ${outstanding}` : `LONG ${-outstanding}`} lot${Math.abs(outstanding) === 1 ? '' : 's'} · ${soldT.toFixed(0)} t sold`
 
   // Which risks are OPEN, computed from the live book so clips work:
   //  Exporter FLAT: physical and hedge must pair (naked long, or naked short
@@ -907,8 +909,8 @@ export default function PtbfMechanics() {
   //  Importer FLAT: sold outright with the buy-back still open. DIFF: open
   //  until the outright sale prices the selling side.
   const flatRisk = mode === 'exporter'
-    ? started && !complete && (volT > 0) !== (lotsH > 0)
-    : started && !complete && soldT > 0 && outstanding > 0
+    ? started && !complete && Math.abs(volT + (lotsX - lotsH) * LOT_T) >= LOT_T
+    : started && !complete && ((soldT > 0 && outstanding > 0) || lotsX > lotsH)
   const diffRisk = mode === 'exporter'
     ? started && !complete && !(volT > 0 && lotsH > 0 && boxesS > 0)
     : started && !complete && boxesS === 0
@@ -951,10 +953,10 @@ export default function PtbfMechanics() {
     return (
       <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400" onClick={e => e.stopPropagation()}>
         Clip
-        <input type="number" min={1} max={Math.max(1, outstanding)} step={1} value={Math.max(1, Math.min(fixLotsIn, Math.max(1, outstanding)))} aria-label="Lots to buy back"
+        <input type="number" min={1} max={60} step={1} value={outstanding > 0 ? Math.max(1, Math.min(fixLotsIn, outstanding)) : Math.max(1, fixLotsIn)} aria-label="Lots to buy back"
           onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setFixLotsIn(Math.max(1, v)) }}
           className={numCls} />
-        lots <span className="text-slate-500">(of {outstanding} outstanding)</span>
+        lots <span className={outstanding > 0 ? 'text-slate-500' : 'text-rose-300'}>{outstanding > 0 ? `(of ${outstanding} outstanding)` : '(no short — going NAKED LONG)'}</span>
       </span>
     )
   }
@@ -986,7 +988,7 @@ export default function PtbfMechanics() {
         <span className="font-mono text-[10px] text-slate-500">
           {level === 'easy'
             ? 'actions execute in a fixed, guided order'
-            : 'any order (sell first if you dare — the buy-back still needs the hedge) · locked capital costs 8% p.a. of calendar time in live mode'}
+            : 'any order — sell first, or even buy futures with nothing to fix (know why!) · locked capital costs 8% p.a. of calendar time in live mode'}
         </span>
       </div>
 
