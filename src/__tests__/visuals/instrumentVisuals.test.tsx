@@ -1,24 +1,27 @@
-import { render, fireEvent, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import ContractExplorer from '@/visuals/ContractExplorer'
 import GasolineSwap from '@/visuals/GasolineSwap'
 import EfpDiagram from '@/visuals/EfpDiagram'
 
-test('ContractExplorer contrasts the four contracts across tabs', () => {
+test('ContractExplorer aligns all six contracts in one matrix', () => {
   const { container } = render(<ContractExplorer />)
-  // Arabica default: months + growth differentials + warehouses
-  expect(container.textContent).toContain('Coffee "C" — KC')
-  expect(container.textContent).toContain('Colombia tenders at a +2¢/lb premium')
-  // Cotton: single origin
-  fireEvent.click(screen.getByRole('button', { name: 'Cotton' }))
-  expect(container.textContent).toContain('US-grown cotton ONLY')
-  // Brent: cash settled, no delivery points
-  fireEvent.click(screen.getByRole('button', { name: 'Brent' }))
-  expect(container.textContent).toContain('CASH-SETTLED')
-  expect(container.textContent).toContain('backwardation')
-  // Sugar: ~28 origins, FOB the receiver's vessel
-  fireEvent.click(screen.getByRole('button', { name: 'Sugar' }))
-  expect(container.textContent).toContain('~28 listed origins')
-  expect(container.textContent).toContain('FOB the RECEIVER’S vessel')
+  const text = container.textContent ?? ''
+  // One column per commodity, all visible at once
+  expect(text).toContain('Arabica Coffee "C"')
+  expect(text).toContain('US-grown cotton ONLY')
+  expect(text).toContain('~28 listed origins')
+  expect(text).toContain('blé MATIF')
+  expect(text).toContain('Rouen and Dunkirk')
+  expect(text).toContain('CASH-SETTLED')
+  // WTI beside Brent: physical delivery at one hub, and the 2020 lesson
+  expect(text).toContain('Cushing, Oklahoma')
+  expect(text).toContain('negative print')
+  // Spec rows present
+  expect(text).toContain('Origin spec')
+  expect(text).toContain('Incoterm / settlement')
+  // Next-5-months row: front months for coffee and wheat
+  expect(text).toContain('Dec Z · 250.00')
+  expect(text).toContain('Dec Z · 228.50')
 })
 
 test('GasolineSwap shows principals, broker and the settlement walk', () => {
