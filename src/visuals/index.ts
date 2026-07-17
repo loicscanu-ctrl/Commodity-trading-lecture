@@ -51,6 +51,8 @@ import TraderInbox from './TraderInbox'
 import ContractExplorer from './ContractExplorer'
 import GasolineSwap, { textDef as gasolineSwapText } from './GasolineSwap'
 import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
+import MarginSimulator from './MarginSimulator'
+import SwapTimeline from './SwapTimeline'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -104,6 +106,8 @@ export const visualRegistry: Record<string, ComponentType> = {
   'contract-explorer': ContractExplorer,
   'gasoline-swap': GasolineSwap,
   'efp-diagram': EfpDiagram,
+  'margin-simulator': MarginSimulator,
+  'swap-timeline': SwapTimeline,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
