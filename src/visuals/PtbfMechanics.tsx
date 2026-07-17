@@ -740,7 +740,7 @@ export default function PtbfMechanics() {
     if (level === 'easy') {
       // Guided: each leg unlocks once the previous leg EXISTS — then clips freely
       if (n === hedgeN) return volT > 0
-      if (n === sellN) return lotsH > 0 && (mode === 'exporter' || freightDone)
+      if (n === sellN) return lotsH > 0
     }
     return true
   }
@@ -977,10 +977,10 @@ export default function PtbfMechanics() {
       ]
     : [
         { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
-        { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore)`, qty: null },
         { n: 3, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
         { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, px2: `diff eq. ${dfmt(eurUsd - curFut, 0)}`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
         { n: 5, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'locks your selling differential', qty: 'fixlots' as const },
+        { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore) — needed before the book can square`, qty: null },
       ]
 
   // Running summary shown under each action row (the book so far)
@@ -1230,6 +1230,7 @@ export default function PtbfMechanics() {
                 <div className="flex justify-between"><span className="text-slate-400">Purchase price</span><span className="text-white">{impInvoice !== null ? `${fmtUsd(impInvoice)}/t (fixed)` : 'floating — fix + diff'}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd(boxesS > 0 ? deal.sell! : eurUsd)}/t</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((boxesS > 0 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Spot in FOB diff eq. (− freight − instore)</span><span className="text-brand-cyan font-bold">{dfmt(eurUsd - curFut - (deal.freight ?? freight) - CIF_INSTORE, 0)}</span></div>
                 {dSellImp !== null && (
                   <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR selling diff (locked at the buy-back)</span><span className="text-amber-300 font-bold">{dfmt(dSellImp, 0)}</span></div>
                 )}
