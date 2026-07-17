@@ -155,6 +155,27 @@ test('PtbfMechanics intermediate live: booked business auto-fixes after 10 s wit
   }
 })
 
+test('PtbfMechanics live: maintenance margin caps the hedge — no unlimited over-hedging', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader name' }), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Trader surname' }), { target: { value: 'Lovelace' } })
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Buy 96 t at the opening prints: draws $448,000 of the $1M line
+    fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+    // Hedge 60 lots: margin 60 × $6k = $360,000 — fits ($552k free)
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Hedge volume (lots)' }), { target: { value: '60' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    expect(container.textContent).toContain('incl. margin $360,000')
+    // Another 60 lots would need $360k more — only $192k left: blocked
+    expect(screen.getByRole('button', { name: 'Sell futures' })).toBeDisabled()
+    expect(container.textContent).toContain('no margin')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
