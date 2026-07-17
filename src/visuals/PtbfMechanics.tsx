@@ -30,9 +30,14 @@ type Deal = {
 }
 
 // Live-market mode: a predetermined multi-season path, identical for every
-// student. 90 seconds per round; the market freezes on the final round.
-// Each round carries a news flash — the prices react the way the news says.
-const ROUND_SECONDS = 90
+// student. 45 seconds per round; within a round the market DRIFTS from the
+// previous round's level to this round's published level in 5-second steps
+// (reaching it at 40 s and holding, so the printed level is tradeable),
+// then freezes on the final round. Each round opens with a news flash —
+// the prices move the way the news says.
+const ROUND_SECONDS = 45
+const TICK_SECONDS = 5
+const TICKS_TO_TARGET = ROUND_SECONDS / TICK_SECONDS - 1 // target reached one tick early
 const LIVE_SCRIPT = [
   { label: 'Y1 Apr', vnd: 119000, fut: 4800, fob: -90, freight: 70, eur: 4090,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
@@ -285,12 +290,23 @@ export default function PtbfMechanics() {
     return () => clearInterval(t)
   }, [live])
 
-  // Feed the announced round into the market — identical for every student.
+  // Feed the market — identical for every student. Within each round the
+  // prices step every 5 seconds from the previous round's level toward this
+  // round's published level (e.g. 100 → 145 walks 105, 110, … , 145).
   useEffect(() => {
     if (!live) return
-    const r = LIVE_SCRIPT[liveRound]
-    setVnd(r.vnd); setFut(r.fut); setFutFix(r.fut); setFobDiff(r.fob); setFreight(r.freight); setEurSpot(r.eur)
-  }, [live, liveRound])
+    const prev = LIVE_SCRIPT[Math.max(0, liveRound - 1)]
+    const target = LIVE_SCRIPT[liveRound]
+    const secInRound = elapsed - liveRound * ROUND_SECONDS
+    const f = Math.min(1, Math.floor(Math.max(0, secInRound) / TICK_SECONDS) / TICKS_TO_TARGET)
+    const lerp = (a: number, b: number, snap: number) => Math.round((a + (b - a) * f) / snap) * snap
+    setVnd(lerp(prev.vnd, target.vnd, 100))
+    const futNow = lerp(prev.fut, target.fut, 5)
+    setFut(futNow); setFutFix(futNow)
+    setFobDiff(lerp(prev.fob, target.fob, 1))
+    setFreight(lerp(prev.freight, target.freight, 1))
+    setEurSpot(lerp(prev.eur, target.eur, 5))
+  }, [live, liveRound, elapsed])
 
   function toggleLive() {
     if (live) { setLive(false); return }
@@ -425,7 +441,7 @@ export default function PtbfMechanics() {
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
           }`}>
-          {live ? '■ Stop live market' : '▶ Live market (10 rounds × 1:30)'}
+          {live ? '■ Stop live market' : '▶ Live market (10 rounds × 0:45)'}
         </button>
         {live && (
           <span className="rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1 font-mono text-[11px] text-cyan-200">
