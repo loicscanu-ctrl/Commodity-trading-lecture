@@ -15,6 +15,11 @@ import { useState, useRef, useEffect } from 'react'
 const FX = 25500        // VND per USD
 const EURUSD = 1.20     // USD per EUR (fixed)
 const CIF_INSTORE = 100 // $/t CIF → instore
+const TENDER_FRICTION = 95 // $/t grading, docs & warehousing to turn FOB coffee into a warrant
+// Tenderable parity FLOATS with freight: delivering to the exchange means
+// shipping to a licensed European warehouse first — dearer freight pushes
+// the FOB floor lower.
+const tenderableParity = (fr: number) => -(fr + CIF_INSTORE + TENDER_FRICTION)
 const LOT_T = 10        // tonnes per futures lot
 const CONTAINER_T = 19.2 // tonnes per container
 const DEFAULT_VOL = 96  // 96 t = exactly 5 containers (and 9.6 lots — never round!)
@@ -334,8 +339,8 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
 // ticker crawls right every 5-second tick, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
-  marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
+  marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
   dots: DotSpec[]; sides: readonly Side[]; order?: number[]; stamps?: number[]; stampTimes?: number[]; liveLabel: string
   elapsed?: number; pins: Pin[]
 }) {
@@ -346,7 +351,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
   const PMINg = 3500, PMAXg = 6000
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
   // Second panel: the FOB differential — the risk the desk actually trades
-  const D = { top: 196, h: 92, min: -420, max: 760 }
+  const D = { top: 196, h: 92, min: -580, max: 760 }
   const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
   const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
 
@@ -550,10 +555,18 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, lastStep, hedgeIdx, f
             <text x={ml - 6} y={yd(v) + 3} textAnchor="end" fill={v === 0 ? '#94a3b8' : '#64748b'} fontSize="10" fontFamily="monospace">{v === 0 ? '0' : '+' + v}</text>
           </g>
         ))}
-        {/* tenderable parity — the floor where delivering to the exchange wins */}
-        <line x1={ml} y1={yd(-350)} x2={ml + pw} y2={yd(-350)} stroke="#f43f5e" strokeWidth="1" strokeDasharray="5 4" opacity="0.55" />
-        <text x={ml - 6} y={yd(-350) + 3} textAnchor="end" fill="#f43f5e" fontSize="9" fontFamily="monospace" opacity="0.9">−350</text>
-        <text x={ml + pw} y={yd(-350) - 4} textAnchor="end" fill="#f43f5e" fontSize="8" fontFamily="monospace" opacity="0.8">tenderable parity</text>
+        {/* tenderable parity — a MOVING floor: −(freight + instore + tender costs).
+            Freight up → parity dives; the diff only "hits the floor" when the
+            gap between them closes. */}
+        {isTime ? (
+          <path d={seriesPath(times.map(t => tenderableParity(feedAt(t, 'freight'))), yd)}
+            fill="none" stroke="#f43f5e" strokeWidth="1.2" strokeDasharray="5 4" opacity="0.6" />
+        ) : (
+          <line x1={ml} y1={yd(liveParity)} x2={ml + pw} y2={yd(liveParity)} stroke="#f43f5e" strokeWidth="1" strokeDasharray="5 4" opacity="0.55" />
+        )}
+        <text x={isTime ? xLive : ml + pw} y={yd(liveParity) + 11} textAnchor="end" fill="#f43f5e" fontSize="8" fontFamily="monospace" opacity="0.9">
+          tenderable parity {liveParity.toLocaleString('en-US')}
+        </text>
         {(isTime ? times.length > 1 : diffMarks.length > 0) && (
           <path d={diffPath} fill="none" stroke="#0891b2" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         )}
@@ -1074,6 +1087,7 @@ export default function PtbfMechanics() {
           liveFut={curFut}
           diffMarks={deal.diffMarks ?? []}
           liveDiff={fobDiff}
+          liveParity={tenderableParity(freight)}
           lastStep={lastStep}
           hedgeIdx={execIdx(mode === 'exporter' ? 2 : 3) + 1}
           fixIdx={(deal.order?.lastIndexOf(lastStep) ?? -1) + 1}
@@ -1132,7 +1146,7 @@ export default function PtbfMechanics() {
           ) : (
             <>
               <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff} locked={false} />
-              <p className="-mt-1 text-[10px] text-slate-500">Scale floor −$350 ≈ tenderable parity: below it, delivering to the exchange beats the cash market.</p>
+              <p className="-mt-1 text-[10px] text-slate-500">The rose line on the graph is tenderable parity — it MOVES: −(freight + $100 instore + $95 tender costs). Dearer freight pushes the floor lower.</p>
             </>
           )}
 
@@ -1150,7 +1164,7 @@ export default function PtbfMechanics() {
           {mode === 'exporter' ? (
             <>
               <Field live={live} label="FOB HCM differential ($/t)" value={fobDiff} min={-350} max={1000} step={5} onChange={setFobDiff} locked={false} />
-              <p className="-mt-1 text-[10px] text-slate-500">Scale floor −$350 ≈ tenderable parity: below it, delivering to the exchange beats the cash market.</p>
+              <p className="-mt-1 text-[10px] text-slate-500">The rose line on the graph is tenderable parity — it MOVES: −(freight + $100 instore + $95 tender costs). Dearer freight pushes the floor lower.</p>
             </>
           ) : (
             <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot} locked={false} />
