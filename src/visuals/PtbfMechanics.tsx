@@ -29,6 +29,15 @@ const FIN_RATE = 0.08        // 8% p.a. financing on drawn capital (intermediate
 const AUTO_FIX_SECONDS = 10  // intermediate: once the diff is sold (business BOOKED), the futures must be squared within 10 s…
 const AUTO_FIX_PENALTY = 20_000 // …or the desk auto-fixes at market and charges this penalty
 const MARGIN_PER_LOT = 6_000 // $ INITIAL margin per net futures lot (≈ ICE Robusta at these levels), posted from capital; adverse moves draw VARIATION margin on top
+// Advanced: choose the GRADE you originate. The exchange ladder is
+// asymmetric — better coffee earns less than worse coffee loses.
+const GRADES = {
+  G1: { buy: 20, sell: 30 },
+  G2: { buy: 0, sell: 0 },
+  G3: { buy: -70, sell: -90 },
+} as const
+type Grade = keyof typeof GRADES
+
 const ROLL_MONTHS = 2 // an expiry every two calendar months: open futures ROLL at the calendar spread — the roll P&L is part of the trade P&L
 
 type Mode = 'exporter' | 'importer'
@@ -53,6 +62,7 @@ type Deal = {
   cut?: number                         // lots force-closed by the exchange on a margin call
   roll?: number                        // $ roll P&L accumulated at each 2-month expiry (spread × net position)
   fin?: number                         // $ financing accrued EVERY SECOND on locked capital (intermediate, 8% p.a.)
+  grade?: Grade                        // advanced: the grade this trade originates (locked at the first buy)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -203,7 +213,7 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
     L.push(`Trade ${n + 1} — ${t.mode === 'exporter' ? 'Exporter (buy VND → sell FOB)' : 'Importer (buy FOB → sell spot EUR)'} · ${t.tonnes} t bought · ${t.lots} lots hedged (${t.lots * LOT_T} t) · ${t.boxes} containers shipped (${t.soldT.toFixed(1)} t)`)
     if (t.mode === 'exporter') {
       const dBuy = d.buy! - d.fHedge!
-      L.push(`  1. Buy physical: ${d.vnd?.toLocaleString('en-US')} VND/kg = ${fmtUsd(d.buy!, 1)}/t × ${t.tonnes} t${stampOfAction(d, 1)}`)
+      L.push(`  1. Buy physical: ${d.vnd?.toLocaleString('en-US')} VND/kg = ${fmtUsd(d.buy!, 1)}/t × ${t.tonnes} t${d.grade ? ` · grade ${d.grade}` : ''}${stampOfAction(d, 1)}`)
       L.push(`  2. Sell futures (hedge): ${fmtUsd(d.fHedge!)} × ${t.lots} lots → buying diff ${dfmt(dBuy, 1)}${stampOfAction(d, 2)}`)
       L.push(`  3. Sell physical FOB: London ${dfmt(d.sell!)} × ${t.boxes} containers${stampOfAction(d, 3)}`)
       L.push(`  4. Fix (buy futures): ${fmtUsd(d.fFix!)} → invoice ${fmtUsd(d.fFix! + d.sell!)}/t${stampOfAction(d, 4)}`)
@@ -659,6 +669,7 @@ export default function PtbfMechanics() {
   const [lotsIn, setLotsIn] = useState(Math.round(DEFAULT_VOL / LOT_T))   // hedge, in lots
   const [boxesIn, setBoxesIn] = useState(Math.floor(DEFAULT_VOL / CONTAINER_T)) // sale, in containers
   const [fixLotsIn, setFixLotsIn] = useState(Math.round(DEFAULT_VOL / LOT_T))   // buy-back, in lots
+  const [gradeSel, setGradeSel] = useState<Grade>('G2')                          // advanced: grade to originate
 
   const [deal, setDeal] = useState<Deal>({})
   const [history, setHistory] = useState<TradeRecord[]>([])
@@ -772,6 +783,12 @@ export default function PtbfMechanics() {
   const eurUsd = eurSpot * EURUSD
   const curFut = hedged ? futFix : fut
 
+  // Advanced (exporter): the grade adjusts both legs — cost at purchase,
+  // ladder at sale/tender. Locked to the deal at the first buy.
+  const grade: Grade = deal.grade ?? gradeSel
+  const gAdj = level === 'adv' && mode === 'exporter' ? GRADES[grade] : GRADES.G2
+  const effBuy = localUsd + gAdj.buy
+
   // ── Working capital (live only) ──
   const openCommitments = commitments.filter(c => c.freesAt > elapsed)
   const committedDrawn = openCommitments.reduce((s, c) => s + c.amount, 0)
@@ -833,14 +850,15 @@ export default function PtbfMechanics() {
         if (capitalBlocked) return
         setDeal(d => {
           const v0 = d.vol ?? 0
-          return { ...d, vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol),
-            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d, localUsd, vol) }
+          return { ...d, vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, effBuy, vol),
+            vol: v0 + vol, draw: (d.draw ?? 0) + effBuy * vol,
+            ...(level === 'adv' ? { grade } : {}), ...stamp(d, effBuy, vol) }
         })
       }
       else if (n === 2) { const px = advFutPx('sell', fut, lotsIn); setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
         return { ...d, fHedge: wavg(d.fHedge, l0, px, lotsIn), lots: l0 + lotsIn, ...stamp(d, px, lotsIn) } }) }
-      else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
-        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff, clip) } }) }
+      else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); const px = fobDiff + gAdj.sell; setDeal(d => { const b0 = d.boxes ?? 0
+        return { ...d, sell: wavg(d.sell, b0, px, clip), boxes: b0 + clip, ...stamp(d, px, clip) } }) }
       else if (n === 4) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; const px = advFutPx('buy', futFix, clip); setDeal(d => { const x0 = d.fixedLots ?? 0
         return { ...d, fFix: wavg(d.fFix, x0, px, clip), fixedLots: x0 + clip, ...stamp(d, px, clip) } }) }
     } else {
@@ -873,13 +891,14 @@ export default function PtbfMechanics() {
       const v0 = d.vol ?? 0, l0 = d.lots ?? 0
       return {
         ...d,
-        vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol), vol: v0 + vol,
-        draw: (d.draw ?? 0) + localUsd * vol,
+        vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, effBuy, vol), vol: v0 + vol,
+        draw: (d.draw ?? 0) + effBuy * vol,
         fHedge: wavg(d.fHedge, l0, hedgePx, lotsIn), lots: l0 + lotsIn,
+        ...(level === 'adv' ? { grade } : {}),
         futMarks: [...(d.futMarks ?? []), curFut, hedgePx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 1, 2],
-        clipPx: [...(d.clipPx ?? []), localUsd, hedgePx],
+        clipPx: [...(d.clipPx ?? []), effBuy, hedgePx],
         clipQty: [...(d.clipQty ?? []), vol, lotsIn],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
@@ -896,12 +915,12 @@ export default function PtbfMechanics() {
       const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
       return {
         ...d,
-        sell: wavg(d.sell, b0, fobDiff, sClip), boxes: b0 + sClip,
+        sell: wavg(d.sell, b0, fobDiff + gAdj.sell, sClip), boxes: b0 + sClip,
         fFix: wavg(d.fFix, x0, fixPx, fClip), fixedLots: x0 + fClip,
         futMarks: [...(d.futMarks ?? []), curFut, fixPx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 3, 4],
-        clipPx: [...(d.clipPx ?? []), fobDiff, fixPx],
+        clipPx: [...(d.clipPx ?? []), fobDiff + gAdj.sell, fixPx],
         clipQty: [...(d.clipQty ?? []), sClip, fClip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
@@ -953,6 +972,26 @@ export default function PtbfMechanics() {
       }
     })
   }
+  // Advanced (exporter): TENDER to the exchange — a physical sale at the
+  // freight-adjusted parity, ladder-adjusted for the grade. The buyer of
+  // last resort, as an action.
+  function actTender() {
+    if (level !== 'adv' || mode !== 'exporter' || complete) return
+    const clip = Math.min(boxesIn, remainingBoxes)
+    if (clip <= 0) return
+    const px = tenderableParity(freight) + gAdj.sell
+    setDeal(d => {
+      const b0 = d.boxes ?? 0
+      return { ...d, sell: wavg(d.sell, b0, px, clip), boxes: b0 + clip,
+        futMarks: [...(d.futMarks ?? []), curFut],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff],
+        order: [...(d.order ?? []), 3],
+        clipPx: [...(d.clipPx ?? []), px],
+        clipQty: [...(d.clipQty ?? []), clip],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}) }
+    })
+  }
+
   const comboI1Ok = mode === 'importer' && !complete && !capitalBlocked && !marginBlockedAct(3)
   const comboI2Ok = mode === 'importer' && !complete && remainingBoxes > 0 && outstanding > 0
 
@@ -1128,9 +1167,9 @@ export default function PtbfMechanics() {
   // Each tile leads with ITS executable price — $/t outright or differential
   const ACTIONS = mode === 'exporter'
     ? [
-        { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, px2: `diff eq. ${dfmt(localUsd - curFut, 0)}`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
+        { n: 1, label: level === 'adv' ? `Buy ${grade} spot HCM` : 'Buy G2 spot HCM', px: `${fmtUsd(effBuy, 1)}/t`, px2: `diff eq. ${dfmt(effBuy - curFut, 0)}`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
         { n: 2, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'hedge → sets your buying differential', qty: 'lots' as const },
-        { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF', qty: 'boxes' as const },
+        { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff + gAdj.sell), px2: undefined, detail: level === 'adv' ? `diff vs London · PTBF · ${grade} ladder` : 'diff vs London · PTBF', qty: 'boxes' as const },
         { n: 4, label: 'Buy futures (Load & fix)', px: fmtUsd(curFut), px2: undefined, detail: 'EFP → invoice = fix + diff', qty: 'fixlots' as const },
       ]
     : [
@@ -1467,6 +1506,20 @@ export default function PtbfMechanics() {
                     {' '}{a.detail}
                   </div>
                   {usable && !blocked && a.qty && <div className="mt-1">{qtyInput(a.qty)}</div>}
+                  {a.n === 1 && mode === 'exporter' && level === 'adv' && (
+                    <div className="mt-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {(Object.keys(GRADES) as Grade[]).map(g => (
+                        <button key={g} type="button" disabled={volT > 0} onClick={() => setGradeSel(g)} aria-label={`Grade ${g}`}
+                          title={`${g}: ${dfmt(GRADES[g].buy)} on cost · ${dfmt(GRADES[g].sell)} on sale/tender (the ladder)`}
+                          className={`rounded px-1.5 py-px font-mono text-[9px] font-bold transition-colors ${
+                            grade === g ? 'bg-amber-500/20 text-amber-200' : volT > 0 ? 'text-slate-600' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200'
+                          }`}>
+                          {g}
+                        </button>
+                      ))}
+                      {volT > 0 && <span className="font-mono text-[8px] text-slate-500">grade locked</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -1507,6 +1560,17 @@ export default function PtbfMechanics() {
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
                   {vertBtn('Sell FOB & fix ⚡', combo2Ok, comboSellFix)}
                 </div>
+                {/* advanced: the buyer of last resort, as an action */}
+                {level === 'adv' && (
+                  <button type="button" onClick={actTender} disabled={complete || remainingBoxes === 0} aria-label="Tender to exchange"
+                    className={`w-full rounded-xl border p-2 text-left font-mono text-[10px] transition-all ${
+                      !complete && remainingBoxes > 0 ? 'border-rose-500/40 bg-rose-500/[0.06] text-rose-200 hover:bg-rose-500/[0.12]' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+                    }`}>
+                    <span className="font-bold">Tender to exchange</span> — deliver {Math.max(1, Math.min(boxesIn, remainingBoxes))} bx at parity{' '}
+                    <span className="font-bold text-amber-300">{dfmt(tenderableParity(freight) + gAdj.sell, 0)}</span>
+                    <span className="text-slate-500"> · the buyer of last resort ({grade} ladder)</span>
+                  </button>
+                )}
               </>
             )
           })()}

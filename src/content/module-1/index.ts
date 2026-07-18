@@ -13,12 +13,12 @@ import type { Topic } from '@/types/content'
 // margin, swaps, EFP) → market structure → THEN PTBF & differential trading.
 export const topics: Topic[] = [
   panorama,
+  supplyDemand, // what moves these markets — read the news before pricing it
   keyconcept,
   keyconceptQuiz,
   marketStructure,
   ptbfTrading,
   panoramaQuiz, // 10-question checkpoint: commodities, traders, structure & PTBF
-  supplyDemand,
   dayInLife,
   careersDesk, // the building, not the market: desk organisation as a career map
 ]
