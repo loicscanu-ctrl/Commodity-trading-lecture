@@ -174,8 +174,25 @@ const FEED = {
   eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 0 },
   spread:  { get: (r: (typeof LIVE_SCRIPT)[number]) => r.spread,  snap: 1,   seed: 61, amp: 8,    holdAmp: 5 },
 } as const
-export const feedAt = (t: number, key: keyof typeof FEED) =>
-  liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
+// FLASH events — seconds-long spikes and collapses that fully REVERT.
+// They exist to trap naked books: a hedged book barely notices them.
+// (All deltas are multiples of each field's snap, so prints stay clean.)
+export const FLASHES: { start: number; dur: number; label: string; d: Partial<Record<keyof typeof FEED, number>> }[] = [
+  // Y1 Dec — panic selling out of Vietnam right after the freight crisis
+  { start: 8 * SECONDS_PER_MONTH, dur: 4, label: 'Vietnam farmers dump — local panic selling!', d: { vnd: -6000, fut: -150, fob: -70, eur: -180 } },
+  // Y2 May — Brazil dumps the crop into a BULL market: fundamentals scream higher, the tape collapses anyway
+  { start: 13 * SECONDS_PER_MONTH, dur: 7, label: 'Brazil dumps the crop — screens collapse!', d: { vnd: -5000, fut: -300, fob: 60, eur: -200, spread: -60 } },
+  // Y2 Dec — a short squeeze on the delivery contract: the front spikes for seconds
+  { start: 20 * SECONDS_PER_MONTH + 10, dur: 5, label: 'Delivery squeeze on London — front month spikes!', d: { vnd: 4000, fut: 250, fob: -80, eur: 200, spread: 100 } },
+  // Y4 Sep — a frost alert in Brazil, in the middle of the bear market… it reverts: it was fake
+  { start: 41 * SECONDS_PER_MONTH, dur: 6, label: 'FROST ALERT in Brazil!', d: { vnd: 5000, fut: 350, fob: -50, eur: 250, spread: 60 } },
+]
+
+export const feedAt = (t: number, key: keyof typeof FEED) => {
+  const base = liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
+  const flash = FLASHES.reduce((sum, f) => (t >= f.start && t < f.start + f.dur ? sum + (f.d[key] ?? 0) : sum), 0)
+  return base + flash
+}
 
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
 const fmtEur = (n: number) => '€' + Math.abs(n).toLocaleString('en-US')
@@ -1494,6 +1511,16 @@ export default function PtbfMechanics() {
 
         {/* Actions — clip by clip: buy and sell little by little */}
         <div className="space-y-1.5 self-start">
+          {/* FLASH events — a rose siren while a spike/collapse is live */}
+          {live && (() => {
+            const f = FLASHES.find(fl => elapsed >= fl.start && elapsed < fl.start + fl.dur)
+            return f ? (
+              <div className="animate-pulse rounded-xl border border-rose-500 bg-rose-500/[0.15] p-2 font-mono text-[11px] font-bold text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.5)]">
+                ⚡ FLASH — {f.label}
+              </div>
+            ) : null
+          })()}
+
           {/* The NEWS tile — shines for a few seconds when a story breaks */}
           <div className={`rounded-xl border p-2.5 transition-all duration-500 ${
             live && elapsed - ROUND_STARTS[liveRound] < 5

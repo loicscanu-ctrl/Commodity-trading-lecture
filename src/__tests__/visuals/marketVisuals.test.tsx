@@ -267,6 +267,25 @@ test('PtbfMechanics: the flat-risk meter charges naked speculation on the risk-a
   }
 })
 
+test('PtbfMechanics live: flash events spike the tape for seconds, then fully revert', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Y1 Dec (t=160): Vietnam panic selling flashes for 4 seconds
+    act(() => { jest.advanceTimersByTime(161_000) })
+    expect(container.textContent).toContain('⚡ FLASH')
+    expect(container.textContent).toContain('Vietnam farmers dump')
+    // The flashed print is the deterministic feed value (base − 150 on futures)
+    expect(container.textContent).toContain(feedAt(161, 'fut').toLocaleString('en-US'))
+    // Four seconds later the tape has fully reverted
+    act(() => { jest.advanceTimersByTime(4_000) })
+    expect(container.textContent).not.toContain('⚡ FLASH')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {
