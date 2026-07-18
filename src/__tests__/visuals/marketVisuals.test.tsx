@@ -229,6 +229,24 @@ test('PtbfMechanics advanced level: futures fills pay the bid/ask spread and siz
   expect(container.textContent).toContain('20 lots @ $4,792')
 })
 
+test('PtbfMechanics advanced: grade choice adjusts both legs, tendering delivers at parity', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
+  // Originate G3: −$70 on cost, −$90 on the sale/tender ladder
+  fireEvent.click(screen.getByRole('button', { name: 'Grade G3' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Buy G3 spot HCM' }))
+  expect(container.textContent).toContain('96 t @ $4,636') // 4,705.9 − 70
+  // Hedge 10 lots with the order-book spread: 4,800 − $3 half-spread = 4,797
+  fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+  expect(container.textContent).toContain('10 lots @ $4,797')
+  // Tender to the exchange: parity −(70+100+95) = −265, G3 ladder −90 → −355
+  fireEvent.click(screen.getByRole('button', { name: 'Tender to exchange' }))
+  expect(container.textContent).toContain('5 bx @ −$355')
+  // Square the futures → the book completes
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures (Load & fix)' }))
+  expect(container.textContent).toContain('FLAT — trade complete')
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {
