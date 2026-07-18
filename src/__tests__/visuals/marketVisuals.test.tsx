@@ -219,6 +219,38 @@ test('PtbfMechanics intermediate live: financing accrues every second on locked 
   }
 })
 
+test('PtbfMechanics advanced level: futures fills pay the bid/ask spread and size impact', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+  // Selling 20 lots at a 4,800 screen: half-spread $3 + $0.50 × 10 excess lots = $8 → filled 4,792
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Hedge volume (lots)' }), { target: { value: '20' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+  expect(container.textContent).toContain('20 lots @ $4,792')
+})
+
+test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    act(() => { jest.advanceTimersByTime(5_000) })
+    fireEvent.click(screen.getByRole('button', { name: /Pause/ }))
+    const frozen = feedAt(5, 'vnd').toLocaleString('en-US')
+    expect(container.textContent).toContain(frozen)
+    // Ten seconds of wall clock pass — the market does not move
+    act(() => { jest.advanceTimersByTime(10_000) })
+    expect(container.textContent).toContain(frozen)
+    expect(screen.getByRole('button', { name: /Resume/ })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: /Resume/ }))
+    act(() => { jest.advanceTimersByTime(3_000) })
+    // The clock resumes from where it paused (t≈8, not t≈18)
+    expect(container.textContent).toContain(feedAt(8, 'vnd').toLocaleString('en-US'))
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
