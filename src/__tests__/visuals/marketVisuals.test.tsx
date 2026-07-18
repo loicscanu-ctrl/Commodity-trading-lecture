@@ -278,8 +278,8 @@ test('PtbfMechanics live: flash events spike the tape for seconds, then fully re
     expect(container.textContent).toContain('Vietnam farmers dump')
     // The flashed print is the deterministic feed value (base − 150 on futures)
     expect(container.textContent).toContain(feedAt(161, 'fut').toLocaleString('en-US'))
-    // Four seconds later the tape has fully reverted
-    act(() => { jest.advanceTimersByTime(4_000) })
+    // Ten seconds later the fall-and-recovery has fully played out
+    act(() => { jest.advanceTimersByTime(10_000) })
     expect(container.textContent).not.toContain('⚡ FLASH')
   } finally {
     jest.useRealTimers()
@@ -342,16 +342,19 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     // wiggle — assert the exact feed value
     act(() => { jest.advanceTimersByTime(15_000) })
     expect(container.textContent).toContain(feedAt(75, 'vnd').toLocaleString('en-US'))
-    // Drift complete (t=95, 35 one-second ticks): the published level holds
+    // Drift complete (t=95): the screen keeps BREATHING around the published
+    // level — assert the exact (wiggled) feed value
     act(() => { jest.advanceTimersByTime(20_000) })
-    expect(container.textContent).toContain('114,000')
-    // Buy at Y1 Jul's level; Y1 Nov's news fires at t=140 (Bab-el-Mandeb) and
-    // its drift completes by t=175: buying diff = 114,000/25.5k − 4,950 = −$479.4
+    expect(container.textContent).toContain(feedAt(95, 'vnd').toLocaleString('en-US'))
+    // Buy at t=95; Y1 Nov's news fires at t=140 (Bab-el-Mandeb); hedge at t=175
     fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
     act(() => { jest.advanceTimersByTime(80_000) })
     expect(container.textContent).toContain('Bab-el-Mandeb')
     fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
-    expect(container.textContent).toContain('−$479.4')
+    const buyUsd = (feedAt(95, 'vnd') * 1000) / 25500
+    const dBuy = buyUsd - feedAt(175, 'fut')
+    const dStr = `${dBuy < 0 ? '−' : '+'}$${Math.abs(dBuy).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+    expect(container.textContent).toContain(dStr)
     // The blotter stamps the execution rounds — the anti-cheat audit trail
     expect(container.textContent).toContain('Bought local · Y1 Jul')
     expect(container.textContent).toContain('buying diff · Y1 Nov')
