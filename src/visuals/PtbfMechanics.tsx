@@ -23,12 +23,12 @@ const tenderableParity = (fr: number) => -(fr + CIF_INSTORE + TENDER_FRICTION)
 const LOT_T = 10        // tonnes per futures lot
 const CONTAINER_T = 19.2 // tonnes per container
 const DEFAULT_VOL = 96  // 96 t = exactly 5 containers (and 9.6 lots — never round!)
-const CAPITAL_START = 1_000_000 // $ starting capital (live mode) — realized P&L adds to / subtracts from it as trades settle
+const CAPITAL_START = 4_000_000 // $ starting capital (live mode) — realized P&L adds to / subtracts from it as trades settle
 const SETTLE_SECONDS = 30    // a trade takes 30 s to execute & settle: capital stays locked that long after the sale
 const FIN_RATE = 0.08        // 8% p.a. financing on drawn capital (intermediate level)
 const AUTO_FIX_SECONDS = 10  // intermediate: once the diff is sold (business BOOKED), the futures must be squared within 10 s…
 const AUTO_FIX_PENALTY = 20_000 // …or the desk auto-fixes at market and charges this penalty
-const MARGIN_PER_LOT = 6_000 // $ maintenance margin per net futures lot (≈ ICE Robusta at these levels), posted from capital
+const MARGIN_PER_LOT = 6_000 // $ INITIAL margin per net futures lot (≈ ICE Robusta at these levels), posted from capital; adverse moves draw VARIATION margin on top
 const ROLL_MONTHS = 2 // an expiry every two calendar months: open futures ROLL at the calendar spread — the roll P&L is part of the trade P&L
 
 type Mode = 'exporter' | 'importer'
@@ -767,9 +767,16 @@ export default function PtbfMechanics() {
   // Realized P&L joins the capital base once its trade has settled
   const settledPnl = commitments.filter(c => c.freesAt <= elapsed).reduce((s, c) => s + c.pnl, 0)
   const capitalBase = CAPITAL_START + settledPnl
-  // Maintenance margin on the NET futures position is posted from capital —
-  // over-hedging is no longer free.
-  const marginReq = live ? Math.abs(outstanding) * MARGIN_PER_LOT : 0
+  // INITIAL margin on the NET futures position is posted from capital —
+  // over-hedging is not free — and when the market moves AGAINST the open
+  // position, VARIATION margin is drawn on top: the margin call, automated.
+  const initialMargin = live ? Math.abs(outstanding) * MARGIN_PER_LOT : 0
+  const openAvg = outstanding > 0 ? (deal.fHedge ?? curFut) : (deal.fFix ?? curFut)
+  const futMtm = outstanding > 0
+    ? (openAvg - curFut) * outstanding * LOT_T
+    : outstanding < 0 ? (curFut - openAvg) * -outstanding * LOT_T : 0
+  const vmCall = live && outstanding !== 0 ? Math.max(0, -futMtm) : 0
+  const marginReq = initialMargin + vmCall
   const drawn = committedDrawn + (deal.draw !== undefined ? deal.draw : 0) + marginReq
   const available = capitalBase - drawn
   // Would action n GROW the net futures position beyond the margin headroom?
@@ -1198,7 +1205,7 @@ export default function PtbfMechanics() {
               line <span className={`font-bold ${capitalBase >= CAPITAL_START ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtUsd(capitalBase)}</span>
               {settledPnl !== 0 && <span className="text-slate-500"> ({sgn(settledPnl)} realized)</span>}
               {' · drawn '}<span className={drawn > 0 ? 'text-amber-300 font-bold' : 'text-slate-300'}>{fmtUsd(drawn)}</span>
-              {marginReq > 0 && <span className="text-slate-500"> (incl. margin {fmtUsd(marginReq)} · {Math.abs(outstanding)} net lots × ${MARGIN_PER_LOT / 1000}k)</span>}
+              {marginReq > 0 && <span className="text-slate-500"> (incl. margin {fmtUsd(marginReq)} · IM {Math.abs(outstanding)} lots × ${MARGIN_PER_LOT / 1000}k{vmCall > 0 ? <> + <span className="font-bold text-rose-300">VM call {fmtUsd(vmCall)}</span></> : null})</span>}
               {' · available '}<span className={available < estDraw ? 'text-rose-300 font-bold' : 'text-emerald-300 font-bold'}>{fmtUsd(Math.max(0, available))}</span>
             </span>
           </div>
@@ -1212,6 +1219,11 @@ export default function PtbfMechanics() {
                 <span key={i} className="mr-3">{fmtUsd(c.amount)} settling ({sgn(c.pnl)} P&L lands with it) — frees in {Math.max(0, c.freesAt - elapsed)}s</span>
               ))}
             </p>
+          )}
+          {vmCall > 0 && (
+            <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] p-2 font-mono text-[11px] text-amber-200">
+              MARGIN CALL — your open futures are {fmtUsd(vmCall)} underwater: variation margin is drawn from the line on top of the {fmtUsd(initialMargin)} initial margin.
+            </div>
           )}
           {(deal.cut ?? 0) > 0 && (
             <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-500/[0.10] p-2 font-mono text-[11px] font-bold text-rose-200">
@@ -1263,27 +1275,46 @@ export default function PtbfMechanics() {
             ]
             return (
               <>
-                {rows.map(r => (
-                  <div key={r.k} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                    <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">{r.label}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {tiles[r.k].length === 0
-                        ? <span className="font-mono text-[9px] text-slate-600">—</span>
-                        : tiles[r.k].map((t2, i2) => (
-                          <span key={i2} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${r.buy ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>{t2}</span>
-                        ))}
+                {rows.map(r => {
+                  // Once the physical is paired with an opposite futures leg,
+                  // the book thinks in DIFFERENTIAL terms — show it.
+                  const diffTile =
+                    r.k === 'pb' && mode === 'exporter' && volT > 0 && lotsH > 0
+                      ? `= diff ${dfmt(deal.buy! - deal.fHedge!, 0)}`
+                      : r.k === 'ps' && mode === 'importer' && boxesS > 0 && lotsX > 0
+                        ? `= diff ${dfmt(deal.sell! - deal.fFix!, 0)}`
+                        : null
+                  return (
+                    <div key={r.k} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                      <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">{r.label}</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {tiles[r.k].length === 0
+                          ? <span className="font-mono text-[9px] text-slate-600">—</span>
+                          : tiles[r.k].map((t2, i2) => (
+                            <span key={i2} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${r.buy ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>{t2}</span>
+                          ))}
+                        {diffTile && (
+                          <span className="rounded bg-brand-cyan/10 px-1 py-px font-mono text-[9px] font-bold text-brand-cyan">{diffTile}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <div className={`rounded-xl border p-2 ${netD !== null ? (netD >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]') : 'border-white/10 bg-white/[0.03]'}`}>
-                  <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">PnL</div>
-                  <div className={`mt-0.5 font-mono text-[11px] font-bold tabular-nums ${netD === null ? 'text-slate-600' : netD >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
-                    {netD !== null ? sgn(netD) : started ? 'open' : '—'}
-                  </div>
-                  {(deal.roll ?? 0) !== 0 && (
-                    <div className="mt-0.5 font-mono text-[9px] text-slate-400">rolls {sgn(deal.roll!)}</div>
-                  )}
-                </div>
+                  )
+                })}
+                {(() => {
+                  const cumPnl = sessionTotal + (netD ?? 0)
+                  const hasPnl = history.length > 0 || netD !== null
+                  return (
+                    <div className={`rounded-xl border p-2 ${hasPnl ? (cumPnl >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]') : 'border-white/10 bg-white/[0.03]'}`}>
+                      <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">PnL (accumulated)</div>
+                      <div className={`mt-0.5 font-mono text-[11px] font-bold tabular-nums ${!hasPnl ? 'text-slate-600' : cumPnl >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {hasPnl ? sgn(cumPnl) : started ? 'open' : '—'}
+                      </div>
+                      {(deal.roll ?? 0) !== 0 && (
+                        <div className="mt-0.5 font-mono text-[9px] text-slate-400">rolls {sgn(deal.roll!)}</div>
+                      )}
+                    </div>
+                  )
+                })()}
               </>
             )
           })()}

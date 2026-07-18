@@ -164,13 +164,18 @@ test('PtbfMechanics live: maintenance margin caps the hedge — no unlimited ove
     fireEvent.change(screen.getByRole('textbox', { name: 'Trader name' }), { target: { value: 'Ada' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Trader surname' }), { target: { value: 'Lovelace' } })
     fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
-    // Buy 96 t at the opening prints: draws $448,000 of the $1M line
+    // Buy 500 t at the opening prints: draws $2,333,333 of the $4M line
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Volume to buy (t)' }), { target: { value: '500' } })
     fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
-    // Hedge 60 lots: margin 60 × $6k = $360,000 — fits ($552k free)
+    // Four hedge clips of 60 lots: initial margin 240 × $6k = $1,440,000
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Hedge volume (lots)' }), { target: { value: '60' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
     expect(container.textContent).toContain('incl. margin $360,000')
-    // Another 60 lots would need $360k more — only $192k left: blocked
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    expect(container.textContent).toContain('incl. margin $1,440,000')
+    // A fifth 60-lot clip needs $360k more — only ~$227k left: blocked
     expect(screen.getByRole('button', { name: 'Sell futures' })).toBeDisabled()
     expect(container.textContent).toContain('no margin')
   } finally {
