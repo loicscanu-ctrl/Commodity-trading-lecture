@@ -1368,7 +1368,7 @@ export default function PtbfMechanics() {
               line <span className={`font-bold ${capitalBase >= CAPITAL_START ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtUsd(capitalBase)}</span>
               {settledPnl !== 0 && <span className="text-slate-500"> ({sgn(settledPnl)} realized)</span>}
               {' · drawn '}<span className={drawn > 0 ? 'text-amber-300 font-bold' : 'text-slate-300'}>{fmtUsd(drawn)}</span>
-              {marginReq > 0 && <span className="text-slate-500"> (incl. margin {fmtUsd(marginReq)} · IM {Math.abs(outstanding)} lots × ${MARGIN_PER_LOT / 1000}k{vmCall > 0 ? <> + <span className="font-bold text-rose-300">VM call {fmtUsd(vmCall)}</span></> : null})</span>}
+              {marginReq > 0 && <span className="text-slate-500"> (incl. margin {fmtUsd(marginReq)} · IM {Math.abs(outstanding)} lots × ${MARGIN_PER_LOT / 1000}k{vmCall > 0 ? <> + <span className="font-bold text-rose-300">VM {fmtUsd(vmCall)}</span></> : null})</span>}
               {' · available '}<span className={available < estDraw ? 'text-rose-300 font-bold' : 'text-emerald-300 font-bold'}>{fmtUsd(Math.max(0, available))}</span>
             </span>
           </div>
@@ -1383,9 +1383,9 @@ export default function PtbfMechanics() {
               ))}
             </p>
           )}
-          {vmCall > 0 && (
+          {vmCall > 0 && drawn >= capitalBase * 0.8 && (
             <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] p-2 font-mono text-[11px] text-amber-200">
-              MARGIN CALL — your open futures are {fmtUsd(vmCall)} underwater: variation margin is drawn from the line on top of the {fmtUsd(initialMargin)} initial margin.
+              MARGIN CALL — {Math.round((drawn / capitalBase) * 100)}% of the line is drawn and your open futures are {fmtUsd(vmCall)} underwater. Variation margin is eating the last of the cushion: reduce, hedge, or get cut.
             </div>
           )}
           {(deal.cut ?? 0) > 0 && (
