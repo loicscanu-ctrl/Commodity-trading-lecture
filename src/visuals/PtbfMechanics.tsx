@@ -369,12 +369,12 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
 }) {
   // Which ACTION the i-th execution was (free order on the intermediate level)
   const actionOf = (i: number) => order?.[i] ?? i + 1
-  const W = 560, H = 320, ml = 56, mr = 16, mt = 12
-  const pw = W - ml - mr, ph = 158 - mt // futures panel height
+  const W = 560, H = 430, ml = 56, mr = 16, mt = 12
+  const pw = W - ml - mr, ph = 242 - mt // futures panel height
   const PMINg = 3500, PMAXg = 6000
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
   // Second panel: the FOB differential — the risk the desk actually trades
-  const D = { top: 196, h: 92, min: -580, max: 760 }
+  const D = { top: 292, h: 110, min: -580, max: 760 }
   const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
   const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
 
@@ -444,7 +444,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
           <span className="flex items-center gap-1"><span className="inline-block w-4 border-t border-dotted border-slate-200" /> outright (fut + diff)</span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '360px' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '430px' }}>
         {[4000, 4500, 5000, 5500].map(p => (
           <g key={p}>
             <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
@@ -643,7 +643,7 @@ const CHIP_CLS = (s: string) =>
 export default function PtbfMechanics() {
   const [mode, setMode] = useState<Mode>('exporter')
   // Difficulty: easy = guided fixed order · inter = free order + 8% financing
-  const [level, setLevel] = useState<'easy' | 'inter'>('easy')
+  const [level, setLevel] = useState<'easy' | 'inter' | 'adv'>('easy')
 
   // Live market
   const [vnd, setVnd] = useState(120000)     // VND/kg, local HCM
@@ -678,15 +678,24 @@ export default function PtbfMechanics() {
 
   // Live-market mode: the predetermined path plays at one round per minute.
   const [live, setLive] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
+  const pausedAtRef = useRef(0)
   const liveRound = roundAt(elapsed)
 
   useEffect(() => {
-    if (!live) return
+    if (!live || paused) return
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
     return () => clearInterval(t)
-  }, [live])
+  }, [live, paused])
+
+  function togglePause() {
+    if (!live) return
+    if (!paused) { pausedAtRef.current = Date.now() }
+    else { startRef.current += Date.now() - pausedAtRef.current }
+    setPaused(!paused)
+  }
 
   // While the live session runs, the slide is locked: SectionReader listens
   // and disables all navigation until the session ends (or a page refresh).
@@ -709,13 +718,14 @@ export default function PtbfMechanics() {
   }, [live, elapsed])
 
   function toggleLive() {
-    if (live) { setLive(false); return }
+    if (live) { setLive(false); setPaused(false); return }
     startRef.current = Date.now()
     setElapsed(0)
     setDeal({})
     setBookedAt(null)
     setPins([])
     setCommitments([])
+    setPaused(false)
     setLive(true)
   }
 
@@ -794,6 +804,14 @@ export default function PtbfMechanics() {
 
   function switchMode(m: Mode) { setMode(m); setDeal({}); setBookedAt(null) }
 
+  // Advanced level: the futures screen is an order book — you cross a bid/ask
+  // spread and SIZE walks the book ($3 half-spread + $0.50 per lot beyond 10).
+  const advFutPx = (side: 'buy' | 'sell', base: number, lots: number) => {
+    if (level !== 'adv') return base
+    const half = 3 + Math.max(0, lots - 10) * 0.5
+    return Math.round(side === 'buy' ? base + half : base - half)
+  }
+
   // Weighted-average accumulator: fold a new clip into a running average
   const wavg = (avg0: number | undefined, qty0: number, px: number, qty: number) =>
     ((avg0 ?? 0) * qty0 + px * qty) / (qty0 + qty)
@@ -819,12 +837,12 @@ export default function PtbfMechanics() {
             vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d, localUsd, vol) }
         })
       }
-      else if (n === 2) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut, lotsIn) } }) }
+      else if (n === 2) { const px = advFutPx('sell', fut, lotsIn); setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
+        return { ...d, fHedge: wavg(d.fHedge, l0, px, lotsIn), lots: l0 + lotsIn, ...stamp(d, px, lotsIn) } }) }
       else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
         return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff, clip) } }) }
-      else if (n === 4) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix, clip) } }) }
+      else if (n === 4) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; const px = advFutPx('buy', futFix, clip); setDeal(d => { const x0 = d.fixedLots ?? 0
+        return { ...d, fFix: wavg(d.fFix, x0, px, clip), fixedLots: x0 + clip, ...stamp(d, px, clip) } }) }
     } else {
       if (n === 1) {
         if (capitalBlocked) return
@@ -835,12 +853,12 @@ export default function PtbfMechanics() {
         })
       }
       else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d, freight, 1) }))
-      else if (n === 3) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut, lotsIn) } }) }
+      else if (n === 3) { const px = advFutPx('sell', fut, lotsIn); setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
+        return { ...d, fHedge: wavg(d.fHedge, l0, px, lotsIn), lots: l0 + lotsIn, ...stamp(d, px, lotsIn) } }) }
       else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
         return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d, eurUsd, clip) } }) }
-      else if (n === 5) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix, clip) } }) }
+      else if (n === 5) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; const px = advFutPx('buy', futFix, clip); setDeal(d => { const x0 = d.fixedLots ?? 0
+        return { ...d, fFix: wavg(d.fFix, x0, px, clip), fixedLots: x0 + clip, ...stamp(d, px, clip) } }) }
     }
   }
 
@@ -849,6 +867,7 @@ export default function PtbfMechanics() {
   // simultaneously — the buying differential locks in a single execution.
   function comboBuyDiff() {
     if (mode !== 'exporter' || complete || capitalBlocked || marginBlockedAct(2)) return
+    const hedgePx = advFutPx('sell', fut, lotsIn)
     setFutFix(fut)
     setDeal(d => {
       const v0 = d.vol ?? 0, l0 = d.lots ?? 0
@@ -856,11 +875,11 @@ export default function PtbfMechanics() {
         ...d,
         vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol), vol: v0 + vol,
         draw: (d.draw ?? 0) + localUsd * vol,
-        fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn,
-        futMarks: [...(d.futMarks ?? []), curFut, fut],
+        fHedge: wavg(d.fHedge, l0, hedgePx, lotsIn), lots: l0 + lotsIn,
+        futMarks: [...(d.futMarks ?? []), curFut, hedgePx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 1, 2],
-        clipPx: [...(d.clipPx ?? []), localUsd, fut],
+        clipPx: [...(d.clipPx ?? []), localUsd, hedgePx],
         clipQty: [...(d.clipQty ?? []), vol, lotsIn],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
@@ -872,16 +891,17 @@ export default function PtbfMechanics() {
     const sClip = Math.min(boxesIn, remainingBoxes)
     const fClip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn
     if (sClip <= 0 || fClip <= 0 || outstanding <= 0) return
+    const fixPx = advFutPx('buy', futFix, fClip)
     setDeal(d => {
       const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
       return {
         ...d,
         sell: wavg(d.sell, b0, fobDiff, sClip), boxes: b0 + sClip,
-        fFix: wavg(d.fFix, x0, futFix, fClip), fixedLots: x0 + fClip,
-        futMarks: [...(d.futMarks ?? []), curFut, curFut],
+        fFix: wavg(d.fFix, x0, fixPx, fClip), fixedLots: x0 + fClip,
+        futMarks: [...(d.futMarks ?? []), curFut, fixPx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 3, 4],
-        clipPx: [...(d.clipPx ?? []), fobDiff, futFix],
+        clipPx: [...(d.clipPx ?? []), fobDiff, fixPx],
         clipQty: [...(d.clipQty ?? []), sClip, fClip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
@@ -889,6 +909,52 @@ export default function PtbfMechanics() {
   }
   const combo1Ok = mode === 'exporter' && !complete && !capitalBlocked && !marginBlockedAct(2)
   const combo2Ok = mode === 'exporter' && !complete && remainingBoxes > 0 && outstanding > 0
+
+  // Importer flash combos: buy the FOB diff AND fix/hedge it in one click;
+  // sell the spot AND buy the futures back together (selling in diff terms).
+  function comboImpBuyFix() {
+    if (mode !== 'importer' || complete || capitalBlocked || marginBlockedAct(3)) return
+    const hedgePx = advFutPx('sell', fut, lotsIn)
+    setFutFix(fut)
+    setDeal(d => {
+      const v0 = d.vol ?? 0, l0 = d.lots ?? 0
+      return {
+        ...d,
+        dBuy: wavg(d.dBuy, v0, fobDiff, vol), vol: v0 + vol,
+        draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol,
+        fHedge: wavg(d.fHedge, l0, hedgePx, lotsIn), lots: l0 + lotsIn,
+        futMarks: [...(d.futMarks ?? []), curFut, hedgePx],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
+        order: [...(d.order ?? []), 1, 3],
+        clipPx: [...(d.clipPx ?? []), fobDiff, hedgePx],
+        clipQty: [...(d.clipQty ?? []), vol, lotsIn],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
+      }
+    })
+  }
+  function comboImpSellDiff() {
+    if (mode !== 'importer' || complete) return
+    const sClip = Math.min(boxesIn, remainingBoxes)
+    const fClip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn
+    if (sClip <= 0 || fClip <= 0 || outstanding <= 0) return
+    const fixPx = advFutPx('buy', futFix, fClip)
+    setDeal(d => {
+      const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
+      return {
+        ...d,
+        eur: Math.round(wavg(d.eur, b0, eurSpot, sClip)), sell: wavg(d.sell, b0, eurUsd, sClip), boxes: b0 + sClip,
+        fFix: wavg(d.fFix, x0, fixPx, fClip), fixedLots: x0 + fClip,
+        futMarks: [...(d.futMarks ?? []), curFut, fixPx],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
+        order: [...(d.order ?? []), 4, 5],
+        clipPx: [...(d.clipPx ?? []), eurUsd, fixPx],
+        clipQty: [...(d.clipQty ?? []), sClip, fClip],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
+      }
+    })
+  }
+  const comboI1Ok = mode === 'importer' && !complete && !capitalBlocked && !marginBlockedAct(3)
+  const comboI2Ok = mode === 'importer' && !complete && remainingBoxes > 0 && outstanding > 0
 
   // Stamp tag by ACTION number (free order maps action → execution index)
   const execIdx = (n: number) => (deal.order ? deal.order.indexOf(n) : n - 1)
@@ -958,7 +1024,7 @@ export default function PtbfMechanics() {
   // Intermediate: the business is BOOKED once the diff is fully sold.
   const bookedNow = volT > 0 && boxesS > 0 && remainingT < CONTAINER_T
   useEffect(() => {
-    if (live && level === 'inter' && bookedNow && bookedAt === null) setBookedAt(elapsed)
+    if (live && level !== 'easy' && bookedNow && bookedAt === null) setBookedAt(elapsed)
     if (!bookedNow && bookedAt !== null) setBookedAt(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, level, bookedNow, elapsed])
@@ -984,7 +1050,7 @@ export default function PtbfMechanics() {
   // accrues EVERY SECOND at 8% p.a. of calendar time — a running financial
   // cost that lands in the P&L like the rolls do.
   useEffect(() => {
-    if (!live || level !== 'inter' || !started || complete) return
+    if (!live || level === 'easy' || !started || complete) return
     const locked = (deal.draw ?? 0) + marginReq
     if (locked <= 0) return
     const costPerSecond = locked * FIN_RATE / (12 * SECONDS_PER_MONTH)
@@ -1021,7 +1087,7 @@ export default function PtbfMechanics() {
   // auto-fixes at market and charges the penalty.
   const autoFixIn = bookedAt !== null && !complete ? Math.max(0, AUTO_FIX_SECONDS - (elapsed - bookedAt)) : null
   useEffect(() => {
-    if (!live || level !== 'inter' || bookedAt === null || complete) return
+    if (!live || level === 'easy' || bookedAt === null || complete) return
     if (elapsed - bookedAt < AUTO_FIX_SECONDS) return
     setDeal(d => {
       const l0 = d.lots ?? 0, x0 = d.fixedLots ?? 0
@@ -1152,7 +1218,7 @@ export default function PtbfMechanics() {
 
       {/* Difficulty level */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        {([['easy', 'Easy · guided order'], ['inter', 'Intermediate · free order + 8% financing']] as const).map(([k, label]) => (
+        {([['easy', 'Easy · guided order'], ['inter', 'Intermediate · free order + 8% financing'], ['adv', 'Advanced · + order-book slippage']] as const).map(([k, label]) => (
           <button key={k} disabled={live} onClick={() => { if (level !== k) { setLevel(k); setDeal({}); setBookedAt(null) } }}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
               level === k ? 'border-amber-500/60 bg-amber-500/15 text-amber-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
@@ -1160,13 +1226,12 @@ export default function PtbfMechanics() {
             {label}
           </button>
         ))}
-        <button disabled className="cursor-not-allowed rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-600">
-          Advanced · order book & quality inventory (soon)
-        </button>
         <span className="font-mono text-[10px] text-slate-500">
           {level === 'easy'
             ? 'actions execute in a fixed, guided order'
-            : 'any order — sell first, even buy futures naked (know why!) · 8% p.a. financing on drawn capital · booked = diff sold: square the futures within 10 s or auto-fix, −$20k'}
+            : level === 'inter'
+              ? 'any order — sell first, even buy futures naked (know why!) · 8% p.a. financing on drawn capital · booked = diff sold: square the futures within 10 s or auto-fix, −$20k'
+              : 'everything intermediate has, PLUS the screen is an order book: futures fills pay a bid/ask spread and SIZE moves your price ($3 half-spread + $0.50/lot beyond 10)'}
         </span>
       </div>
 
@@ -1199,6 +1264,14 @@ export default function PtbfMechanics() {
           }`}>
           {live ? '■ Stop live market' : '▶ Live market (45 months · 20 s/month ≈ 15 min)'}
         </button>
+        {live && (
+          <button onClick={togglePause}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+              paused ? 'border-amber-500/60 bg-amber-500/15 text-amber-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
+            }`}>
+            {paused ? '▶ Resume' : '⏸ Pause'}
+          </button>
+        )}
         {/* No round counter, no next-news countdown: when the next news lands
             — and how many remain — stays a mystery for the students. */}
       </div>
@@ -1246,7 +1319,7 @@ export default function PtbfMechanics() {
       )}
 
       {/* Intermediate: booked business countdown — square the futures or eat the penalty */}
-      {live && level === 'inter' && autoFixIn !== null && outstanding !== 0 && (
+      {live && level !== 'easy' && autoFixIn !== null && outstanding !== 0 && (
         <div className="mb-4 rounded-xl border border-rose-500/50 bg-rose-500/[0.10] p-3 font-mono text-xs text-rose-200">
           ⏱ BUSINESS BOOKED — the differential is sold. Square your futures within <span className="text-base font-bold">{autoFixIn}s</span> or the desk auto-fixes at market with a −{fmtUsd(AUTO_FIX_PENALTY)} penalty.
         </div>
@@ -1400,25 +1473,39 @@ export default function PtbfMechanics() {
             }
             const vertBtn = (label: string, ok: boolean, onClick: () => void) => (
               <button type="button" onClick={onClick} disabled={!ok} aria-label={label}
-                className={`w-8 shrink-0 rounded-xl border px-1 py-2 font-mono text-[10px] font-bold tracking-wide transition-all ${
+                className={`w-7 shrink-0 rounded-xl border px-0.5 py-2 font-mono text-[9px] font-bold tracking-wide transition-all ${
                   ok ? 'cursor-pointer border-amber-500/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
                 }`}
                 style={{ writingMode: 'vertical-rl' }}>
                 {label}
               </button>
             )
-            if (mode === 'importer') return ACTIONS.map(a => row(a))
+            if (mode === 'importer') return (
+              <>
+                {/* buy the FOB diff + fix/hedge together */}
+                <div className="flex items-stretch gap-1.5">
+                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[0])}{row(ACTIONS[1])}</div>
+                  {vertBtn('Buy FOB & fix ⚡', comboI1Ok, comboImpBuyFix)}
+                </div>
+                {/* sell the spot + buy the futures back = sell in diff terms */}
+                <div className="flex items-stretch gap-1.5">
+                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
+                  {vertBtn('Sell spot diff ⚡', comboI2Ok, comboImpSellDiff)}
+                </div>
+                {row(ACTIONS[4])}
+              </>
+            )
             return (
               <>
                 {/* buy spot + hedge = buy the DIFF, one click */}
                 <div className="flex items-stretch gap-1.5">
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[0])}{row(ACTIONS[1])}</div>
-                  {vertBtn('Buy G2 spot HCM diff ⚡', combo1Ok, comboBuyDiff)}
+                  {vertBtn('Buy G2 diff ⚡', combo1Ok, comboBuyDiff)}
                 </div>
                 {/* sell FOB + fix = sell & load immediately, one click */}
                 <div className="flex items-stretch gap-1.5">
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
-                  {vertBtn('Sell G2 FOB & load immediately ⚡', combo2Ok, comboSellFix)}
+                  {vertBtn('Sell FOB & fix ⚡', combo2Ok, comboSellFix)}
                 </div>
               </>
             )

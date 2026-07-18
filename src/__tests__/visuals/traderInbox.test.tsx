@@ -13,9 +13,14 @@ const best = [
 
 test('a perfectly handled day closes at +$4,300', () => {
   const { container } = render(<TraderInbox />)
-  // Only the first email is open; later ones are locked
+  // The whole inbox is readable from the start — like a real inbox
   expect(container.textContent).toContain('Overnight check')
-  expect(screen.getByRole('button', { name: /17:30/ })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /17:30/ })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: /17:30/ }))
+  expect(container.textContent).toContain('EOD — desk report due')
+  fireEvent.click(screen.getByRole('button', { name: /06:30/ }))
+  // Emails read like emails: signatures included
+  expect(container.textContent).toContain('Risk & Product Control — HCM Desk')
   best.forEach((r, i) => {
     fireEvent.click(screen.getByRole('button', { name: r }))
     if (i < best.length - 1) fireEvent.click(screen.getByRole('button', { name: /Open next email/ }))
