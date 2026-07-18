@@ -167,11 +167,11 @@ function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number
 // The whole market derives from time through this table — the graph redraws
 // history with the exact function the live feed uses.
 const FEED = {
-  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1800, holdAmp: 0 },
-  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 65,   holdAmp: 0 },
+  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1800, holdAmp: 800 },
+  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 65,   holdAmp: 25 },
   fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 45,   holdAmp: 30 },
   freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 8,    holdAmp: 0 },
-  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 0 },
+  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 20 },
   spread:  { get: (r: (typeof LIVE_SCRIPT)[number]) => r.spread,  snap: 1,   seed: 61, amp: 8,    holdAmp: 5 },
 } as const
 // FLASH events — seconds-long spikes and collapses that fully REVERT.
@@ -179,19 +179,24 @@ const FEED = {
 // (All deltas are multiples of each field's snap, so prints stay clean.)
 export const FLASHES: { start: number; dur: number; label: string; d: Partial<Record<keyof typeof FEED, number>> }[] = [
   // Y1 Dec — panic selling out of Vietnam right after the freight crisis
-  { start: 8 * SECONDS_PER_MONTH, dur: 4, label: 'Vietnam farmers dump — local panic selling!', d: { vnd: -6000, fut: -150, fob: -70, eur: -180 } },
+  { start: 8 * SECONDS_PER_MONTH, dur: 9, label: 'Vietnam farmers dump — local panic selling!', d: { vnd: -6000, fut: -150, fob: -70, eur: -180 } },
   // Y2 May — Brazil dumps the crop into a BULL market: fundamentals scream higher, the tape collapses anyway
-  { start: 13 * SECONDS_PER_MONTH, dur: 7, label: 'Brazil dumps the crop — screens collapse!', d: { vnd: -5000, fut: -300, fob: 60, eur: -200, spread: -60 } },
+  { start: 13 * SECONDS_PER_MONTH, dur: 12, label: 'Brazil dumps the crop — screens collapse!', d: { vnd: -5000, fut: -300, fob: 60, eur: -200, spread: -60 } },
   // Y2 Dec — a short squeeze on the delivery contract: the front spikes for seconds
-  { start: 20 * SECONDS_PER_MONTH + 10, dur: 5, label: 'Delivery squeeze on London — front month spikes!', d: { vnd: 4000, fut: 250, fob: -80, eur: 200, spread: 100 } },
+  { start: 20 * SECONDS_PER_MONTH + 10, dur: 8, label: 'Delivery squeeze on London — front month spikes!', d: { vnd: 4000, fut: 250, fob: -80, eur: 200, spread: 100 } },
   // Y4 Sep — a frost alert in Brazil, in the middle of the bear market… it reverts: it was fake
-  { start: 41 * SECONDS_PER_MONTH, dur: 6, label: 'FROST ALERT in Brazil!', d: { vnd: 5000, fut: 350, fob: -50, eur: 250, spread: 60 } },
+  { start: 41 * SECONDS_PER_MONTH, dur: 15, label: 'FROST ALERT in Brazil!', d: { vnd: 5000, fut: 350, fob: -50, eur: 250, spread: 60 } },
 ]
 
 export const feedAt = (t: number, key: keyof typeof FEED) => {
   const base = liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
-  const flash = FLASHES.reduce((sum, f) => (t >= f.start && t < f.start + f.dur ? sum + (f.d[key] ?? 0) : sum), 0)
-  return base + flash
+  // Flashes fall and recover along a triangular envelope: peak mid-window
+  const flash = FLASHES.reduce((sum, f) => {
+    if (t < f.start || t >= f.start + f.dur) return sum
+    const envelope = 1 - Math.abs((2 * (t - f.start)) / f.dur - 1)
+    return sum + (f.d[key] ?? 0) * envelope
+  }, 0)
+  return Math.round((base + flash) / FEED[key].snap) * FEED[key].snap
 }
 
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
