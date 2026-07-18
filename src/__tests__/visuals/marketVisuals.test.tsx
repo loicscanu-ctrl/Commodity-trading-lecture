@@ -204,6 +204,21 @@ test('PtbfMechanics live: an open futures position rolls every 2 months, straigh
   }
 })
 
+test('PtbfMechanics intermediate live: financing accrues every second on locked capital', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Buy 96 t: $448,000 of capital locks — the 8% p.a. meter starts running
+    fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+    act(() => { jest.advanceTimersByTime(10_000) })
+    expect(container.textContent).toContain('financing −$')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
