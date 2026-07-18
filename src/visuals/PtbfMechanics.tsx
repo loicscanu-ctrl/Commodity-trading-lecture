@@ -52,6 +52,7 @@ type Deal = {
   penalty?: number                     // $ auto-fix penalty (intermediate: futures not squared in time)
   cut?: number                         // lots force-closed by the exchange on a margin call
   roll?: number                        // $ roll P&L accumulated at each 2-month expiry (spread × net position)
+  fin?: number                         // $ financing accrued EVERY SECOND on locked capital (intermediate, 8% p.a.)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -908,15 +909,9 @@ export default function PtbfMechanics() {
       physicalD = (deal.sell! - impInvoice!) * soldT
     }
   }
-  // Intermediate level: locked capital costs 8% p.a. for the CALENDAR months
-  // it was drawn (purchase → completion), read off the time axis.
-  let financingD = 0, finMonths = 0
-  if (complete && level === 'inter' && live && deal.draw !== undefined && deal.stampTimes && deal.order) {
-    const buyT = deal.stampTimes[deal.order.indexOf(1)]
-    const endT = deal.stampTimes[deal.stampTimes.length - 1]
-    finMonths = Math.max(0, calAt(endT) - calAt(buyT))
-    financingD = -(deal.draw * FIN_RATE * finMonths / 12)
-  }
+  // Intermediate level: the financing accrued second by second on locked
+  // capital (see the accrual effect) — a financial cost inside the P&L.
+  const financingD = -(deal.fin ?? 0)
   const penaltyD = deal.penalty ?? 0
   const rollD = deal.roll ?? 0
   const netD = physicalD !== null ? physicalD + futuresD! + costsD + financingD - penaltyD + rollD : null
@@ -984,6 +979,18 @@ export default function PtbfMechanics() {
     setDeal(d => ((d.lots ?? 0) - (d.fixedLots ?? 0)) !== 0 ? { ...d, roll: (d.roll ?? 0) + pnl } : d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, rollIdx])
+
+  // Intermediate: FINANCING on locked capital (physical draw + margin)
+  // accrues EVERY SECOND at 8% p.a. of calendar time — a running financial
+  // cost that lands in the P&L like the rolls do.
+  useEffect(() => {
+    if (!live || level !== 'inter' || !started || complete) return
+    const locked = (deal.draw ?? 0) + marginReq
+    if (locked <= 0) return
+    const costPerSecond = locked * FIN_RATE / (12 * SECONDS_PER_MONTH)
+    setDeal(d => (d.order?.length ? { ...d, fin: (d.fin ?? 0) + costPerSecond } : d))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, elapsed])
 
   // MARGIN CALL: if capital falls below the total maintenance margin, the
   // exchange force-closes futures at market until the margin fits again.
@@ -1312,6 +1319,9 @@ export default function PtbfMechanics() {
                       {(deal.roll ?? 0) !== 0 && (
                         <div className="mt-0.5 font-mono text-[9px] text-slate-400">rolls {sgn(deal.roll!)}</div>
                       )}
+                      {(deal.fin ?? 0) > 0 && (
+                        <div className="mt-0.5 font-mono text-[9px] text-rose-300/80">financing −{fmtUsd(deal.fin!)}</div>
+                      )}
                     </div>
                   )
                 })()}
@@ -1487,7 +1497,7 @@ export default function PtbfMechanics() {
                 <div className="flex justify-between"><span className="text-slate-400">Physical P&L {mode === 'exporter' ? '(invoice − VND buy)' : '(outright sale − purchase)'}</span><span className={physicalD! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(physicalD! / soldT!, 1)}/t × {soldT!.toFixed(1)} t = {sgn(physicalD!)}</span></div>
                 {mode === 'importer' && <div className="flex justify-between"><span className="text-slate-400">Freight + instore costs</span><span className="text-rose-300">{sgn(costsD / soldT!, 1)}/t × {soldT!.toFixed(1)} t = {sgn(costsD)}</span></div>}
                 <div className="flex justify-between"><span className="text-slate-400">Futures P&L (sold − bought back)</span><span className={futuresD! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(deal.fHedge! - deal.fFix!, 0)}/t × {deal.lots! * LOT_T} t = {sgn(futuresD!)}</span></div>
-                {financingD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Financing · {(FIN_RATE * 100).toFixed(0)}% p.a. × {finMonths.toFixed(1)} mo on {fmtUsd(deal.draw!)}</span><span className="text-rose-300">{sgn(financingD)}</span></div>}
+                {financingD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Financing · {(FIN_RATE * 100).toFixed(0)}% p.a. on locked capital, accrued per second</span><span className="text-rose-300">{sgn(financingD)}</span></div>}
                 {rollD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Roll P&L (cal spread × open lots, every {ROLL_MONTHS} mo)</span><span className={rollD >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(rollD)}</span></div>}
                 {penaltyD > 0 && <div className="flex justify-between"><span className="text-slate-400">Auto-fix penalty (futures not squared in time)</span><span className="text-rose-300 font-bold">−{fmtUsd(penaltyD)}</span></div>}
                 <div className="flex justify-between border-t border-white/15 pt-1.5">
