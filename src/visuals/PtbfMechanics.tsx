@@ -66,35 +66,35 @@ type Deal = {
 const TICK_SECONDS = 1 // the market ticks EVERY SECOND — a real sense of motion
 const DRIFT_TICKS_MAX = 35 // the drift completes in at most 35 ticks (35 s)
 const LIVE_SCRIPT = [
-  { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090,
+  { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090, spread: -25,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
-  { label: 'Y1 Jul', headline: 'Demand fading', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980,
+  { label: 'Y1 Jul', headline: 'Demand fading', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980, spread: -35,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
-  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4290,
+  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4290, spread: 40,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
-  { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 121000, fut: 5000, fob: -250, freight: 180, eur: 4230,
+  { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 121000, fut: 5000, fob: -250, freight: 180, eur: 4230, spread: 20,
     news: 'Tet: farmers withhold coffee for the holiday and internal logistics pause — local prices firm while vessels slowly return after Bab-el-Mandeb.' },
-  { label: 'Y2 Mar', headline: 'Drought risk', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620,
+  { label: 'Y2 Mar', headline: 'Drought risk', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620, spread: 60,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
-  { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800,
+  { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800, spread: 90,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
-  { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690,
+  { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690, spread: 70,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
-  { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 136000, fut: 5350, fob: 550, freight: 50, eur: 5170,
+  { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 136000, fut: 5350, fob: 550, freight: 50, eur: 5170, spread: 50,
     news: 'EUDR enforcement wave: EU importers scramble for deforestation-compliant coffee. Antwerp premiums jump — compliant Vietnamese parcels bid up.' },
-  { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 143000, fut: 5650, fob: 350, freight: 55, eur: 5170,
+  { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 143000, fut: 5650, fob: 350, freight: 55, eur: 5170, spread: 150,
     news: 'A trade house stands for delivery on London: certified stocks cornered, the front month spikes. Bullish screen — differentials compress as paper outruns physical.' },
-  { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470,
+  { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470, spread: 30,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
-  { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 128000, fut: 5380, fob: -80, freight: 190, eur: 4700,
+  { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 128000, fut: 5380, fob: -80, freight: 190, eur: 4700, spread: 45,
     news: 'A typhoon closes Central Highlands roads and suspends HCM loading for two weeks. Freight jumps; FOB sellers who cannot load dump their differentials.' },
-  { label: 'Y4 Aug', headline: 'Record crop!', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000,
+  { label: 'Y4 Aug', headline: 'Record crop!', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000, spread: -20,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
-  { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 115000, fut: 4750, fob: -230, freight: 50, eur: 3930,
+  { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 115000, fut: 4750, fob: -230, freight: 50, eur: 3930, spread: -30,
     news: 'European roasters run stocks down, waiting for the record crop to land. Differentials drift toward tenderable parity — the exchange floor beckons.' },
-  { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180,
+  { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180, spread: 15,
     news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
-  { label: 'Y5 Jan', headline: 'Harvest in', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950,
+  { label: 'Y5 Jan', headline: 'Harvest in', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950, spread: -25,
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
@@ -102,7 +102,7 @@ const LIVE_SCRIPT = [
 // round from Y1 Apr = 0 — the news fires when the calendar reaches its date.
 const ROUND_MONTHS = [0, 3, 7, 9, 11, 17, 18, 23, 27, 32, 35, 40, 42, 44, 45]
 const TOTAL_MONTHS = ROUND_MONTHS[ROUND_MONTHS.length - 1]
-const SECONDS_PER_MONTH = 10 // the clock: 3 days per second
+const SECONDS_PER_MONTH = 20 // the clock: 1.5 days per second — time to read, think, execute
 const ROUND_STARTS = ROUND_MONTHS.map(m => m * SECONDS_PER_MONTH)
 const SESSION_SECONDS = TOTAL_MONTHS * SECONDS_PER_MONTH // 450 s of live market
 
@@ -157,6 +157,7 @@ const FEED = {
   fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 45,   holdAmp: 30 },
   freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 8,    holdAmp: 0 },
   eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 0 },
+  spread:  { get: (r: (typeof LIVE_SCRIPT)[number]) => r.spread,  snap: 1,   seed: 61, amp: 8,    holdAmp: 5 },
 } as const
 export const feedAt = (t: number, key: keyof typeof FEED) =>
   liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
@@ -356,8 +357,8 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
 // ticker crawls right every second, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
-  marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
+  marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; calSpread: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
   dots: DotSpec[]; sides: readonly Side[]; order?: number[]; stamps?: number[]; stampTimes?: number[]; liveLabel: string
   elapsed?: number; pins: Pin[]
 }) {
@@ -423,6 +424,14 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, lastStep,
               {monthLabel(Math.floor(calAt(elapsed!)))}
             </span>
           )}
+          <span
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-bold tabular-nums ${
+              calSpread > 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/[0.06] text-rose-300'
+            }`}
+            title="Front-to-second-month calendar spread. + = INVERTED (rolling a short EARNS the spread) · − = CONTANGO (rolling a short PAYS it)."
+          >
+            cal spread {dfmt(calSpread)} · {calSpread > 0 ? 'INVERTED' : 'CONTANGO'}
+          </span>
         </div>
         <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> buy</span>
@@ -638,6 +647,7 @@ export default function PtbfMechanics() {
   const [fobDiff, setFobDiff] = useState(-60)
   const [freight, setFreight] = useState(70)
   const [eurSpot, setEurSpot] = useState(4100) // spot Antwerp, outright €/t
+  const [spreadQ, setSpreadQ] = useState(-25)  // calendar spread F1→F2, $/t (+ inverted, − contango)
 
   // Volumes for the pending trade (lock into the deal at execution)
   const [vol, setVol] = useState(DEFAULT_VOL)         // tonnes of physical
@@ -690,6 +700,7 @@ export default function PtbfMechanics() {
     setFobDiff(feedAt(elapsed, 'fob'))
     setFreight(feedAt(elapsed, 'freight'))
     setEurSpot(feedAt(elapsed, 'eur'))
+    setSpreadQ(feedAt(elapsed, 'spread'))
   }, [live, elapsed])
 
   function toggleLive() {
@@ -819,6 +830,50 @@ export default function PtbfMechanics() {
         return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
     }
   }
+
+  // ── Expert combos: two actions in ONE click ──
+  // Buy G2 spot HCM *diff*: buy the physical AND sell the futures hedge
+  // simultaneously — the buying differential locks in a single execution.
+  function comboBuyDiff() {
+    if (mode !== 'exporter' || complete || capitalBlocked || marginBlockedAct(2)) return
+    setFutFix(fut)
+    setDeal(d => {
+      const v0 = d.vol ?? 0, l0 = d.lots ?? 0
+      return {
+        ...d,
+        vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol), vol: v0 + vol,
+        draw: (d.draw ?? 0) + localUsd * vol,
+        fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn,
+        futMarks: [...(d.futMarks ?? []), curFut, fut],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
+        order: [...(d.order ?? []), 1, 2],
+        clipPx: [...(d.clipPx ?? []), localUsd, fut],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
+      }
+    })
+  }
+  // Sell G2 FOB & load immediately: the PTBF sale and its fixing execute together.
+  function comboSellFix() {
+    if (mode !== 'exporter' || complete) return
+    const sClip = Math.min(boxesIn, remainingBoxes)
+    const fClip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn
+    if (sClip <= 0 || fClip <= 0 || outstanding <= 0) return
+    setDeal(d => {
+      const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
+      return {
+        ...d,
+        sell: wavg(d.sell, b0, fobDiff, sClip), boxes: b0 + sClip,
+        fFix: wavg(d.fFix, x0, futFix, fClip), fixedLots: x0 + fClip,
+        futMarks: [...(d.futMarks ?? []), curFut, curFut],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
+        order: [...(d.order ?? []), 3, 4],
+        clipPx: [...(d.clipPx ?? []), fobDiff, futFix],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
+      }
+    })
+  }
+  const combo1Ok = mode === 'exporter' && !complete && !capitalBlocked && !marginBlockedAct(2)
+  const combo2Ok = mode === 'exporter' && !complete && remainingBoxes > 0 && outstanding > 0
 
   // Stamp tag by ACTION number (free order maps action → execution index)
   const execIdx = (n: number) => (deal.order ? deal.order.indexOf(n) : n - 1)
@@ -970,7 +1025,7 @@ export default function PtbfMechanics() {
         { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, px2: `diff eq. ${dfmt(localUsd - curFut, 0)}`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
         { n: 2, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'hedge → sets your buying differential', qty: 'lots' as const },
         { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF', qty: 'boxes' as const },
-        { n: 4, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'fix · EFP → invoice = fix + diff', qty: 'fixlots' as const },
+        { n: 4, label: 'Load FOB & fix (buy futures)', px: fmtUsd(curFut), px2: undefined, detail: 'EFP → invoice = fix + diff', qty: 'fixlots' as const },
       ]
     : [
         { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
@@ -1126,7 +1181,7 @@ export default function PtbfMechanics() {
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
           }`}>
-          {live ? '■ Stop live market' : '▶ Live market (45 months · 10 s/month)'}
+          {live ? '■ Stop live market' : '▶ Live market (45 months · 20 s/month ≈ 15 min)'}
         </button>
         {/* No round counter, no next-news countdown: when the next news lands
             — and how many remain — stays a mystery for the students. */}
@@ -1184,6 +1239,7 @@ export default function PtbfMechanics() {
           diffMarks={deal.diffMarks ?? []}
           liveDiff={fobDiff}
           liveParity={tenderableParity(freight)}
+          calSpread={spreadQ}
           lastStep={lastStep}
           hedgeIdx={execIdx(mode === 'exporter' ? 2 : 3) + 1}
           fixIdx={(deal.order?.lastIndexOf(lastStep) ?? -1) + 1}
@@ -1216,7 +1272,8 @@ export default function PtbfMechanics() {
           </div>
 
           <div className="eyebrow">Actions · clip by clip</div>
-          {ACTIONS.map(a => {
+          {(() => {
+            const row = (a: (typeof ACTIONS)[number]) => {
             const usable = canExec(a.n)
             const blocked = usable && a.n === 1 && capitalBlocked
             const summary = actionSummary(a.n)
@@ -1251,7 +1308,32 @@ export default function PtbfMechanics() {
                 )}
               </div>
             )
-          })}
+            }
+            const vertBtn = (label: string, ok: boolean, onClick: () => void) => (
+              <button type="button" onClick={onClick} disabled={!ok} aria-label={label}
+                className={`w-8 shrink-0 rounded-xl border px-1 py-2 font-mono text-[10px] font-bold tracking-wide transition-all ${
+                  ok ? 'cursor-pointer border-amber-500/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+                }`}
+                style={{ writingMode: 'vertical-rl' }}>
+                {label}
+              </button>
+            )
+            if (mode === 'importer') return ACTIONS.map(a => row(a))
+            return (
+              <>
+                {/* buy spot + hedge = buy the DIFF, one click */}
+                <div className="flex items-stretch gap-1.5">
+                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[0])}{row(ACTIONS[1])}</div>
+                  {vertBtn('Buy G2 spot HCM diff ⚡', combo1Ok, comboBuyDiff)}
+                </div>
+                {/* sell FOB + fix = sell & load immediately, one click */}
+                <div className="flex items-stretch gap-1.5">
+                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
+                  {vertBtn('Sell G2 FOB & load immediately ⚡', combo2Ok, comboSellFix)}
+                </div>
+              </>
+            )
+          })()}
         </div>
       </div>
 
@@ -1275,6 +1357,8 @@ export default function PtbfMechanics() {
           )}
 
           <Field live={live} label="London futures — hedge leg ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut} locked={false} />
+
+          <Field live={live} label="Calendar spread F1→F2 ($/t · + inverted)" value={spreadQ} min={-100} max={200} step={5} onChange={setSpreadQ} locked={false} />
 
           {hedged && (
             <Field live={live} label="London futures — since the hedge ($/t)" value={futFix} min={3500} max={6000} step={5} onChange={setFutFix} locked={false} />

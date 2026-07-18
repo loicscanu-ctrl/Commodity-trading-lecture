@@ -70,7 +70,7 @@ test('PtbfMechanics exporter trade: VND buy → hedge sets buying diff → FOB s
   expect(screen.getByTestId('risk-diff').textContent).toContain('AT RISK')
   // Steps 3 & 4 at unchanged market
   fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   const text = container.textContent ?? ''
   // Physical +$34.1/t (4,740 − 4,705.9) on 5 containers = 96 t → +$3,275; futures $0
   expect(text).toContain('+$34.1')
@@ -122,7 +122,7 @@ test('PtbfMechanics intermediate level: sell the diff first — and even buy fut
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
   // Buying futures with NO short to cover is allowed here — the student must know why
-  expect(screen.getByRole('button', { name: 'Buy futures' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' })).toBeEnabled()
   expect(container.textContent).toContain('no short — going NAKED LONG')
   // Selling FOB BEFORE buying physical is allowed on this level
   fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
@@ -130,7 +130,7 @@ test('PtbfMechanics intermediate level: sell the diff first — and even buy fut
   // Complete out of order: buy, hedge, fix → same economics as the guided order
   fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
   fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   expect(container.textContent).toContain('FLAT — trade complete')
   expect(container.textContent).toContain('+$3,275')
 })
@@ -181,7 +181,7 @@ test('PtbfMechanics live: maintenance margin caps the hedge — no unlimited ove
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   // 10 lots long, no physical, no hedge: naked length
   expect(container.textContent).toContain('net LONG 10 — naked futures')
   expect(container.textContent).toContain('LONG 10 lots')
@@ -203,23 +203,22 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     expect(container.textContent).toContain('119,000')
     expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: /London futures/ })).not.toBeInTheDocument()
-    // The clock runs at one month per 10 s: Y1 Jul's news fires at t=30 —
+    // The clock runs at one month per 20 s: Y1 Jul's news fires at t=60 —
     // and the price does NOT jump: it starts drifting from the old level
-    act(() => { jest.advanceTimersByTime(30_000) })
+    act(() => { jest.advanceTimersByTime(60_000) })
     expect(container.textContent).toContain('iced tea and matcha') // Y1 Jul's news is out
     expect(container.textContent).toContain('119,000') // still at the old level at the news
-    // Mid-drift (t=45): 119,000 → 114,000 plus the deterministic brownian
+    // Mid-drift (t=75): 119,000 → 114,000 plus the deterministic brownian
     // wiggle — assert the exact feed value
     act(() => { jest.advanceTimersByTime(15_000) })
-    expect(container.textContent).toContain(feedAt(45, 'vnd').toLocaleString('en-US'))
-    // Drift complete (t=65): the published level is reached and holds
+    expect(container.textContent).toContain(feedAt(75, 'vnd').toLocaleString('en-US'))
+    // Drift complete (t=95, 35 one-second ticks): the published level holds
     act(() => { jest.advanceTimersByTime(20_000) })
     expect(container.textContent).toContain('114,000')
-    // Buy at Y1 Jul's level; Y1 Nov's news fires at t=70 (Bab-el-Mandeb) and
-    // its short round (Tet follows at t=90) completes its drift by t=89
-    // (19 one-second ticks): buying diff = 114,000/25.5k − 4,950 = −$479.4
+    // Buy at Y1 Jul's level; Y1 Nov's news fires at t=140 (Bab-el-Mandeb) and
+    // its drift completes by t=175: buying diff = 114,000/25.5k − 4,950 = −$479.4
     fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
-    act(() => { jest.advanceTimersByTime(24_000) })
+    act(() => { jest.advanceTimersByTime(80_000) })
     expect(container.textContent).toContain('Bab-el-Mandeb')
     fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
     expect(container.textContent).toContain('−$479.4')
@@ -257,7 +256,7 @@ test('PtbfMechanics: the two futures legs stay independent through the fix', () 
   expect(container.textContent).toContain('@ avg $5,000')
   expect(container.textContent).toContain('−$294.1')
   fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   expect(container.textContent).toContain('10/10 lots bought back @ avg $4,900')
   // Futures P&L = 5,000 − 4,900 = +$100
   expect(container.textContent).toContain('+$100')
@@ -284,9 +283,9 @@ test('PtbfMechanics: clip trading — buy little by little, sell little by littl
   fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
   // Fix in two clips: 4 lots then the last 6 → book squares, same P&L as one shot
   fireEvent.change(screen.getByRole('spinbutton', { name: 'Lots to buy back' }), { target: { value: '4' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   fireEvent.change(screen.getByRole('spinbutton', { name: 'Lots to buy back' }), { target: { value: '6' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   expect(container.textContent).toContain('FLAT — trade complete')
   expect(container.textContent).toContain('+$3,275')
 })
@@ -297,7 +296,7 @@ test('PtbfMechanics: completed trades are recorded and a new trade can start', (
     fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Load FOB & fix (buy futures)' }))
   }
   runExporterTrade()
   fireEvent.click(screen.getByRole('button', { name: /Record trade/ }))
