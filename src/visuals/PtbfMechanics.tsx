@@ -189,6 +189,7 @@ export const FLASHES: { start: number; dur: number; label: string; d: Partial<Re
 ]
 
 export const feedAt = (t: number, key: keyof typeof FEED) => {
+  t = Math.min(t, SESSION_SECONDS) // the market CLOSES at the end — nothing moves after
   const base = liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
   // Flashes fall and recover along a triangular envelope: peak mid-window
   const flash = FLASHES.reduce((sum, f) => {
@@ -723,6 +724,7 @@ export default function PtbfMechanics() {
   const startRef = useRef(0)
   const pausedAtRef = useRef(0)
   const liveRound = roundAt(elapsed)
+  const sessionOver = live && elapsed >= SESSION_SECONDS
 
   useEffect(() => {
     if (!live || paused) return
@@ -794,7 +796,7 @@ export default function PtbfMechanics() {
   const remainingBoxes = Math.max(0, maxBoxesTotal - boxesS)
 
   const canExec = (n: number) => {
-    if (complete) return false
+    if (complete || sessionOver) return false
     if (marginBlockedAct(n)) return false
     const hedgeN = mode === 'exporter' ? 2 : 3
     const sellN = mode === 'exporter' ? 3 : 4
@@ -956,8 +958,8 @@ export default function PtbfMechanics() {
       }
     })
   }
-  const combo1Ok = mode === 'exporter' && !complete && !capitalBlocked && !marginBlockedAct(2)
-  const combo2Ok = mode === 'exporter' && !complete && remainingBoxes > 0 && outstanding > 0
+  const combo1Ok = mode === 'exporter' && !complete && !sessionOver && !capitalBlocked && !marginBlockedAct(2)
+  const combo2Ok = mode === 'exporter' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0
 
   // Importer flash combos: buy the FOB diff AND fix/hedge it in one click;
   // sell the spot AND buy the futures back together (selling in diff terms).
@@ -1006,7 +1008,7 @@ export default function PtbfMechanics() {
   // freight-adjusted parity, ladder-adjusted for the grade. The buyer of
   // last resort, as an action.
   function actTender() {
-    if (level !== 'adv' || mode !== 'exporter' || complete) return
+    if (level !== 'adv' || mode !== 'exporter' || complete || sessionOver) return
     const clip = Math.min(boxesIn, remainingBoxes)
     if (clip <= 0) return
     const px = tenderableParity(freight) + gAdj.sell
@@ -1022,8 +1024,8 @@ export default function PtbfMechanics() {
     })
   }
 
-  const comboI1Ok = mode === 'importer' && !complete && !capitalBlocked && !marginBlockedAct(3)
-  const comboI2Ok = mode === 'importer' && !complete && remainingBoxes > 0 && outstanding > 0
+  const comboI1Ok = mode === 'importer' && !complete && !sessionOver && !capitalBlocked && !marginBlockedAct(3)
+  const comboI2Ok = mode === 'importer' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0
 
   // Stamp tag by ACTION number (free order maps action → execution index)
   const execIdx = (n: number) => (deal.order ? deal.order.indexOf(n) : n - 1)
@@ -1102,7 +1104,7 @@ export default function PtbfMechanics() {
   // naked futures, either side) accrues tonne-time. It does not touch the
   // raw P&L — it feeds the RISK-ADJUSTED score that punishes speculation.
   useEffect(() => {
-    if (!live) return
+    if (!live || elapsed >= SESSION_SECONDS) return
     const exposureT = mode === 'exporter'
       ? Math.abs(volT + (lotsX - lotsH) * LOT_T)
       : (soldT > 0 && outstanding > 0 ? Math.min(soldT, outstanding * LOT_T) : lotsX > lotsH ? (lotsX - lotsH) * LOT_T : 0)
@@ -1131,7 +1133,7 @@ export default function PtbfMechanics() {
   // accrues EVERY SECOND at 8% p.a. of calendar time — a running financial
   // cost that lands in the P&L like the rolls do.
   useEffect(() => {
-    if (!live || level === 'easy' || !started || complete) return
+    if (!live || level === 'easy' || !started || complete || elapsed >= SESSION_SECONDS) return
     const locked = (deal.draw ?? 0) + marginReq
     if (locked <= 0) return
     const costPerSecond = locked * FIN_RATE / (12 * SECONDS_PER_MONTH)
@@ -1396,6 +1398,13 @@ export default function PtbfMechanics() {
               CAPITAL LIMIT HIT — every trade takes {SETTLE_SECONDS} s to execute and settle: the capital from your last sale is still locked{nextFreeIn > 0 ? ` (frees in ${nextFreeIn}s)` : ''} and cannot finance another {vol} t purchase ({fmtUsd(estDraw)}).
             </div>
           )}
+        </div>
+      )}
+
+      {/* The closing bell — market frozen, actions locked */}
+      {sessionOver && (
+        <div className="mb-4 rounded-xl border border-white/25 bg-white/[0.07] p-3 font-mono text-xs font-bold text-slate-100">
+          ⏹ SESSION OVER — 45 months complete. The market is closed and all actions are locked. Export your PDF report, then stop the live market.
         </div>
       )}
 

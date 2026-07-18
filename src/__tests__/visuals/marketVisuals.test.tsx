@@ -286,6 +286,22 @@ test('PtbfMechanics live: flash events spike the tape for seconds, then fully re
   }
 })
 
+test('PtbfMechanics live: at the end of the 45 months the market closes and actions lock', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    act(() => { jest.advanceTimersByTime(905_000) })
+    expect(container.textContent).toContain('SESSION OVER')
+    expect(screen.getByRole('button', { name: 'Buy G2 spot HCM' })).toBeDisabled()
+    // The feed is frozen: nothing moves after the close
+    expect(feedAt(950, 'fut')).toBe(feedAt(900, 'fut'))
+    expect(feedAt(950, 'fob')).toBe(feedAt(900, 'fob'))
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {
