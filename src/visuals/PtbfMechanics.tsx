@@ -652,7 +652,6 @@ export default function PtbfMechanics() {
   // Trader identity — the report is issued in their name
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [nameErr, setNameErr] = useState(false)
 
   // Intermediate: the second at which the business got BOOKED (diff fully sold)
   const [bookedAt, setBookedAt] = useState<number | null>(null)
@@ -695,8 +694,6 @@ export default function PtbfMechanics() {
 
   function toggleLive() {
     if (live) { setLive(false); return }
-    if (!firstName.trim() || !lastName.trim()) { setNameErr(true); return }
-    setNameErr(false)
     startRef.current = Date.now()
     setElapsed(0)
     setDeal({})
@@ -1131,9 +1128,6 @@ export default function PtbfMechanics() {
           }`}>
           {live ? '■ Stop live market' : '▶ Live market (45 months · 10 s/month)'}
         </button>
-        {nameErr && !live && (
-          <span className="font-mono text-[10px] text-rose-300">enter trader name & surname — the report is issued in your name</span>
-        )}
         {/* No round counter, no next-news countdown: when the next news lands
             — and how many remain — stays a mystery for the students. */}
       </div>

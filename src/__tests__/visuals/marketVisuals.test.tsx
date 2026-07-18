@@ -193,11 +193,8 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
   jest.useFakeTimers()
   try {
     const { container } = render(<PtbfMechanics />)
-    // The live market only starts once the trader is named — the report is issued in their name
-    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
-    expect(container.textContent).toContain('enter trader name & surname')
-    fireEvent.change(screen.getByRole('textbox', { name: 'Trader name' }), { target: { value: 'Ada' } })
-    fireEvent.change(screen.getByRole('textbox', { name: 'Trader surname' }), { target: { value: 'Lovelace' } })
+    // Names are optional — the live market starts straight away (the report
+    // is simply issued unnamed if the fields are left blank)
     fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
     // Round 1 (Y1 Apr) on the feed, with its news; typing is disabled
     // No round counter, no next-news countdown — the future stays a mystery
