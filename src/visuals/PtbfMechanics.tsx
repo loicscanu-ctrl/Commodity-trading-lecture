@@ -975,7 +975,7 @@ export default function PtbfMechanics() {
     : [
         { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
         { n: 3, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
-        { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, px2: `diff eq. ${dfmt(eurUsd - curFut, 0)}`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
+        { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, px2: `FOB eq. ${dfmt(eurUsd - curFut - (deal.freight ?? freight) - CIF_INSTORE, 0)}`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
         { n: 5, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'locks your selling differential', qty: 'fixlots' as const },
         { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore) — needed before the book can square`, qty: null },
       ]
@@ -1132,14 +1132,6 @@ export default function PtbfMechanics() {
             — and how many remain — stays a mystery for the students. */}
       </div>
 
-      {/* News flash — the round's story; prices below react the way it says */}
-      {live && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-brand-cyan/25 bg-brand-cyan/[0.05] p-3">
-          <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS · {LIVE_SCRIPT[liveRound].label}</span>
-          <p className="text-xs leading-relaxed text-slate-300">{LIVE_SCRIPT[liveRound].news}</p>
-        </div>
-      )}
-
       {/* Working-capital monitor — the physical must deliver to free the line */}
       {live && (
         <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -1208,30 +1200,22 @@ export default function PtbfMechanics() {
 
         {/* Actions — clip by clip: buy and sell little by little */}
         <div className="space-y-1.5 self-start">
-          <div className="eyebrow">Actions · clip by clip</div>
-          <div className="rounded-xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-2 font-mono text-[10px] tabular-nums space-y-0.5">
-            <div className="eyebrow mb-0.5">Live conversion</div>
-            {mode === 'exporter' ? (
-              <>
-                <div className="flex justify-between"><span className="text-slate-400">Local price in USD</span><span className="text-white">{fmtUsd(localUsd, 1)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied local diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt(localUsd - curFut, 1)}</span></div>
-                {dBuyExp !== null && (
-                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR buying diff (VND buy vs hedge)</span><span className="text-amber-300 font-bold">{dfmt(dBuyExp, 1)}</span></div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between"><span className="text-slate-400">Purchase price</span><span className="text-white">{impInvoice !== null ? `${fmtUsd(impInvoice)}/t (fixed)` : 'floating — fix + diff'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">EUR sale in USD (× {EURUSD.toFixed(2)})</span><span className="text-white">{fmtUsd(boxesS > 0 ? deal.sell! : eurUsd)}/t</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Implied selling diff vs London (now)</span><span className="text-brand-cyan font-bold">{dfmt((boxesS > 0 ? deal.sell! : eurUsd) - (deal.fFix ?? curFut), 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Spot in FOB diff eq. (− freight − instore)</span><span className="text-brand-cyan font-bold">{dfmt(eurUsd - curFut - (deal.freight ?? freight) - CIF_INSTORE, 0)}</span></div>
-                {dSellImp !== null && (
-                  <div className="flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">YOUR selling diff (locked at the buy-back)</span><span className="text-amber-300 font-bold">{dfmt(dSellImp, 0)}</span></div>
-                )}
-              </>
-            )}
+          {/* The NEWS tile — shines for a few seconds when a story breaks */}
+          <div className={`rounded-xl border p-2.5 transition-all duration-500 ${
+            live && elapsed - ROUND_STARTS[liveRound] < 5
+              ? 'animate-pulse border-brand-cyan bg-brand-cyan/[0.12] shadow-[0_0_24px_rgba(34,211,238,0.45)]'
+              : 'border-brand-cyan/25 bg-brand-cyan/[0.04]'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS{live ? ` · ${LIVE_SCRIPT[liveRound].label}` : ''}</span>
+              {live && <span className="truncate font-mono text-[10px] font-bold text-cyan-200">{LIVE_SCRIPT[liveRound].headline}</span>}
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+              {live ? LIVE_SCRIPT[liveRound].news : 'The news feed wakes with the live market.'}
+            </p>
           </div>
 
+          <div className="eyebrow">Actions · clip by clip</div>
           {ACTIONS.map(a => {
             const usable = canExec(a.n)
             const blocked = usable && a.n === 1 && capitalBlocked
