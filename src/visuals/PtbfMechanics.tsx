@@ -29,6 +29,7 @@ const FIN_RATE = 0.08        // 8% p.a. financing on drawn capital (intermediate
 const AUTO_FIX_SECONDS = 10  // intermediate: once the diff is sold (business BOOKED), the futures must be squared within 10 s…
 const AUTO_FIX_PENALTY = 20_000 // …or the desk auto-fixes at market and charges this penalty
 const MARGIN_PER_LOT = 6_000 // $ maintenance margin per net futures lot (≈ ICE Robusta at these levels), posted from capital
+const ROLL_MONTHS = 2 // an expiry every two calendar months: open futures ROLL at the calendar spread — the roll P&L is part of the trade P&L
 
 type Mode = 'exporter' | 'importer'
 type Side = 'buy' | 'sell'
@@ -50,6 +51,7 @@ type Deal = {
   clipQty?: number[]                   // each execution's own clip quantity (t / lots / boxes — for the book table)
   penalty?: number                     // $ auto-fix penalty (intermediate: futures not squared in time)
   cut?: number                         // lots force-closed by the exchange on a margin call
+  roll?: number                        // $ roll P&L accumulated at each 2-month expiry (spread × net position)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -180,6 +182,7 @@ export type TradeRecord = {
   costsD: number      // $ absolute
   financingD: number  // $ absolute (intermediate level: 8% p.a. on drawn capital)
   penaltyD: number    // $ absolute auto-fix penalty
+  rollD: number       // $ roll P&L (calendar spread applied to open futures every 2 months)
   netD: number        // $ absolute
 }
 
@@ -232,7 +235,7 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
       })
     }
     if ((d.cut ?? 0) > 0) L.push(`  MARGIN CALL: the exchange cut ${d.cut} lot${d.cut === 1 ? '' : 's'} at market (capital below maintenance margin)`)
-    L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}${t.penaltyD > 0 ? ` · AUTO-FIX PENALTY: −${fmtUsd(t.penaltyD)}` : ''}`)
+    L.push(`  Physical P&L: ${sgn(t.physicalD)} · Futures P&L: ${sgn(t.futuresD)}${t.costsD !== 0 ? ` · Costs: ${sgn(t.costsD)}` : ''}${t.financingD !== 0 ? ` · Financing (8% p.a.): ${sgn(t.financingD)}` : ''}${t.penaltyD > 0 ? ` · AUTO-FIX PENALTY: −${fmtUsd(t.penaltyD)}` : ''}${t.rollD !== 0 ? ` · Roll P&L (2-monthly expiries): ${sgn(t.rollD)}` : ''}`)
     L.push(`  NET: ${sgn(t.netD)} (${sgn(t.netD / t.tonnes, 1)}/t on ${t.tonnes} t)`)
     L.push('')
   })
@@ -429,7 +432,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
             className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-bold tabular-nums ${
               calSpread > 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/[0.06] text-rose-300'
             }`}
-            title="Front-to-second-month calendar spread. + = INVERTED (rolling a short EARNS the spread) · − = CONTANGO (rolling a short PAYS it)."
+            title="Front-to-second-month calendar spread. + = INVERTED: rolling a LONG earns the spread, a short pays it · − = CONTANGO: rolling a short earns the carry, a long pays it. Open positions roll automatically every 2 months — straight into your P&L."
           >
             cal spread {dfmt(calSpread)} · {calSpread > 0 ? 'INVERTED' : 'CONTANGO'}
           </span>
@@ -908,7 +911,8 @@ export default function PtbfMechanics() {
     financingD = -(deal.draw * FIN_RATE * finMonths / 12)
   }
   const penaltyD = deal.penalty ?? 0
-  const netD = physicalD !== null ? physicalD + futuresD! + costsD + financingD - penaltyD : null
+  const rollD = deal.roll ?? 0
+  const netD = physicalD !== null ? physicalD + futuresD! + costsD + financingD - penaltyD + rollD : null
 
   // Record the completed trade into the log; in live mode this is AUTOMATIC —
   // in real life you cannot cancel a bad trade.
@@ -916,7 +920,7 @@ export default function PtbfMechanics() {
     if (!complete || physicalD === null || netD === null) return
     const rec: TradeRecord = {
       mode, tonnes: deal.vol!, soldT: soldT, lots: deal.lots!, boxes: deal.boxes!,
-      deal, physicalD, futuresD: futuresD!, costsD, financingD, penaltyD, netD,
+      deal, physicalD, futuresD: futuresD!, costsD, financingD, penaltyD, rollD, netD,
     }
     setHistory(h => [...h, rec])
     if (live) {
@@ -956,6 +960,23 @@ export default function PtbfMechanics() {
     if (!bookedNow && bookedAt !== null) setBookedAt(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, level, bookedNow, elapsed])
+
+  // ROLL: every 2 calendar months the front expires — an open futures
+  // position rolls AT THE CALENDAR SPREAD, and that cash is part of the P&L:
+  // net longs earn an inversion and pay contango; net shorts the mirror.
+  const rollIdx = Math.floor(calAt(elapsed) / ROLL_MONTHS)
+  const lastRollRef = useRef(0)
+  useEffect(() => {
+    if (!live) { lastRollRef.current = 0; return }
+    if (rollIdx <= lastRollRef.current) return
+    const n = rollIdx - lastRollRef.current
+    lastRollRef.current = rollIdx
+    if (outstanding === 0) return
+    const spreadNow = feedAt(elapsed, 'spread')
+    const pnl = -outstanding * LOT_T * spreadNow * n
+    setDeal(d => ((d.lots ?? 0) - (d.fixedLots ?? 0)) !== 0 ? { ...d, roll: (d.roll ?? 0) + pnl } : d)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, rollIdx])
 
   // MARGIN CALL: if capital falls below the total maintenance margin, the
   // exchange force-closes futures at market until the margin fits again.
@@ -1259,6 +1280,9 @@ export default function PtbfMechanics() {
                   <div className={`mt-0.5 font-mono text-[11px] font-bold tabular-nums ${netD === null ? 'text-slate-600' : netD >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                     {netD !== null ? sgn(netD) : started ? 'open' : '—'}
                   </div>
+                  {(deal.roll ?? 0) !== 0 && (
+                    <div className="mt-0.5 font-mono text-[9px] text-slate-400">rolls {sgn(deal.roll!)}</div>
+                  )}
                 </div>
               </>
             )
@@ -1433,6 +1457,7 @@ export default function PtbfMechanics() {
                 {mode === 'importer' && <div className="flex justify-between"><span className="text-slate-400">Freight + instore costs</span><span className="text-rose-300">{sgn(costsD / soldT!, 1)}/t × {soldT!.toFixed(1)} t = {sgn(costsD)}</span></div>}
                 <div className="flex justify-between"><span className="text-slate-400">Futures P&L (sold − bought back)</span><span className={futuresD! >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(deal.fHedge! - deal.fFix!, 0)}/t × {deal.lots! * LOT_T} t = {sgn(futuresD!)}</span></div>
                 {financingD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Financing · {(FIN_RATE * 100).toFixed(0)}% p.a. × {finMonths.toFixed(1)} mo on {fmtUsd(deal.draw!)}</span><span className="text-rose-300">{sgn(financingD)}</span></div>}
+                {rollD !== 0 && <div className="flex justify-between"><span className="text-slate-400">Roll P&L (cal spread × open lots, every {ROLL_MONTHS} mo)</span><span className={rollD >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(rollD)}</span></div>}
                 {penaltyD > 0 && <div className="flex justify-between"><span className="text-slate-400">Auto-fix penalty (futures not squared in time)</span><span className="text-rose-300 font-bold">−{fmtUsd(penaltyD)}</span></div>}
                 <div className="flex justify-between border-t border-white/15 pt-1.5">
                   <span className="text-white font-bold">Net · on {deal.vol} t</span>

@@ -178,6 +178,27 @@ test('PtbfMechanics live: maintenance margin caps the hedge — no unlimited ove
   }
 })
 
+test('PtbfMechanics live: an open futures position rolls every 2 months, straight into P&L', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Build a hedged book at the opening prints: net short 10 lots
+    fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+    // Two calendar months later (t=40) the front expires: the short rolls at
+    // the calendar spread — contango at the open, so the short EARNS the carry
+    act(() => { jest.advanceTimersByTime(40_000) })
+    const spread = feedAt(40, 'spread')
+    const roll = -10 * 10 * spread
+    const rollStr = `${roll < 0 ? '−' : '+'}$${Math.abs(roll).toLocaleString('en-US')}`
+    expect(spread).toBeLessThan(0) // the session opens in contango
+    expect(container.textContent).toContain(`rolls ${rollStr}`)
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics intermediate: an outright futures long flashes FLAT AT RISK', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
@@ -323,7 +344,7 @@ test('buildTradeReport includes volumes, every execution, stamps and totals', ()
     mode: 'exporter' as const,
     tonnes: 96, soldT: 96, lots: 10, boxes: 5,
     deal: { vnd: 120000, buy, fHedge: 4800, sell: -60, fFix: 4800, vol: 96, lots: 10, boxes: 5, stamps: [1, 2, 2, 3] },
-    physicalD: netD, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, netD,
+    physicalD: netD, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, rollD: 0, netD,
   }], 'Ada Lovelace')
   expect(report).toContain('Trader: Ada Lovelace')
   expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 96 t bought · 10 lots hedged (100 t) · 5 containers shipped (96.0 t)')
@@ -343,7 +364,7 @@ test('buildTradeReport shows the scaling readout for multi-clip legs', () => {
       vol: 96, lots: 10, boxes: 5, fixedLots: 10,
       order: [1, 2, 2, 3, 4], clipPx: [4700, 4900, 4800, -60, 4800],
     },
-    physicalD: 0, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, netD: 0,
+    physicalD: 0, futuresD: 0, costsD: 0, financingD: 0, penaltyD: 0, rollD: 0, netD: 0,
   }])
   // The hedge was worked in two clips: first at 4,900, average 4,850
   expect(report).toContain('Scaling — hedge: 2 clips · first $4,900 → avg $4,850')
