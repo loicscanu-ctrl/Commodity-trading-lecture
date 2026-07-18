@@ -47,6 +47,7 @@ type Deal = {
   draw?: number                        // $ of working capital this trade draws (live)
   order?: number[]                     // action numbers in execution order (free order on intermediate)
   clipPx?: number[]                    // each execution's own clip price (for the scaling readout)
+  clipQty?: number[]                   // each execution's own clip quantity (t / lots / boxes — for the book table)
   penalty?: number                     // $ auto-fix penalty (intermediate: futures not squared in time)
   cut?: number                         // lots force-closed by the exchange on a margin call
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
@@ -790,11 +791,12 @@ export default function PtbfMechanics() {
     if (!canExec(n)) return
     // Every execution stamps the current futures level (for the price graph),
     // the action number (for free order/clips), and — live — round + second.
-    const stamp = (d: Deal, px: number): Pick<Deal, 'order' | 'clipPx' | 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
+    const stamp = (d: Deal, px: number, qty: number): Pick<Deal, 'order' | 'clipPx' | 'clipQty' | 'stamps' | 'stampTimes' | 'futMarks' | 'diffMarks'> => ({
       futMarks: [...(d.futMarks ?? []), curFut],
       diffMarks: [...(d.diffMarks ?? []), fobDiff],
       order: [...(d.order ?? []), n],
       clipPx: [...(d.clipPx ?? []), px],
+      clipQty: [...(d.clipQty ?? []), qty],
       ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}),
     })
     if (mode === 'exporter') {
@@ -803,31 +805,31 @@ export default function PtbfMechanics() {
         setDeal(d => {
           const v0 = d.vol ?? 0
           return { ...d, vnd: Math.round(wavg(d.vnd, v0, vnd, vol)), buy: wavg(d.buy, v0, localUsd, vol),
-            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d, localUsd) }
+            vol: v0 + vol, draw: (d.draw ?? 0) + localUsd * vol, ...stamp(d, localUsd, vol) }
         })
       }
       else if (n === 2) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut, lotsIn) } }) }
       else if (n === 3) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
-        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff) } }) }
+        return { ...d, sell: wavg(d.sell, b0, fobDiff, clip), boxes: b0 + clip, ...stamp(d, fobDiff, clip) } }) }
       else if (n === 4) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix, clip) } }) }
     } else {
       if (n === 1) {
         if (capitalBlocked) return
         setDeal(d => {
           const v0 = d.vol ?? 0
           return { ...d, dBuy: wavg(d.dBuy, v0, fobDiff, vol),
-            vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d, fobDiff) }
+            vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d, fobDiff, vol) }
         })
       }
-      else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d, freight) }))
+      else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d, freight, 1) }))
       else if (n === 3) { setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
-        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut) } }) }
+        return { ...d, fHedge: wavg(d.fHedge, l0, fut, lotsIn), lots: l0 + lotsIn, ...stamp(d, fut, lotsIn) } }) }
       else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
-        return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d, eurUsd) } }) }
+        return { ...d, eur: Math.round(wavg(d.eur, b0, eurSpot, clip)), sell: wavg(d.sell, b0, eurUsd, clip), boxes: b0 + clip, ...stamp(d, eurUsd, clip) } }) }
       else if (n === 5) { const clip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn; if (clip <= 0) return; setDeal(d => { const x0 = d.fixedLots ?? 0
-        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix) } }) }
+        return { ...d, fFix: wavg(d.fFix, x0, futFix, clip), fixedLots: x0 + clip, ...stamp(d, futFix, clip) } }) }
     }
   }
 
@@ -848,6 +850,7 @@ export default function PtbfMechanics() {
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 1, 2],
         clipPx: [...(d.clipPx ?? []), localUsd, fut],
+        clipQty: [...(d.clipQty ?? []), vol, lotsIn],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
     })
@@ -868,6 +871,7 @@ export default function PtbfMechanics() {
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 3, 4],
         clipPx: [...(d.clipPx ?? []), fobDiff, futFix],
+        clipQty: [...(d.clipQty ?? []), sClip, fClip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
     })
@@ -918,11 +922,10 @@ export default function PtbfMechanics() {
     if (live) {
       // The trade takes 30 s to execute & settle: capital stays locked
       // for 30 seconds after the final action.
-      // Intermediate: the settlement clock runs from the BOOKING (diff sold),
-      // not from the last action.
+      // Capital frees 30 s after the LOAD — the final action that completes
+      // the book (the 10 s auto-fix window still runs from the booking).
       const doneAt = deal.stampTimes?.[deal.stampTimes.length - 1] ?? elapsed
-      const settleFrom = level === 'inter' && bookedAt !== null ? bookedAt : doneAt
-      setCommitments(c => [...c, { amount: deal.draw ?? 0, freesAt: settleFrom + SETTLE_SECONDS, pnl: netD }])
+      setCommitments(c => [...c, { amount: deal.draw ?? 0, freesAt: doneAt + SETTLE_SECONDS, pnl: netD }])
       // Keep the trade's dots on the graph — the session's decision history.
       const spec = mode === 'exporter' ? EXP_DOTS : IMP_DOTS
       const newPins: Pin[] = []
@@ -969,6 +972,7 @@ export default function PtbfMechanics() {
         cut: (d.cut ?? 0) + cut,
         futMarks: [...(d.futMarks ?? []), curFut], diffMarks: [...(d.diffMarks ?? []), fobDiff],
         clipPx: [...(d.clipPx ?? []), out > 0 ? futFix : fut],
+        clipQty: [...(d.clipQty ?? []), cut],
         order: [...(d.order ?? []), out > 0 ? lastStep : (mode === 'exporter' ? 2 : 3)],
         stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] })
       return out > 0
@@ -994,6 +998,7 @@ export default function PtbfMechanics() {
         futMarks: [...(d.futMarks ?? []), curFut],
         diffMarks: [...(d.diffMarks ?? []), fobDiff],
         clipPx: [...(d.clipPx ?? []), out > 0 ? futFix : fut],
+        clipQty: [...(d.clipQty ?? []), Math.abs(out)],
         order: [...(d.order ?? []), out > 0 ? lastStep : (mode === 'exporter' ? 2 : 3)],
         stamps: [...(d.stamps ?? []), liveRound],
         stampTimes: [...(d.stampTimes ?? []), elapsed],
@@ -1025,7 +1030,7 @@ export default function PtbfMechanics() {
         { n: 1, label: 'Buy G2 spot HCM', px: `${fmtUsd(localUsd, 1)}/t`, px2: `diff eq. ${dfmt(localUsd - curFut, 0)}`, detail: `${vnd.toLocaleString()} VND/kg at ${FX.toLocaleString()} FX`, qty: 'vol' as const },
         { n: 2, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'hedge → sets your buying differential', qty: 'lots' as const },
         { n: 3, label: 'Sell FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF', qty: 'boxes' as const },
-        { n: 4, label: 'Load FOB & fix (buy futures)', px: fmtUsd(curFut), px2: undefined, detail: 'EFP → invoice = fix + diff', qty: 'fixlots' as const },
+        { n: 4, label: 'Buy futures (Load & fix)', px: fmtUsd(curFut), px2: undefined, detail: 'EFP → invoice = fix + diff', qty: 'fixlots' as const },
       ]
     : [
         { n: 1, label: 'Buy FOB HCM', px: dfmt(fobDiff), px2: undefined, detail: 'diff vs London · PTBF — price still floating', qty: 'vol' as const },
@@ -1035,30 +1040,6 @@ export default function PtbfMechanics() {
         { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore) — needed before the book can square`, qty: null },
       ]
 
-  // Running summary shown under each action row (the book so far)
-  const actionSummary = (n: number): string | null => {
-    const hedgeN = mode === 'exporter' ? 2 : 3
-    const sellN = mode === 'exporter' ? 3 : 4
-    if (n === 1 && volT > 0) return mode === 'exporter'
-      ? `${volT} t bought @ avg ${fmtUsd(deal.buy!, 1)}/t`
-      : `${volT} t bought @ avg diff ${dfmt(deal.dBuy!, 1)}`
-    if (n === 2 && mode === 'importer' && deal.freight !== undefined) return `booked @ $${deal.freight}/t`
-    if (n === hedgeN && lotsH > 0) {
-      const hT = lotsH * LOT_T
-      const warn = volT > 0 && hT !== volT ? ` · ⚠ ${Math.abs(hT - volT)} t ${hT < volT ? 'UNHEDGED' : 'over-hedged'}` : ''
-      return `${lotsH} lots (${hT} t) @ avg ${fmtUsd(deal.fHedge!)}${warn}`
-    }
-    if (n === sellN && boxesS > 0) {
-      const rest = remainingT >= CONTAINER_T ? ` · ${remainingT.toFixed(1)} t still in store` : ''
-      return mode === 'exporter'
-        ? `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${dfmt(deal.sell!, 1)}${rest}`
-        : `${boxesS} boxes (${soldT.toFixed(1)} t) @ avg ${fmtUsd(deal.sell!)}/t${rest}`
-    }
-    if (n === lastStep && lotsX > 0) return lotsX > lotsH
-      ? `${lotsX} lots bought @ avg ${fmtUsd(deal.fFix!)} · net LONG ${lotsX - lotsH} — naked futures`
-      : `${lotsX}/${lotsH} lots bought back @ avg ${fmtUsd(deal.fFix!)}`
-    return null
-  }
 
   const statusText = complete
     ? 'FLAT — trade complete'
@@ -1231,8 +1212,59 @@ export default function PtbfMechanics() {
         </div>
       )}
 
-      {/* Graph + actions SIDE BY SIDE — execute without scrolling away */}
-      <div className="mb-4 grid grid-cols-1 xl:grid-cols-[1fr_330px] gap-4">
+      {/* Book + graph + actions SIDE BY SIDE — everything on one screen */}
+      <div className="mb-4 grid grid-cols-1 xl:grid-cols-[176px_minmax(0,1fr)_330px] gap-4">
+        {/* Current book — every clip lands as a tile on its row */}
+        <div className="space-y-1.5 self-start">
+          <div className="eyebrow">Current book</div>
+          {(() => {
+            const rowOf = (n: number): 'pb' | 'ps' | 'fs' | 'fb' | null => {
+              const map: Record<number, 'pb' | 'ps' | 'fs' | 'fb'> = mode === 'exporter'
+                ? { 1: 'pb', 2: 'fs', 3: 'ps', 4: 'fb' }
+                : { 1: 'pb', 3: 'fs', 4: 'ps', 5: 'fb' }
+              return map[n] ?? null
+            }
+            const tiles: Record<'pb' | 'ps' | 'fs' | 'fb', string[]> = { pb: [], ps: [], fs: [], fb: [] }
+            deal.order?.forEach((n, i) => {
+              const r = rowOf(n)
+              if (!r) return
+              const px = deal.clipPx?.[i] ?? 0
+              const q = deal.clipQty?.[i] ?? 0
+              if (r === 'pb') tiles.pb.push(mode === 'exporter' ? `${q} t @ ${fmtUsd(px, 0)}` : `${q} t @ ${dfmt(px)}`)
+              else if (r === 'ps') tiles.ps.push(mode === 'exporter' ? `${q} bx @ ${dfmt(px)}` : `${q} bx @ ${fmtUsd(px, 0)}`)
+              else tiles[r].push(`${q} lots @ ${fmtUsd(px)}`)
+            })
+            const rows: { k: 'pb' | 'ps' | 'fb' | 'fs'; label: string; buy: boolean }[] = [
+              { k: 'pb', label: 'Physical buying', buy: true },
+              { k: 'ps', label: 'Physical selling', buy: false },
+              { k: 'fb', label: 'Futures buying', buy: true },
+              { k: 'fs', label: 'Futures selling', buy: false },
+            ]
+            return (
+              <>
+                {rows.map(r => (
+                  <div key={r.k} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                    <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">{r.label}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {tiles[r.k].length === 0
+                        ? <span className="font-mono text-[9px] text-slate-600">—</span>
+                        : tiles[r.k].map((t2, i2) => (
+                          <span key={i2} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${r.buy ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>{t2}</span>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+                <div className={`rounded-xl border p-2 ${netD !== null ? (netD >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]') : 'border-white/10 bg-white/[0.03]'}`}>
+                  <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">PnL</div>
+                  <div className={`mt-0.5 font-mono text-[11px] font-bold tabular-nums ${netD === null ? 'text-slate-600' : netD >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    {netD !== null ? sgn(netD) : started ? 'open' : '—'}
+                  </div>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+
         <PriceGraph
           marks={deal.futMarks ?? []}
           liveFut={curFut}
@@ -1276,7 +1308,6 @@ export default function PtbfMechanics() {
             const row = (a: (typeof ACTIONS)[number]) => {
             const usable = canExec(a.n)
             const blocked = usable && a.n === 1 && capitalBlocked
-            const summary = actionSummary(a.n)
             return (
               <div key={a.n} className="flex items-stretch gap-1.5">
                 <div
@@ -1299,13 +1330,6 @@ export default function PtbfMechanics() {
                   </div>
                   {usable && !blocked && a.qty && <div className="mt-1">{qtyInput(a.qty)}</div>}
                 </div>
-                {/* the related position, in its own tile beside the action */}
-                {summary && (
-                  <div className="w-[118px] shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-2">
-                    <div className="font-mono text-[8px] uppercase tracking-wide text-emerald-400/70">position</div>
-                    <div className="mt-0.5 font-mono text-[9.5px] leading-snug text-emerald-300">{summary}</div>
-                  </div>
-                )}
               </div>
             )
             }
@@ -1424,7 +1448,7 @@ export default function PtbfMechanics() {
           )}
 
           {/* Live: the record is automatic — a desk cannot cancel a bad trade */}
-          {live && step === 0 && lastRec && (
+          {live && step === 0 && lastRec && lastRec.penaltyD > 0 && (
             <div className={`rounded-xl border p-3 font-mono text-[11px] ${lastRec.netD >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200' : 'border-rose-500/40 bg-rose-500/[0.08] text-rose-200'}`}>
               Trade #{history.length} recorded automatically — net {sgn(lastRec.netD)}{lastRec.penaltyD > 0 ? <> · includes a <span className="font-bold">−{fmtUsd(lastRec.penaltyD)} auto-fix penalty</span> (futures not squared within {AUTO_FIX_SECONDS} s of booking)</> : null}. In real life you cannot cancel a bad trade; execution & settlement take {SETTLE_SECONDS} s, then the capital (and this P&L) returns to your line.
             </div>
