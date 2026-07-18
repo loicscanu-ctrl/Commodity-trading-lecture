@@ -247,6 +247,26 @@ test('PtbfMechanics advanced: grade choice adjusts both legs, tendering delivers
   expect(container.textContent).toContain('FLAT — trade complete')
 })
 
+test('PtbfMechanics: the flat-risk meter charges naked speculation on the risk-adjusted score', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Go naked long 10 lots — pure speculation, 100 t of flat exposure
+    fireEvent.click(screen.getByRole('button', { name: 'Buy futures (Load & fix)' }))
+    act(() => { jest.advanceTimersByTime(10_000) })
+    // 100 t × 10 s = 0.5 months exposure → the meter shows and risk-adjusts
+    expect(container.textContent).toContain('flat risk')
+    expect(container.textContent).toContain('t·mo · risk-adj')
+    const report = buildTradeReport([], undefined, 50)
+    expect(report).toContain('Risk charge ($150/t·mo): −$7,500')
+    expect(report).toContain('RISK-ADJUSTED TOTAL: −$7,500')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {

@@ -38,6 +38,7 @@ const GRADES = {
 } as const
 type Grade = keyof typeof GRADES
 
+const RISK_CHARGE = 150 // $ per tonne·month of open FLAT exposure — the risk-adjusted scoring rule, automated
 const ROLL_MONTHS = 2 // an expiry every two calendar months: open futures ROLL at the calendar spread — the roll P&L is part of the trade P&L
 
 type Mode = 'exporter' | 'importer'
@@ -202,7 +203,7 @@ const stampLabel = (deal: Deal, i: number) => (i >= 0 && deal.stamps?.[i] !== un
 const stampOfAction = (deal: Deal, n: number) => stampLabel(deal, deal.order ? deal.order.indexOf(n) : n - 1)
 
 /** Plain-text session report: every trade with its volumes, executions, stamps and P&L. */
-export function buildTradeReport(history: TradeRecord[], trader?: string): string {
+export function buildTradeReport(history: TradeRecord[], trader?: string, riskMonths?: number): string {
   const L: string[] = []
   L.push('PTBF TRADE REPORT')
   if (trader) L.push(`Trader: ${trader}`)
@@ -252,6 +253,11 @@ export function buildTradeReport(history: TradeRecord[], trader?: string): strin
   })
   const total = history.reduce((s, t) => s + t.netD, 0)
   L.push(`SESSION TOTAL (${history.length} trade${history.length === 1 ? '' : 's'}): ${sgn(total)}`)
+  if (riskMonths !== undefined && riskMonths > 0) {
+    const charge = riskMonths * RISK_CHARGE
+    L.push(`Flat-risk exposure: ${riskMonths.toFixed(1)} t·months · Risk charge ($${RISK_CHARGE}/t·mo): −${fmtUsd(charge)}`)
+    L.push(`RISK-ADJUSTED TOTAL: ${sgn(total - charge)}`)
+  }
   return L.join('\n')
 }
 
@@ -674,6 +680,7 @@ export default function PtbfMechanics() {
   const [deal, setDeal] = useState<Deal>({})
   const [history, setHistory] = useState<TradeRecord[]>([])
   const [pins, setPins] = useState<Pin[]>([])
+  const [riskTS, setRiskTS] = useState(0) // tonne·seconds of open flat exposure this session
 
   // Trader identity — the report is issued in their name
   const [firstName, setFirstName] = useState('')
@@ -735,6 +742,7 @@ export default function PtbfMechanics() {
     setDeal({})
     setBookedAt(null)
     setPins([])
+    setRiskTS(0)
     setCommitments([])
     setPaused(false)
     setLive(true)
@@ -1068,6 +1076,18 @@ export default function PtbfMechanics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, level, bookedNow, elapsed])
 
+  // FLAT-RISK METER: every second of open flat exposure (naked physical OR
+  // naked futures, either side) accrues tonne-time. It does not touch the
+  // raw P&L — it feeds the RISK-ADJUSTED score that punishes speculation.
+  useEffect(() => {
+    if (!live) return
+    const exposureT = mode === 'exporter'
+      ? Math.abs(volT + (lotsX - lotsH) * LOT_T)
+      : (soldT > 0 && outstanding > 0 ? Math.min(soldT, outstanding * LOT_T) : lotsX > lotsH ? (lotsX - lotsH) * LOT_T : 0)
+    if (exposureT > 0) setRiskTS(r => r + exposureT)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, elapsed])
+
   // ROLL: every 2 calendar months the front expires — an open futures
   // position rolls AT THE CALENDAR SPREAD, and that cash is part of the P&L:
   // net longs earn an inversion and pay contango; net shorts the mirror.
@@ -1152,7 +1172,7 @@ export default function PtbfMechanics() {
 
   function exportReport() {
     const trader = `${firstName.trim()} ${lastName.trim()}`.trim()
-    const blob = buildPdfBlob(buildTradeReport(history, trader || undefined))
+    const blob = buildPdfBlob(buildTradeReport(history, trader || undefined, riskTS / SECONDS_PER_MONTH))
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -1434,6 +1454,15 @@ export default function PtbfMechanics() {
                       {(deal.fin ?? 0) > 0 && (
                         <div className="mt-0.5 font-mono text-[9px] text-rose-300/80">financing −{fmtUsd(deal.fin!)}</div>
                       )}
+                      {riskTS > 0 && (() => {
+                        const months = riskTS / SECONDS_PER_MONTH
+                        const charge = months * RISK_CHARGE
+                        return (
+                          <div className="mt-0.5 font-mono text-[9px] text-slate-400" title={`Open flat exposure accumulated this session × $${RISK_CHARGE}/t·month. Punishes risk taken — it does not change the raw P&L, it changes your ranking.`}>
+                            flat risk {months.toFixed(1)} t·mo · risk-adj {sgn(cumPnl - charge)}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })()}
