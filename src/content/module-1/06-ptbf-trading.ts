@@ -3,7 +3,7 @@ import type { Topic } from '@/types/content'
 const topic: Topic = {
   id: '06-ptbf-trading',
   title: 'PTBF & Trading the Differential',
-  type: 'lecture',
+  type: 'case-study',
   estimatedMinutes: 30,
   sections: [
     {
