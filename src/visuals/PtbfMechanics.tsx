@@ -60,11 +60,11 @@ type Deal = {
 // every 10 seconds — and each news event fires when the calendar reaches its
 // date, so rounds have very different real-time lengths (Y2 Sep→Oct is 10 s;
 // Y2 Oct→Y3 Dec is 140 s). After each news the market DRIFTS toward the
-// published level in 5-second steps, reaching it within at most 40 s (or by
+// published level tick by tick, reaching it within at most 35 s (or by
 // the next news for short rounds) and holding, so the printed level is
 // always tradeable before the next event.
-const TICK_SECONDS = 5
-const DRIFT_TICKS_MAX = 8 // the drift completes in at most 8 ticks (40 s)
+const TICK_SECONDS = 1 // the market ticks EVERY SECOND — a real sense of motion
+const DRIFT_TICKS_MAX = 35 // the drift completes in at most 35 ticks (35 s)
 const LIVE_SCRIPT = [
   { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
@@ -152,11 +152,11 @@ function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number
 // The whole market derives from time through this table — the graph redraws
 // history with the exact function the live feed uses.
 const FEED = {
-  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1200, holdAmp: 0 },
-  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 45,   holdAmp: 0 },
-  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 30,   holdAmp: 20 },
-  freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 5,    holdAmp: 0 },
-  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 40,   holdAmp: 0 },
+  vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1800, holdAmp: 0 },
+  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 65,   holdAmp: 0 },
+  fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 45,   holdAmp: 30 },
+  freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 8,    holdAmp: 0 },
+  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 0 },
 } as const
 export const feedAt = (t: number, key: keyof typeof FEED) =>
   liveValueAt(t, FEED[key].get, FEED[key].snap, FEED[key].seed, FEED[key].amp, FEED[key].holdAmp)
@@ -354,7 +354,7 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 
 // London-futures price graph, margin-simulator style. Live mode: the x-axis
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
-// ticker crawls right every 5-second tick, executed actions pin green (buy) /
+// ticker crawls right every second, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
 function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
@@ -548,7 +548,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, lastStep,
           )
         })}
 
-        {/* Live ticker — crawls right every 5-second tick */}
+        {/* Live ticker — crawls right every tick (1 s) */}
         {!complete && (
           <g>
             {!isTime && marks.length > 0 && (
@@ -681,7 +681,7 @@ export default function PtbfMechanics() {
   }, [live])
 
   // Feed the market — identical for every student: drift toward each round's
-  // published level in 5-second steps, plus the deterministic wiggle.
+  // published level tick by tick, plus the deterministic wiggle.
   useEffect(() => {
     if (!live) return
     setVnd(feedAt(elapsed, 'vnd'))
