@@ -1145,7 +1145,7 @@ export default function PtbfMechanics() {
     if (!live || elapsed >= SESSION_SECONDS) return
     const exposureT = mode === 'exporter'
       ? Math.abs(volT + (lotsX - lotsH) * LOT_T)
-      : (soldT > 0 && outstanding > 0 ? Math.min(soldT, outstanding * LOT_T) : lotsX > lotsH ? (lotsX - lotsH) * LOT_T : 0)
+      : impFlatT
     if (exposureT > 0) setRiskTS(r => r + exposureT)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, elapsed])
@@ -1273,9 +1273,10 @@ export default function PtbfMechanics() {
   //  futures if hedged first). DIFF: open until buy+hedge+sale all exist.
   //  Importer FLAT: sold outright with the buy-back still open. DIFF: open
   //  until the outright sale prices the selling side.
+  const impFlatT = Math.abs(lotsX * LOT_T - soldT - Math.max(0, lotsH * LOT_T - volT))
   const flatRisk = mode === 'exporter'
     ? started && !complete && Math.abs(volT + (lotsX - lotsH) * LOT_T) >= LOT_T
-    : started && !complete && ((soldT > 0 && outstanding > 0) || lotsX > lotsH)
+    : started && !complete && impFlatT >= LOT_T
   const diffRisk = mode === 'exporter'
     ? started && !complete && !(volT > 0 && lotsH > 0 && boxesS > 0)
     : started && !complete && boxesS === 0
@@ -1496,9 +1497,11 @@ export default function PtbfMechanics() {
                   const diffTile =
                     r.k === 'pb' && mode === 'exporter' && volT > 0 && lotsH > 0
                       ? `= diff ${dfmt(deal.buy! - deal.fHedge!, 0)}`
-                      : r.k === 'ps' && mode === 'importer' && boxesS > 0 && lotsX > 0
-                        ? `= diff ${dfmt(deal.sell! - deal.fFix!, 0)}`
-                        : null
+                      : r.k === 'ps' && mode === 'exporter' && boxesS > 0
+                        ? `= diff ${dfmt(deal.sell!, 0)}`
+                        : r.k === 'ps' && mode === 'importer' && boxesS > 0 && lotsX > 0
+                          ? `= diff ${dfmt(deal.sell! - deal.fFix!, 0)}`
+                          : null
                   return (
                     <div key={r.k} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
                       <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">{r.label}</div>

@@ -322,6 +322,25 @@ test('PtbfMechanics: a physical short book gets a 3-month cover deadline on the 
   }
 })
 
+test('PtbfMechanics importer: the short book works too — sell spot first, cover deadline runs', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Sell spot Antwerp before owning any coffee: naked short flat, clock running
+    fireEvent.click(screen.getByRole('button', { name: 'Sell spot Antwerp (EUR)' }))
+    expect(screen.getByTestId('risk-flat').textContent).toContain('AT RISK')
+    expect(container.textContent).toContain('COVER DEADLINE')
+    // Buying the FOB covers the physical short — the deadline clears
+    fireEvent.click(screen.getByRole('button', { name: 'Buy FOB HCM' }))
+    expect(container.textContent).not.toContain('COVER DEADLINE')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {
