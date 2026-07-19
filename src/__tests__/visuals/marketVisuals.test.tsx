@@ -302,6 +302,26 @@ test('PtbfMechanics live: at the end of the 45 months the market closes and acti
   }
 })
 
+test('PtbfMechanics: a physical short book gets a 3-month cover deadline on the graph', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Intermediate/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Sell FOB before owning any coffee: the book is physically SHORT
+    fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
+    expect(container.textContent).toContain('COVER DEADLINE')
+    // Three months (60 s) later, still short: the warning fires
+    act(() => { jest.advanceTimersByTime(61_000) })
+    expect(container.textContent).toContain('SHORT BOOK PAST ITS COVER DEADLINE')
+    // Buying the physical covers the short — line and warning clear
+    fireEvent.click(screen.getByRole('button', { name: 'Buy G2 spot HCM' }))
+    expect(container.textContent).not.toContain('COVER DEADLINE')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('PtbfMechanics live: pause freezes the clock, resume continues it', () => {
   jest.useFakeTimers()
   try {
