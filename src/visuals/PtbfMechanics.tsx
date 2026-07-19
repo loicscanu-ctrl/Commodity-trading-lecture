@@ -1449,7 +1449,7 @@ export default function PtbfMechanics() {
       {/* Past the cover deadline with the short still open */}
       {live && coverDeadline !== undefined && elapsed > coverDeadline && (
         <div className="mb-4 rounded-xl border border-red-500/60 bg-red-500/[0.12] p-3 font-mono text-xs font-bold text-red-200">
-          ⚠ SHORT BOOK PAST ITS COVER DEADLINE — the sale's shipment window is closing and the coffee does not exist yet. Buy the physical NOW.
+          ⚠ SHORT BOOK PAST ITS COVER DEADLINE — the sale’s shipment window is closing and the coffee does not exist yet. Buy the physical NOW.
         </div>
       )}
 
