@@ -79,6 +79,7 @@ type Deal = {
 // the next news for short rounds) and holding, so the printed level is
 // always tradeable before the next event.
 const TICK_SECONDS = 1 // the market ticks EVERY SECOND — a real sense of motion
+const NEWS_LAG = 3 // seconds between a news breaking and the market starting to react
 const DRIFT_TICKS_MAX = 35 // the drift completes in at most 35 ticks (35 s)
 const LIVE_SCRIPT = [
   { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090, spread: -25,
@@ -130,7 +131,7 @@ function roundAt(t: number): number {
 // Drift window of round r: at most 8 ticks, less if the next news is sooner
 function ticksToTarget(r: number): number {
   const len = r < ROUND_STARTS.length - 1 ? ROUND_STARTS[r + 1] - ROUND_STARTS[r] : Infinity
-  return Math.max(1, Math.min(DRIFT_TICKS_MAX, len / TICK_SECONDS - 1))
+  return Math.max(1, Math.min(DRIFT_TICKS_MAX, (len - NEWS_LAG) / TICK_SECONDS - 1))
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -154,12 +155,13 @@ function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number
   const r = roundAt(t)
   const prev = get(LIVE_SCRIPT[Math.max(0, r - 1)])
   const target = get(LIVE_SCRIPT[r])
-  const f = Math.min(1, Math.floor(Math.max(0, t - ROUND_STARTS[r]) / TICK_SECONDS) / ticksToTarget(r))
+  // The market reacts with a LAG after each news: for the first seconds the
+  // tape keeps breathing at the previous level, then the drift begins.
+  const f = Math.min(1, Math.floor(Math.max(0, t - ROUND_STARTS[r] - NEWS_LAG) / TICK_SECONDS) / ticksToTarget(r))
   const tick = Math.floor(Math.max(0, t) / TICK_SECONDS)
-  // Drift wiggle fades at the ends; holdAmp keeps a residual brownian breath
-  // AFTER the target is reached (used for the differential — a quoted, not
-  // printed, market never sits perfectly still).
-  const scale = amp * 4 * f * (1 - f) + (f >= 1 ? holdAmp : 0)
+  // Drift wiggle fades at the drift's ends; holdAmp keeps the tape breathing
+  // BEFORE the reaction starts and after the target is reached.
+  const scale = f > 0 && f < 1 ? amp * 4 * f * (1 - f) : holdAmp
   const wiggle = scale * noise01(tick * 7.13 + seed)
   return Math.round((prev + (target - prev) * f + wiggle) / snap) * snap
 }
