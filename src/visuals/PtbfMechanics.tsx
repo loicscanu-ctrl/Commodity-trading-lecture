@@ -1031,20 +1031,23 @@ export default function PtbfMechanics() {
       }
     })
   }
-  // Advanced (exporter): TENDER to the exchange — a physical sale at the
-  // freight-adjusted parity, ladder-adjusted for the grade. The buyer of
-  // last resort, as an action.
+  // Advanced (importer): TENDER to the exchange — deliver the landed coffee
+  // into an exchange warehouse. Only the importer can: the coffee must reach
+  // Europe first, so the freight leg must be booked. Economically it is a
+  // spot Antwerp sale to the buyer of last resort, at futures less the $95
+  // tender friction (freight + instore are already charged in the P&L).
   function actTender() {
-    if (level !== 'adv' || mode !== 'exporter' || complete || sessionOver) return
+    if (level !== 'adv' || mode !== 'importer' || complete || sessionOver) return
+    if (deal.freight === undefined) return
     const clip = Math.min(boxesIn, remainingBoxes)
     if (clip <= 0) return
-    const px = tenderableParity(freight) + gAdj.sell
+    const px = curFut - TENDER_FRICTION
     setDeal(d => {
       const b0 = d.boxes ?? 0
-      return { ...d, sell: wavg(d.sell, b0, px, clip), boxes: b0 + clip,
+      return { ...d, eur: Math.round(wavg(d.eur, b0, px / EURUSD, clip)), sell: wavg(d.sell, b0, px, clip), boxes: b0 + clip,
         futMarks: [...(d.futMarks ?? []), curFut],
         diffMarks: [...(d.diffMarks ?? []), fobDiff],
-        order: [...(d.order ?? []), 3],
+        order: [...(d.order ?? []), 4],
         clipPx: [...(d.clipPx ?? []), px],
         clipQty: [...(d.clipQty ?? []), clip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}) }
@@ -1629,7 +1632,7 @@ export default function PtbfMechanics() {
                     <div className="mt-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                       {(Object.keys(GRADES) as Grade[]).map(g => (
                         <button key={g} type="button" disabled={volT > 0} onClick={() => setGradeSel(g)} aria-label={`Grade ${g}`}
-                          title={`${g}: ${dfmt(GRADES[g].buy)} on cost · ${dfmt(GRADES[g].sell)} on sale/tender (the ladder)`}
+                          title={`${g}: ${dfmt(GRADES[g].buy)} on cost · ${dfmt(GRADES[g].sell)} on sale (the ladder)`}
                           className={`rounded px-1.5 py-px font-mono text-[9px] font-bold transition-colors ${
                             grade === g ? 'bg-amber-500/20 text-amber-200' : volT > 0 ? 'text-slate-600' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200'
                           }`}>
@@ -1665,6 +1668,21 @@ export default function PtbfMechanics() {
                   {vertBtn('Sell spot diff ⚡', comboI2Ok, comboImpSellDiff)}
                 </div>
                 {row(ACTIONS[4])}
+                {/* advanced: the buyer of last resort — only the importer can
+                    tender: the coffee must already be shipped to Europe */}
+                {level === 'adv' && (() => {
+                  const tenderOk = !complete && !sessionOver && remainingBoxes > 0 && deal.freight !== undefined
+                  return (
+                    <button type="button" onClick={actTender} disabled={!tenderOk} aria-label="Tender to exchange"
+                      className={`w-full rounded-xl border p-2 text-left font-mono text-[10px] transition-all ${
+                        tenderOk ? 'border-rose-500/40 bg-rose-500/[0.06] text-rose-200 hover:bg-rose-500/[0.12]' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+                      }`}>
+                      <span className="font-bold">Tender to exchange</span> — deliver {Math.max(1, Math.min(boxesIn, remainingBoxes))} bx at{' '}
+                      <span className="font-bold text-amber-300">{fmtUsd(curFut - TENDER_FRICTION)}/t</span>
+                      <span className="text-slate-500"> · {deal.freight === undefined ? 'book the freight first — the coffee must reach Europe' : 'a spot sale to the buyer of last resort (futures − $95 tender costs)'}</span>
+                    </button>
+                  )
+                })()}
               </>
             )
             return (
@@ -1679,17 +1697,6 @@ export default function PtbfMechanics() {
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
                   {vertBtn('Sell FOB & fix ⚡', combo2Ok, comboSellFix)}
                 </div>
-                {/* advanced: the buyer of last resort, as an action */}
-                {level === 'adv' && (
-                  <button type="button" onClick={actTender} disabled={complete || remainingBoxes === 0} aria-label="Tender to exchange"
-                    className={`w-full rounded-xl border p-2 text-left font-mono text-[10px] transition-all ${
-                      !complete && remainingBoxes > 0 ? 'border-rose-500/40 bg-rose-500/[0.06] text-rose-200 hover:bg-rose-500/[0.12]' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
-                    }`}>
-                    <span className="font-bold">Tender to exchange</span> — deliver {Math.max(1, Math.min(boxesIn, remainingBoxes))} bx at parity{' '}
-                    <span className="font-bold text-amber-300">{dfmt(tenderableParity(freight) + gAdj.sell, 0)}</span>
-                    <span className="text-slate-500"> · the buyer of last resort ({grade} ladder)</span>
-                  </button>
-                )}
               </>
             )
           })()}
