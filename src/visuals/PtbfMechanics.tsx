@@ -38,6 +38,7 @@ const GRADES = {
 } as const
 type Grade = keyof typeof GRADES
 
+const COVER_MONTHS = 3 // a physical SHORT (sold before bought) must be covered within 3 months — a sale has a shipment window; only a LONG can sit in stocks
 const RISK_CHARGE = 150 // $ per tonne·month of open FLAT exposure — the risk-adjusted scoring rule, automated
 const ROLL_MONTHS = 2 // an expiry every two calendar months: open futures ROLL at the calendar spread — the roll P&L is part of the trade P&L
 
@@ -403,10 +404,10 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
 // ticker crawls right every second, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins }: {
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins, coverDeadline }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; calSpread: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
   dots: DotSpec[]; sides: readonly Side[]; order?: number[]; stamps?: number[]; stampTimes?: number[]; liveLabel: string
-  elapsed?: number; pins: Pin[]
+  elapsed?: number; pins: Pin[]; coverDeadline?: number
 }) {
   // Which ACTION the i-th execution was (free order on the intermediate level)
   const actionOf = (i: number) => order?.[i] ?? i + 1
@@ -528,6 +529,16 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
                 </g>
               )
             })}
+            {/* cover deadline — a physical short book MUST be bought back by here */}
+            {coverDeadline !== undefined && (
+              <g>
+                <line x1={xT(coverDeadline)} y1={mt} x2={xT(coverDeadline)} y2={D.top + D.h} stroke="#ef4444" strokeWidth="1.8" opacity="0.85" />
+                <text x={xT(coverDeadline) - 4} y={mt + 10} textAnchor="end" fill="#ef4444" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+                  COVER DEADLINE
+                  <title>The book is physically SHORT — the sale ships in 3 months and cannot be postponed. Buy the physical before this line.</title>
+                </text>
+              </g>
+            )}
             {/* news flags — revealed only once the market reaches them */}
             {LIVE_SCRIPT.map((r, ri) => {
               if (ROUND_STARTS[ri] > elapsed!) return null
@@ -719,6 +730,7 @@ export default function PtbfMechanics() {
   const [history, setHistory] = useState<TradeRecord[]>([])
   const [pins, setPins] = useState<Pin[]>([])
   const [riskTS, setRiskTS] = useState(0) // tonne·seconds of open flat exposure this session
+  const [shortStartAt, setShortStartAt] = useState<number | null>(null) // second the book went physically SHORT
 
   // Trader identity — the report is issued in their name
   const [firstName, setFirstName] = useState('')
@@ -1115,6 +1127,17 @@ export default function PtbfMechanics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, level, bookedNow, elapsed])
 
+  // A physical SHORT book (sold before bought) starts a 3-month cover clock:
+  // the sale has a shipment window — it cannot be postponed like a stock.
+  const physShort = soldT > volT + 1e-9
+  useEffect(() => {
+    if (!live) { if (shortStartAt !== null) setShortStartAt(null); return }
+    if (physShort && shortStartAt === null) setShortStartAt(elapsed)
+    if (!physShort && shortStartAt !== null) setShortStartAt(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, physShort, elapsed])
+  const coverDeadline = shortStartAt !== null ? shortStartAt + COVER_MONTHS * SECONDS_PER_MONTH : undefined
+
   // FLAT-RISK METER: every second of open flat exposure (naked physical OR
   // naked futures, either side) accrues tonne-time. It does not touch the
   // raw P&L — it feeds the RISK-ADJUSTED score that punishes speculation.
@@ -1122,7 +1145,7 @@ export default function PtbfMechanics() {
     if (!live || elapsed >= SESSION_SECONDS) return
     const exposureT = mode === 'exporter'
       ? Math.abs(volT + (lotsX - lotsH) * LOT_T)
-      : (soldT > 0 && outstanding > 0 ? Math.min(soldT, outstanding * LOT_T) : lotsX > lotsH ? (lotsX - lotsH) * LOT_T : 0)
+      : impFlatT
     if (exposureT > 0) setRiskTS(r => r + exposureT)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, elapsed])
@@ -1250,9 +1273,10 @@ export default function PtbfMechanics() {
   //  futures if hedged first). DIFF: open until buy+hedge+sale all exist.
   //  Importer FLAT: sold outright with the buy-back still open. DIFF: open
   //  until the outright sale prices the selling side.
+  const impFlatT = Math.abs(lotsX * LOT_T - soldT - Math.max(0, lotsH * LOT_T - volT))
   const flatRisk = mode === 'exporter'
     ? started && !complete && Math.abs(volT + (lotsX - lotsH) * LOT_T) >= LOT_T
-    : started && !complete && ((soldT > 0 && outstanding > 0) || lotsX > lotsH)
+    : started && !complete && impFlatT >= LOT_T
   const diffRisk = mode === 'exporter'
     ? started && !complete && !(volT > 0 && lotsH > 0 && boxesS > 0)
     : started && !complete && boxesS === 0
@@ -1423,6 +1447,13 @@ export default function PtbfMechanics() {
         </div>
       )}
 
+      {/* Past the cover deadline with the short still open */}
+      {live && coverDeadline !== undefined && elapsed > coverDeadline && (
+        <div className="mb-4 rounded-xl border border-red-500/60 bg-red-500/[0.12] p-3 font-mono text-xs font-bold text-red-200">
+          ⚠ SHORT BOOK PAST ITS COVER DEADLINE — the sale’s shipment window is closing and the coffee does not exist yet. Buy the physical NOW.
+        </div>
+      )}
+
       {/* Intermediate: booked business countdown — square the futures or eat the penalty */}
       {live && level !== 'easy' && autoFixIn !== null && outstanding !== 0 && (
         <div className="mb-4 rounded-xl border border-rose-500/50 bg-rose-500/[0.10] p-3 font-mono text-xs text-rose-200">
@@ -1466,9 +1497,11 @@ export default function PtbfMechanics() {
                   const diffTile =
                     r.k === 'pb' && mode === 'exporter' && volT > 0 && lotsH > 0
                       ? `= diff ${dfmt(deal.buy! - deal.fHedge!, 0)}`
-                      : r.k === 'ps' && mode === 'importer' && boxesS > 0 && lotsX > 0
-                        ? `= diff ${dfmt(deal.sell! - deal.fFix!, 0)}`
-                        : null
+                      : r.k === 'ps' && mode === 'exporter' && boxesS > 0
+                        ? `= diff ${dfmt(deal.sell!, 0)}`
+                        : r.k === 'ps' && mode === 'importer' && boxesS > 0 && lotsX > 0
+                          ? `= diff ${dfmt(deal.sell! - deal.fFix!, 0)}`
+                          : null
                   return (
                     <div key={r.k} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
                       <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">{r.label}</div>
@@ -1536,6 +1569,7 @@ export default function PtbfMechanics() {
           liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
           elapsed={live ? elapsed : undefined}
           pins={pins}
+          coverDeadline={coverDeadline}
         />
 
         {/* Actions — clip by clip: buy and sell little by little */}
