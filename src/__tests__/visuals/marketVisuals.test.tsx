@@ -346,14 +346,17 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     expect(container.textContent).not.toContain('next news')
     expect(container.textContent).not.toContain('Round 1/10')
     expect(container.textContent).toContain('warehouses almost full')
-    expect(container.textContent).toContain('119,000')
+    // The opening tape already breathes around the published 119,000
+    expect(container.textContent).toContain(feedAt(0, 'vnd').toLocaleString('en-US'))
     expect(screen.queryByRole('spinbutton', { name: /Spot HCM/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: /London futures/ })).not.toBeInTheDocument()
     // The clock runs at one month per 20 s: Y1 Jul's news fires at t=60 —
     // and the price does NOT jump: it starts drifting from the old level
     act(() => { jest.advanceTimersByTime(60_000) })
     expect(container.textContent).toContain('iced tea and matcha') // Y1 Jul's news is out
-    expect(container.textContent).toContain('119,000') // still at the old level at the news
+    // The market has NOT reacted yet (3 s lag): still breathing at the old level
+    expect(container.textContent).toContain(feedAt(60, 'vnd').toLocaleString('en-US'))
+    expect(Math.abs(feedAt(60, 'vnd') - 119000)).toBeLessThanOrEqual(800)
     // Mid-drift (t=75): 119,000 → 114,000 plus the deterministic brownian
     // wiggle — assert the exact feed value
     act(() => { jest.advanceTimersByTime(15_000) })
