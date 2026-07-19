@@ -82,35 +82,35 @@ const TICK_SECONDS = 1 // the market ticks EVERY SECOND — a real sense of moti
 const NEWS_LAG = 3 // seconds between a news breaking and the market starting to react
 const DRIFT_TICKS_MAX = 35 // the drift completes in at most 35 ticks (35 s)
 const LIVE_SCRIPT = [
-  { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 119000, fut: 4800, fob: -120, freight: 70, eur: 4090, spread: -25,
+  { label: 'Y1 Apr', headline: 'Full warehouses', vnd: 118000, fut: 4800, fob: -120, freight: 70, eur: 4125, spread: -25,
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
-  { label: 'Y1 Jul', headline: 'Demand fading', vnd: 114000, fut: 4650, fob: -180, freight: 70, eur: 3980, spread: -35,
+  { label: 'Y1 Jul', headline: 'Demand fading', vnd: 113000, fut: 4650, fob: -180, freight: 70, eur: 3945, spread: -35,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
-  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4290, spread: 40,
+  { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4130, spread: 40,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
-  { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 121000, fut: 5000, fob: -250, freight: 180, eur: 4230, spread: 20,
+  { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 120000, fut: 5000, fob: -250, freight: 180, eur: 4275, spread: 20,
     news: 'Tet: farmers withhold coffee for the holiday and internal logistics pause — local prices firm while vessels slowly return after Bab-el-Mandeb.' },
-  { label: 'Y2 Mar', headline: 'Drought risk', vnd: 138500, fut: 5400, fob: 250, freight: 150, eur: 4620, spread: 60,
+  { label: 'Y2 Mar', headline: 'Drought risk', vnd: 142500, fut: 5400, fob: 250, freight: 150, eur: 5015, spread: 60,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
-  { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 144500, fut: 5600, fob: 500, freight: 140, eur: 4800, spread: 90,
+  { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 154000, fut: 5600, fob: 500, freight: 140, eur: 5390, spread: 90,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
-  { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 142000, fut: 5450, fob: 700, freight: 45, eur: 4690, spread: 70,
+  { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 155500, fut: 5450, fob: 700, freight: 45, eur: 5355, spread: 70,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
-  { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 136000, fut: 5350, fob: 550, freight: 50, eur: 5170, spread: 50,
+  { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 149000, fut: 5350, fob: 550, freight: 50, eur: 5145, spread: 50,
     news: 'EUDR enforcement wave: EU importers scramble for deforestation-compliant coffee. Antwerp premiums jump — compliant Vietnamese parcels bid up.' },
-  { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 143000, fut: 5650, fob: 350, freight: 55, eur: 5170, spread: 150,
+  { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 151500, fut: 5650, fob: 350, freight: 55, eur: 5235, spread: 150,
     news: 'A trade house stands for delivery on London: certified stocks cornered, the front month spikes. Bullish screen — differentials compress as paper outruns physical.' },
-  { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 133500, fut: 5300, fob: 150, freight: 50, eur: 4470, spread: 30,
+  { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 137500, fut: 5300, fob: 150, freight: 50, eur: 4760, spread: 30,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
-  { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 128000, fut: 5380, fob: -80, freight: 190, eur: 4700, spread: 45,
+  { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 134000, fut: 5380, fob: -80, freight: 190, eur: 4755, spread: 45,
     news: 'A typhoon closes Central Highlands roads and suspends HCM loading for two weeks. Freight jumps; FOB sellers who cannot load dump their differentials.' },
-  { label: 'Y4 Aug', headline: 'Record crop!', vnd: 111500, fut: 4700, fob: -250, freight: 55, eur: 4000, spread: -20,
+  { label: 'Y4 Aug', headline: 'Record crop!', vnd: 112500, fut: 4700, fob: -250, freight: 55, eur: 3915, spread: -20,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
-  { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 115000, fut: 4750, fob: -230, freight: 50, eur: 3930, spread: -30,
+  { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 114000, fut: 4750, fob: -230, freight: 50, eur: 3970, spread: -30,
     news: 'European roasters run stocks down, waiting for the record crop to land. Differentials drift toward tenderable parity — the exchange floor beckons.' },
-  { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 127000, fut: 4850, fob: 300, freight: 60, eur: 4180, spread: 15,
+  { label: 'Y4 Dec', headline: 'Harvest delayed', vnd: 130000, fut: 4850, fob: 300, freight: 60, eur: 4515, spread: 15,
     news: 'La Niña brings heavy rain and postpones the harvest to January. Flash hike of local FOB differentials — exporters scramble for spot coffee.' },
-  { label: 'Y5 Jan', headline: 'Harvest in', vnd: 114000, fut: 4600, fob: -100, freight: 60, eur: 3950, spread: -25,
+  { label: 'Y5 Jan', headline: 'Harvest in', vnd: 113500, fut: 4600, fob: -100, freight: 60, eur: 3960, spread: -25,
     news: 'The harvest is happening. Final round — complete your remaining actions.' },
 ]
 
@@ -512,6 +512,19 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
                       {monthLabel(m)}
                     </text>
                   )}
+                </g>
+              )
+            })}
+            {/* flash scars — rose ⚡ marks where a flash hit, revealed once passed */}
+            {FLASHES.map(f => {
+              if (f.start > elapsed!) return null
+              const fx = xT(f.start + f.dur / 2)
+              return (
+                <g key={`fl-${f.start}`}>
+                  <line x1={fx} y1={mt} x2={fx} y2={D.top + D.h} stroke="#f43f5e" strokeWidth="1" strokeDasharray="2 4" opacity="0.35" />
+                  <text x={fx} y={mt + 8} textAnchor="middle" fill="#f43f5e" fontSize="9" fontWeight="bold">
+                    ⚡<title>{`FLASH — ${f.label}`}</title>
+                  </text>
                 </g>
               )
             })}
