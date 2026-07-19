@@ -183,7 +183,7 @@ export const FLASHES: { start: number; dur: number; label: string; d: Partial<Re
   // Y1 Dec — panic selling out of Vietnam right after the freight crisis
   { start: 8 * SECONDS_PER_MONTH, dur: 9, label: 'Vietnam farmers dump — local panic selling!', d: { vnd: -6000, fut: -150, fob: -70, eur: -180 } },
   // Y2 May — Brazil dumps the crop into a BULL market: fundamentals scream higher, the tape collapses anyway
-  { start: 13 * SECONDS_PER_MONTH, dur: 12, label: 'Brazil dumps the crop — screens collapse!', d: { vnd: -5000, fut: -300, fob: 60, eur: -200, spread: -60 } },
+  { start: 13 * SECONDS_PER_MONTH, dur: 12, label: 'Financing problem in Brazil: farmers are selling in panic to gather money', d: { vnd: -5000, fut: -300, fob: 60, eur: -200, spread: -60 } },
   // Y2 Dec — a short squeeze on the delivery contract: the front spikes for seconds
   { start: 20 * SECONDS_PER_MONTH + 10, dur: 8, label: 'Delivery squeeze on London — front month spikes!', d: { vnd: 4000, fut: 250, fob: -80, eur: 200, spread: 100 } },
   // Y4 Sep — a frost alert in Brazil, in the middle of the bear market… it reverts: it was fake
