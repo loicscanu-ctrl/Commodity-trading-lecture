@@ -356,7 +356,7 @@ test('PtbfMechanics live market: predetermined path, no typing, round-stamped bl
     expect(container.textContent).toContain('iced tea and matcha') // Y1 Jul's news is out
     // The market has NOT reacted yet (3 s lag): still breathing at the old level
     expect(container.textContent).toContain(feedAt(60, 'vnd').toLocaleString('en-US'))
-    expect(Math.abs(feedAt(60, 'vnd') - 119000)).toBeLessThanOrEqual(800)
+    expect(Math.abs(feedAt(60, 'vnd') - 118000)).toBeLessThanOrEqual(800) // Y1 Apr's published 118,000
     // Mid-drift (t=75): 119,000 → 114,000 plus the deterministic brownian
     // wiggle — assert the exact feed value
     act(() => { jest.advanceTimersByTime(15_000) })
