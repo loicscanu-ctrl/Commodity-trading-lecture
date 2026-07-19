@@ -20,6 +20,25 @@ const TENDER_FRICTION = 95 // $/t grading, docs & warehousing to turn FOB coffee
 // shipping to a licensed European warehouse first — dearer freight pushes
 // the FOB floor lower.
 const tenderableParity = (fr: number) => -(fr + CIF_INSTORE + TENDER_FRICTION)
+// Advanced (importer): a real FREIGHT MARKET — three destinations, three spot
+// markets. Antwerp trades in EUR; Tunis and Kobe in USD. Each route prices
+// off the scripted HCM→Antwerp freight (k × base + add), and each local spot
+// prices off the Antwerp value adjusted for the freight gap plus a local
+// premium — Kobe pays up for quality, Tunis bids under. The student must
+// book the freight that matches where the customer wants the coffee.
+type Dest = 'ANT' | 'TUN' | 'KOB'
+const DESTS = {
+  ANT: { name: 'Antwerp', ccy: 'EUR', k: 1, add: 0, prem: 0, seed: 71 },
+  TUN: { name: 'Tunis', ccy: 'USD', k: 0.85, add: 8, prem: -35, seed: 79 },
+  KOB: { name: 'Kobe', ccy: 'USD', k: 0.55, add: 12, prem: 60, seed: 83 },
+} as const
+// Freight quote of a route, derived from the base (Antwerp) freight. In live
+// mode a small deterministic wiggle decorrelates the routes tick by tick.
+const destFreight = (dest: Dest, baseFr: number, t?: number) =>
+  dest === 'ANT'
+    ? Math.round(baseFr)
+    : Math.round(baseFr * DESTS[dest].k + DESTS[dest].add + (t !== undefined ? 4 * noise01(Math.floor(t) * 7.13 + DESTS[dest].seed) : 0))
+
 const LOT_T = 10        // tonnes per futures lot
 const CONTAINER_T = 19.2 // tonnes per container
 const DEFAULT_VOL = 96  // 96 t = exactly 5 containers (and 9.6 lots — never round!)
@@ -65,6 +84,7 @@ type Deal = {
   roll?: number                        // $ roll P&L accumulated at each 2-month expiry (spread × net position)
   fin?: number                         // $ financing accrued EVERY SECOND on locked capital (intermediate, 8% p.a.)
   grade?: Grade                        // advanced: the grade this trade originates (locked at the first buy)
+  dest?: Dest                          // advanced importer: THE destination of this trade (locked by freight OR first fulfilled tender)
   stamps?: number[]                    // live mode: the round (T0..) each action executed in
   stampTimes?: number[]                // live mode: the exact second each action executed at
   futMarks?: number[]                  // London futures level at each executed action (for the price graph)
@@ -87,24 +107,38 @@ const LIVE_SCRIPT = [
     news: 'A broker reports an unseasonal increase of Vietnam coffee stocks at origin — warehouses almost full. Bearish Vietnam FOB differentials.' },
   { label: 'Y1 Jul', headline: 'Demand fading', vnd: 113000, fut: 4650, fob: -180, freight: 70, eur: 3945, spread: -35,
     news: 'Warehouses at origin confirmed well filled. A contact at Starbucks reports consumption shifting from coffee towards iced tea and matcha.' },
+  { label: 'Y1 Sep', headline: 'Quiet market', vnd: 111500, fut: 4600, fob: -200, freight: 72, eur: 3900, spread: -40,
+    news: 'Certified stocks tick up in Europe and roasters sit on their hands. The screen drifts lower — nothing to trade, says everyone.' },
   { label: 'Y1 Nov', headline: 'Logistics crisis', vnd: 113000, fut: 4950, fob: -465, freight: 270, eur: 4130, spread: 40,
     news: 'Harvest just starting — and Bab-el-Mandeb is CLOSED. Freight quotes +$200/t with a lack of vessels. Bullish London, bearish differential.' },
   { label: 'Y2 Jan', headline: 'Tet holiday', vnd: 120000, fut: 5000, fob: -250, freight: 180, eur: 4275, spread: 20,
     news: 'Tet: farmers withhold coffee for the holiday and internal logistics pause — local prices firm while vessels slowly return after Bab-el-Mandeb.' },
   { label: 'Y2 Mar', headline: 'Drought risk', vnd: 142500, fut: 5400, fob: 250, freight: 150, eur: 5015, spread: 60,
     news: 'Good crop in the barn — but a drought is hitting the NEXT crop: a broker estimates −10%. Bullish London and bullish Vietnam diffs, Vietnam outpacing the screen.' },
+  { label: 'Y2 Jul', headline: 'Dry spell holds', vnd: 148000, fut: 5500, fob: 380, freight: 145, eur: 5190, spread: 75,
+    news: 'The drought holds over the Central Highlands — soil-moisture maps stay red. Funds add length on every dip; farmers hold back what is left.' },
   { label: 'Y2 Sep', headline: 'HCM stocks down', vnd: 154000, fut: 5600, fob: 500, freight: 140, eur: 5390, spread: 90,
     news: 'HCM warehouses emptier than normal. High prices push farmers to cut avocado trees and plant coffee — an agronomist estimates +5% area (yields in two years). Diffs still bullish for now.' },
   { label: 'Y2 Oct', headline: 'Freight collapse', vnd: 155500, fut: 5450, fob: 700, freight: 45, eur: 5355, spread: 70,
     news: 'Logistics normalising — historically low freight. Bearish London/spot, bullish FOB differentials.' },
+  { label: 'Y3 Jan', headline: 'Tet — thin tape', vnd: 152500, fut: 5420, fob: 630, freight: 47, eur: 5290, spread: 65,
+    news: 'Tet again: origin goes quiet and FOB offers vanish. Roasters cover nearby needs at firm differentials — the peak deflates only slowly.' },
   { label: 'Y3 Mar', headline: 'EUDR scramble', vnd: 149000, fut: 5350, fob: 550, freight: 50, eur: 5145, spread: 50,
     news: 'EUDR enforcement wave: EU importers scramble for deforestation-compliant coffee. Antwerp premiums jump — compliant Vietnamese parcels bid up.' },
+  { label: 'Y3 May', headline: 'Funds add length', vnd: 150000, fut: 5480, fob: 460, freight: 52, eur: 5190, spread: 95,
+    news: 'Managed money rebuilds its longs while certified stocks keep draining. The spread structure tightens — a delivery story is brewing on London.' },
   { label: 'Y3 Jul', headline: 'London squeeze!', vnd: 151500, fut: 5650, fob: 350, freight: 55, eur: 5235, spread: 150,
     news: 'A trade house stands for delivery on London: certified stocks cornered, the front month spikes. Bullish screen — differentials compress as paper outruns physical.' },
+  { label: 'Y3 Sep', headline: 'Squeeze unwinds', vnd: 146000, fut: 5450, fob: 280, freight: 52, eur: 5050, spread: 80,
+    news: 'The delivery squeeze unwinds: the trade house got its coffee, the front month deflates and calendar spreads soften.' },
   { label: 'Y3 Dec', headline: 'Farmers selling', vnd: 137500, fut: 5300, fob: 150, freight: 50, eur: 4760, spread: 30,
     news: 'Harvested crop estimated −10% vs Y2 — but an agronomist shows fertilizer inflows (afforded thanks to high prices) boosting yields +3%. Origin stocks still low; farmers sell hard ahead of a record next crop. Bearish differential.' },
+  { label: 'Y4 Feb', headline: 'Big crop talk', vnd: 136000, fut: 5340, fob: 60, freight: 55, eur: 4780, spread: 35,
+    news: 'Crop tours whisper a BIG next harvest; farmers sell forward. Differentials leak while the screen barely moves.' },
   { label: 'Y4 Mar', headline: 'Typhoon hits!', vnd: 134000, fut: 5380, fob: -80, freight: 190, eur: 4755, spread: 45,
     news: 'A typhoon closes Central Highlands roads and suspends HCM loading for two weeks. Freight jumps; FOB sellers who cannot load dump their differentials.' },
+  { label: 'Y4 May', headline: 'Roads reopen', vnd: 127000, fut: 5150, fob: -150, freight: 95, eur: 4460, spread: 5,
+    news: 'Typhoon damage repaired — HCM loading resumes and freight normalises. The crop tour still points BIG: the bear trend resumes.' },
   { label: 'Y4 Aug', headline: 'Record crop!', vnd: 112500, fut: 4700, fob: -250, freight: 55, eur: 3915, spread: -20,
     news: 'A broker publishes a RECORD crop estimate: +20%! Bearish London and further bearish differentials.' },
   { label: 'Y4 Oct', headline: 'Roasters waiting', vnd: 114000, fut: 4750, fob: -230, freight: 50, eur: 3970, spread: -30,
@@ -117,7 +151,7 @@ const LIVE_SCRIPT = [
 
 // The rounds are NOT evenly spaced in calendar time. Month index of each
 // round from Y1 Apr = 0 — the news fires when the calendar reaches its date.
-const ROUND_MONTHS = [0, 3, 7, 9, 11, 17, 18, 23, 27, 32, 35, 40, 42, 44, 45]
+const ROUND_MONTHS = [0, 3, 5, 7, 9, 11, 15, 17, 18, 21, 23, 25, 27, 29, 32, 34, 35, 37, 40, 42, 44, 45]
 const TOTAL_MONTHS = ROUND_MONTHS[ROUND_MONTHS.length - 1]
 const SECONDS_PER_MONTH = 20 // the clock: 1.5 days per second — time to read, think, execute
 const ROUND_STARTS = ROUND_MONTHS.map(m => m * SECONDS_PER_MONTH)
@@ -171,10 +205,10 @@ function liveValueAt(t: number, get: (r: (typeof LIVE_SCRIPT)[number]) => number
 // history with the exact function the live feed uses.
 const FEED = {
   vnd:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.vnd,     snap: 100, seed: 11, amp: 1800, holdAmp: 800 },
-  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 65,   holdAmp: 25 },
+  fut:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fut,     snap: 5,   seed: 23, amp: 65,   holdAmp: 35 },
   fob:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.fob,     snap: 1,   seed: 37, amp: 45,   holdAmp: 30 },
   freight: { get: (r: (typeof LIVE_SCRIPT)[number]) => r.freight, snap: 1,   seed: 41, amp: 8,    holdAmp: 0 },
-  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 20 },
+  eur:     { get: (r: (typeof LIVE_SCRIPT)[number]) => r.eur,     snap: 5,   seed: 53, amp: 60,   holdAmp: 28 },
   spread:  { get: (r: (typeof LIVE_SCRIPT)[number]) => r.spread,  snap: 1,   seed: 61, amp: 8,    holdAmp: 5 },
 } as const
 // FLASH events — seconds-long spikes and collapses that fully REVERT.
@@ -189,6 +223,59 @@ export const FLASHES: { start: number; dur: number; label: string; d: Partial<Re
   { start: 20 * SECONDS_PER_MONTH + 10, dur: 8, label: 'Delivery squeeze on London — front month spikes!', d: { vnd: 4000, fut: 250, fob: -80, eur: 200, spread: 100 } },
   // Y4 Sep — a frost alert in Brazil, in the middle of the bear market… it reverts: it was fake
   { start: 41 * SECONDS_PER_MONTH, dur: 15, label: 'FROST ALERT in Brazil!', d: { vnd: 5000, fut: 350, fob: -50, eur: 250, spread: 60 } },
+]
+
+// ── The MAILBOX: customer tenders (Advanced level) ──
+// On Advanced, sales do not hang on an always-on button: customers TENDER.
+// Each tender names the customer, the quantity, a premium over the live
+// reference (the FOB diff for exporter tenders; the destination spot, in its
+// own currency, for importer tenders) and a validity window. Fulfilling one
+// executes the sale — no open tender, no sale (the exchange stays the
+// importer's buyer of last resort in Antwerp).
+export type CustomerTender = {
+  id: string
+  at: number      // arrival second of the live session
+  side: Mode
+  dest?: Dest     // importer tenders: where the customer wants the coffee
+  qty: number     // containers
+  prem: number    // over the live reference, in the tender's own currency
+  life: number    // seconds the tender stays open
+  from: string
+  note: string
+}
+const M = SECONDS_PER_MONTH
+export const TENDERS: CustomerTender[] = [
+  { id: 'e1', at: 0 * M + 8, side: 'exporter', qty: 5, prem: 10, life: 50, from: 'Bremen Handelshaus', note: 'FOB HCM, Gd2, prompt shipment' },
+  { id: 'i1', at: 0 * M + 12, side: 'importer', dest: 'ANT', qty: 5, prem: 25, life: 60, from: 'Beveren Roasters', note: 'DDP Antwerp, EUR — 3-month window' },
+  { id: 'e2', at: 3 * M + 6, side: 'exporter', qty: 5, prem: -10, life: 45, from: 'Geneva desk', note: 'FOB HCM — they smell the surplus, bid under' },
+  { id: 'i2', at: 5 * M + 8, side: 'importer', dest: 'TUN', qty: 5, prem: 30, life: 70, from: 'Carthage Café', note: 'delivered Tunis, USD' },
+  { id: 'e3', at: 7 * M + 10, side: 'exporter', qty: 10, prem: 20, life: 50, from: 'Alexandria Beans Co', note: 'FOB HCM — they NEED coffee despite the freight chaos' },
+  { id: 'i3', at: 9 * M + 8, side: 'importer', dest: 'KOB', qty: 5, prem: 65, life: 70, from: 'Ueshima Coffee', note: 'delivered Kobe, USD — quality premium' },
+  { id: 'e4', at: 11 * M + 8, side: 'exporter', qty: 5, prem: 15, life: 50, from: 'Hamburg Trade House', note: 'FOB HCM — drought cover' },
+  { id: 'i4', at: 13 * M + 6, side: 'importer', dest: 'ANT', qty: 5, prem: 20, life: 60, from: 'Antwerp Blenders', note: 'DDP Antwerp, EUR' },
+  { id: 'e5', at: 15 * M + 9, side: 'exporter', qty: 5, prem: 25, life: 45, from: 'Trieste Espresso', note: 'FOB HCM — chasing the rally' },
+  { id: 'i5', at: 17 * M + 8, side: 'importer', dest: 'TUN', qty: 5, prem: 40, life: 60, from: 'Tunis Torréfaction', note: 'delivered Tunis, USD' },
+  { id: 'e6', at: 18 * M + 6, side: 'exporter', qty: 10, prem: 30, life: 55, from: 'Zurich trade house', note: 'FOB HCM — cheap freight makes them generous: they pay UP' },
+  { id: 'i6', at: 21 * M + 8, side: 'importer', dest: 'KOB', qty: 5, prem: 70, life: 70, from: 'Kobe Beans KK', note: 'delivered Kobe, USD — Tet cover' },
+  { id: 'e7', at: 23 * M + 8, side: 'exporter', qty: 5, prem: 20, life: 50, from: 'Rotterdam EUDR desk', note: 'FOB HCM — compliant parcels only' },
+  { id: 'i7', at: 25 * M + 6, side: 'importer', dest: 'ANT', qty: 5, prem: 35, life: 60, from: 'Ghent Coffee Works', note: 'DDP Antwerp, EUR — EUDR premium' },
+  { id: 'e8', at: 27 * M + 9, side: 'exporter', qty: 5, prem: -15, life: 45, from: 'London broker', note: 'FOB HCM — squeeze pricing, the physical bid is thin' },
+  { id: 'i8', at: 29 * M + 8, side: 'importer', dest: 'TUN', qty: 5, prem: 25, life: 70, from: 'Sfax Imports', note: 'delivered Tunis, USD' },
+  { id: 'e9', at: 32 * M + 7, side: 'exporter', qty: 5, prem: 10, life: 50, from: 'Marseille négoce', note: 'FOB HCM' },
+  { id: 'i9', at: 34 * M + 8, side: 'importer', dest: 'KOB', qty: 5, prem: 55, life: 70, from: 'Osaka Trading', note: 'delivered Kobe, USD' },
+  { id: 'e10', at: 35 * M + 8, side: 'exporter', qty: 5, prem: 15, life: 50, from: 'Barcelona roaster', note: 'FOB HCM — typhoon panic cover' },
+  { id: 'i10', at: 37 * M + 6, side: 'importer', dest: 'ANT', qty: 5, prem: 20, life: 60, from: 'Beveren Roasters', note: 'DDP Antwerp, EUR' },
+  { id: 'e11', at: 40 * M + 8, side: 'exporter', qty: 5, prem: -20, life: 45, from: 'Geneva desk', note: 'FOB HCM — record crop: they low-ball' },
+  { id: 'i11', at: 42 * M + 6, side: 'importer', dest: 'TUN', qty: 5, prem: 30, life: 55, from: 'Carthage Café', note: 'delivered Tunis, USD' },
+  { id: 'e12', at: 44 * M + 5, side: 'exporter', qty: 5, prem: 20, life: 30, from: 'Milan espresso house', note: 'FOB HCM — La Niña scramble' },
+  { id: 'i12', at: 44 * M + 8, side: 'importer', dest: 'ANT', qty: 5, prem: 25, life: 30, from: 'Antwerp Blenders', note: 'DDP Antwerp, EUR — last call' },
+]
+// Sandbox (no live clock): permanent training tenders, one per market.
+const STATIC_TENDERS: CustomerTender[] = [
+  { id: 's-e', at: 0, side: 'exporter', qty: 99, prem: 0, life: Infinity, from: 'Hamburg Trade House', note: 'FOB HCM, Gd2 — bids the market' },
+  { id: 's-a', at: 0, side: 'importer', dest: 'ANT', qty: 99, prem: 20, life: Infinity, from: 'Beveren Roasters', note: 'DDP Antwerp, EUR' },
+  { id: 's-t', at: 0, side: 'importer', dest: 'TUN', qty: 99, prem: 15, life: Infinity, from: 'Carthage Café', note: 'delivered Tunis, USD' },
+  { id: 's-k', at: 0, side: 'importer', dest: 'KOB', qty: 99, prem: 45, life: Infinity, from: 'Ueshima Coffee', note: 'delivered Kobe, USD' },
 ]
 
 export const feedAt = (t: number, key: keyof typeof FEED) => {
@@ -237,7 +324,7 @@ export function buildTradeReport(history: TradeRecord[], trader?: string, riskMo
   L.push('')
   history.forEach((t, n) => {
     const d = t.deal
-    L.push(`Trade ${n + 1} — ${t.mode === 'exporter' ? 'Exporter (buy VND → sell FOB)' : 'Importer (buy FOB → sell spot EUR)'} · ${t.tonnes} t bought · ${t.lots} lots hedged (${t.lots * LOT_T} t) · ${t.boxes} containers shipped (${t.soldT.toFixed(1)} t)`)
+    L.push(`Trade ${n + 1} — ${t.mode === 'exporter' ? 'Exporter (buy VND → sell FOB)' : `Importer (buy FOB → sell spot ${DESTS[t.deal.dest ?? 'ANT'].name})`} · ${t.tonnes} t bought · ${t.lots} lots hedged (${t.lots * LOT_T} t) · ${t.boxes} containers shipped (${t.soldT.toFixed(1)} t)`)
     if (t.mode === 'exporter') {
       const dBuy = d.buy! - d.fHedge!
       L.push(`  1. Buy physical: ${d.vnd?.toLocaleString('en-US')} VND/kg = ${fmtUsd(d.buy!, 1)}/t × ${t.tonnes} t${d.grade ? ` · grade ${d.grade}` : ''}${stampOfAction(d, 1)}`)
@@ -249,10 +336,11 @@ export function buildTradeReport(history: TradeRecord[], trader?: string, riskMo
         L.push(`  Rounds unhedged (flat risk): ${Math.abs(d.stamps[i2] - d.stamps[i1])}`)
       }
     } else {
+      const dd = d.dest ?? 'ANT'
       L.push(`  1. Buy physical FOB: London ${dfmt(d.dBuy!)} (PTBF) × ${t.tonnes} t${stampOfAction(d, 1)}`)
-      L.push(`  2. Buy freight: $${d.freight}/t + $${CIF_INSTORE} instore${stampOfAction(d, 2)}`)
+      L.push(`  2. Buy freight: $${d.freight}/t HCM → ${DESTS[dd].name} + $${CIF_INSTORE} instore${stampOfAction(d, 2)}`)
       L.push(`  3. Fix before export (sell futures): ${fmtUsd(d.fHedge!)} × ${t.lots} lots → purchase ${fmtUsd(d.fHedge! + d.dBuy!)}/t${stampOfAction(d, 3)}`)
-      L.push(`  4. Sell spot outright: ${fmtEur(d.eur!)}/t × ${EURUSD.toFixed(2)} = ${fmtUsd(d.sell!)}/t × ${t.boxes} containers${stampOfAction(d, 4)}`)
+      L.push(`  4. Sell spot ${DESTS[dd].name}: ${dd === 'ANT' ? `${fmtEur(d.eur!)}/t × ${EURUSD.toFixed(2)} = ` : ''}${fmtUsd(d.sell!)}/t × ${t.boxes} containers${stampOfAction(d, 4)}`)
       L.push(`  5. Buy futures: ${fmtUsd(d.fFix!)} → selling diff ${dfmt(d.sell! - d.fFix!)}${stampOfAction(d, 5)}`)
       if (d.stamps) {
         const i4 = d.order ? d.order.indexOf(4) : 3, i5 = d.order ? d.order.indexOf(5) : 4
@@ -725,6 +813,8 @@ export default function PtbfMechanics() {
   const [boxesIn, setBoxesIn] = useState(Math.floor(DEFAULT_VOL / CONTAINER_T)) // sale, in containers
   const [fixLotsIn, setFixLotsIn] = useState(Math.round(DEFAULT_VOL / LOT_T))   // buy-back, in lots
   const [gradeSel, setGradeSel] = useState<Grade>('G2')                          // advanced: grade to originate
+  const [destSel, setDestSel] = useState<Dest>('ANT')                            // advanced importer: freight destination to book
+  const [tenderFills, setTenderFills] = useState<Record<string, number>>({})     // advanced: boxes already delivered into each customer tender
 
   const [deal, setDeal] = useState<Deal>({})
   const [history, setHistory] = useState<TradeRecord[]>([])
@@ -795,6 +885,7 @@ export default function PtbfMechanics() {
     setPins([])
     setRiskTS(0)
     setCommitments([])
+    setTenderFills({})
     setPaused(false)
     setLive(true)
   }
@@ -848,6 +939,64 @@ export default function PtbfMechanics() {
   const gAdj = level === 'adv' && mode === 'exporter' ? GRADES[grade] : GRADES.G2
   const effBuy = localUsd + gAdj.buy
 
+  // ── Advanced importer: the freight market & the three spot markets ──
+  // Route quotes derive from the base (Antwerp) freight; each local spot
+  // derives from the Antwerp value adjusted for the freight gap + premium.
+  const destFr = (d: Dest) => destFreight(d, freight, live ? elapsed : undefined)
+  const destSpotLocal = (d: Dest) =>
+    d === 'ANT' ? eurSpot : Math.round(eurUsd + (destFr(d) - freight) + DESTS[d].prem)
+  const fmtLocal = (d: Dest, v: number) => (DESTS[d].ccy === 'EUR' ? fmtEur(v) : fmtUsd(v))
+
+  // ── The mailbox (Advanced): which customer tenders are OPEN right now ──
+  const advMail = level === 'adv'
+  const tenderPool = live ? TENDERS : STATIC_TENDERS
+  const openTenders = advMail
+    ? tenderPool.filter(td =>
+        td.side === mode &&
+        (!live || (elapsed >= td.at && elapsed < td.at + td.life)) &&
+        (tenderFills[td.id] ?? 0) < td.qty)
+    : []
+  // A tender is fulfillable when boxes remain AND (importer) the coffee is
+  // not committed to a different port — the trade's destination locks at the
+  // freight booking or the first fulfilled tender, whichever comes first.
+  const tenderOk = (td: CustomerTender) =>
+    !complete && !sessionOver && remainingBoxes > 0 &&
+    (td.side === 'exporter' || deal.dest === undefined || deal.dest === td.dest)
+  // The sale price a tender pays right now (local ccy + USD equivalent)
+  const tenderPx = (td: CustomerTender): { local: number; usd: number } => {
+    if (td.side === 'exporter') { const diff = fobDiff + td.prem + gAdj.sell; return { local: diff, usd: diff } }
+    const local = destSpotLocal(td.dest!) + td.prem
+    return { local, usd: td.dest === 'ANT' ? Math.round(local * EURUSD) : local }
+  }
+  const bestTender = openTenders.filter(tenderOk).reduce<CustomerTender | null>(
+    (best, td) => (best === null || tenderPx(td).usd > tenderPx(best).usd ? td : best), null)
+
+  // Fulfilling a tender IS the sale action (exporter action 3 / importer 4),
+  // executed at the tender's price for as many boxes as it still takes.
+  function fulfillTender(td: CustomerTender) {
+    if (!advMail || !tenderOk(td) || td.side !== mode) return
+    const already = tenderFills[td.id] ?? 0
+    const clip = Math.min(td.qty - already, remainingBoxes)
+    if (clip <= 0) return
+    const { local, usd } = tenderPx(td)
+    setTenderFills(f => ({ ...f, [td.id]: already + clip }))
+    const saleN = mode === 'exporter' ? 3 : 4
+    setDeal(d => {
+      const b0 = d.boxes ?? 0
+      return {
+        ...d,
+        sell: wavg(d.sell, b0, usd, clip), boxes: b0 + clip,
+        ...(mode === 'importer' ? { dest: d.dest ?? td.dest, eur: Math.round(wavg(d.eur, b0, local, clip)) } : {}),
+        futMarks: [...(d.futMarks ?? []), curFut],
+        diffMarks: [...(d.diffMarks ?? []), fobDiff],
+        order: [...(d.order ?? []), saleN],
+        clipPx: [...(d.clipPx ?? []), usd],
+        clipQty: [...(d.clipQty ?? []), clip],
+        ...(live ? { stamps: [...(d.stamps ?? []), liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed] } : {}),
+      }
+    })
+  }
+
   // ── Working capital (live only) ──
   const openCommitments = commitments.filter(c => c.freesAt > elapsed)
   const committedDrawn = openCommitments.reduce((s, c) => s + c.amount, 0)
@@ -878,7 +1027,7 @@ export default function PtbfMechanics() {
   const capitalBlocked = live && estDraw > available
   const nextFreeIn = openCommitments.length > 0 ? Math.max(0, Math.min(...openCommitments.map(c => c.freesAt)) - elapsed) : 0
 
-  function switchMode(m: Mode) { setMode(m); setDeal({}); setBookedAt(null) }
+  function switchMode(m: Mode) { setMode(m); setDeal({}); setBookedAt(null); setTenderFills({}) }
 
   // Advanced level: the futures screen is an order book — you cross a bid/ask
   // spread and SIZE walks the book ($3 half-spread + $0.50 per lot beyond 10).
@@ -929,7 +1078,14 @@ export default function PtbfMechanics() {
             vol: v0 + vol, draw: (d.draw ?? 0) + Math.max(0, curFut + fobDiff) * vol, ...stamp(d, fobDiff, vol) }
         })
       }
-      else if (n === 2) setDeal(d => ({ ...d, freight, ...stamp(d, freight, 1) }))
+      else if (n === 2) {
+        // Advanced: the freight is a ROUTE — it locks the trade's destination.
+        // A book already committed to a port (via a fulfilled tender) can only
+        // book THAT route.
+        const dDest: Dest = level === 'adv' ? (deal.dest ?? destSel) : 'ANT'
+        const fr = level === 'adv' ? destFr(dDest) : freight
+        setDeal(d => ({ ...d, freight: fr, ...(level === 'adv' ? { dest: dDest } : {}), ...stamp(d, fr, 1) }))
+      }
       else if (n === 3) { const px = advFutPx('sell', fut, lotsIn); setFutFix(fut); setDeal(d => { const l0 = d.lots ?? 0
         return { ...d, fHedge: wavg(d.fHedge, l0, px, lotsIn), lots: l0 + lotsIn, ...stamp(d, px, lotsIn) } }) }
       else if (n === 4) { const clip = Math.min(boxesIn, remainingBoxes); setDeal(d => { const b0 = d.boxes ?? 0
@@ -963,30 +1119,36 @@ export default function PtbfMechanics() {
       }
     })
   }
-  // Sell G2 FOB & load immediately: the PTBF sale and its fixing execute together.
+  // Sell G2 FOB & load immediately: the PTBF sale and its fixing execute
+  // together. On Advanced the sale goes THROUGH the mailbox: it fills the
+  // best open customer tender (no open tender → no combo).
   function comboSellFix() {
     if (mode !== 'exporter' || complete) return
-    const sClip = Math.min(boxesIn, remainingBoxes)
+    if (advMail && bestTender === null) return
+    const tdCap = advMail && bestTender ? bestTender.qty - (tenderFills[bestTender.id] ?? 0) : Infinity
+    const sClip = Math.min(boxesIn, remainingBoxes, tdCap)
     const fClip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn
     if (sClip <= 0 || fClip <= 0 || outstanding <= 0) return
+    const salePx = advMail && bestTender ? tenderPx(bestTender).usd : fobDiff + gAdj.sell
+    if (advMail && bestTender) setTenderFills(f => ({ ...f, [bestTender.id]: (f[bestTender.id] ?? 0) + sClip }))
     const fixPx = advFutPx('buy', futFix, fClip)
     setDeal(d => {
       const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
       return {
         ...d,
-        sell: wavg(d.sell, b0, fobDiff + gAdj.sell, sClip), boxes: b0 + sClip,
+        sell: wavg(d.sell, b0, salePx, sClip), boxes: b0 + sClip,
         fFix: wavg(d.fFix, x0, fixPx, fClip), fixedLots: x0 + fClip,
         futMarks: [...(d.futMarks ?? []), curFut, fixPx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 3, 4],
-        clipPx: [...(d.clipPx ?? []), fobDiff + gAdj.sell, fixPx],
+        clipPx: [...(d.clipPx ?? []), salePx, fixPx],
         clipQty: [...(d.clipQty ?? []), sClip, fClip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
     })
   }
   const combo1Ok = mode === 'exporter' && !complete && !sessionOver && !capitalBlocked && !marginBlockedAct(2)
-  const combo2Ok = mode === 'exporter' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0
+  const combo2Ok = mode === 'exporter' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0 && (!advMail || bestTender !== null)
 
   // Importer flash combos: buy the FOB diff AND fix/hedge it in one click;
   // sell the spot AND buy the futures back together (selling in diff terms).
@@ -1012,20 +1174,27 @@ export default function PtbfMechanics() {
   }
   function comboImpSellDiff() {
     if (mode !== 'importer' || complete) return
-    const sClip = Math.min(boxesIn, remainingBoxes)
+    if (advMail && bestTender === null) return
+    const tdCap = advMail && bestTender ? bestTender.qty - (tenderFills[bestTender.id] ?? 0) : Infinity
+    const sClip = Math.min(boxesIn, remainingBoxes, tdCap)
     const fClip = level === 'easy' ? Math.min(fixLotsIn, outstanding) : fixLotsIn
     if (sClip <= 0 || fClip <= 0 || outstanding <= 0) return
+    // Advanced: the spot leg fills the best open tender at ITS price/port
+    const px = advMail && bestTender ? tenderPx(bestTender) : { local: eurSpot, usd: Math.round(eurUsd) }
+    const saleDest = advMail && bestTender ? bestTender.dest : undefined
+    if (advMail && bestTender) setTenderFills(f => ({ ...f, [bestTender.id]: (f[bestTender.id] ?? 0) + sClip }))
     const fixPx = advFutPx('buy', futFix, fClip)
     setDeal(d => {
       const b0 = d.boxes ?? 0, x0 = d.fixedLots ?? 0
       return {
         ...d,
-        eur: Math.round(wavg(d.eur, b0, eurSpot, sClip)), sell: wavg(d.sell, b0, eurUsd, sClip), boxes: b0 + sClip,
+        eur: Math.round(wavg(d.eur, b0, px.local, sClip)), sell: wavg(d.sell, b0, px.usd, sClip), boxes: b0 + sClip,
+        ...(saleDest ? { dest: d.dest ?? saleDest } : {}),
         fFix: wavg(d.fFix, x0, fixPx, fClip), fixedLots: x0 + fClip,
         futMarks: [...(d.futMarks ?? []), curFut, fixPx],
         diffMarks: [...(d.diffMarks ?? []), fobDiff, fobDiff],
         order: [...(d.order ?? []), 4, 5],
-        clipPx: [...(d.clipPx ?? []), eurUsd, fixPx],
+        clipPx: [...(d.clipPx ?? []), px.usd, fixPx],
         clipQty: [...(d.clipQty ?? []), sClip, fClip],
         ...(live ? { stamps: [...(d.stamps ?? []), liveRound, liveRound], stampTimes: [...(d.stampTimes ?? []), elapsed, elapsed] } : {}),
       }
@@ -1038,7 +1207,9 @@ export default function PtbfMechanics() {
   // tender friction (freight + instore are already charged in the P&L).
   function actTender() {
     if (level !== 'adv' || mode !== 'importer' || complete || sessionOver) return
-    if (deal.freight === undefined) return
+    // Exchange warrants live in EUROPE: the coffee must be shipped — and
+    // shipped to Antwerp. A parcel landed in Tunis or Kobe cannot tender.
+    if (deal.freight === undefined || (deal.dest ?? 'ANT') !== 'ANT') return
     const clip = Math.min(boxesIn, remainingBoxes)
     if (clip <= 0) return
     const px = curFut - TENDER_FRICTION
@@ -1055,7 +1226,7 @@ export default function PtbfMechanics() {
   }
 
   const comboI1Ok = mode === 'importer' && !complete && !sessionOver && !capitalBlocked && !marginBlockedAct(3)
-  const comboI2Ok = mode === 'importer' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0
+  const comboI2Ok = mode === 'importer' && !complete && !sessionOver && remainingBoxes > 0 && outstanding > 0 && (!advMail || bestTender !== null)
 
   // Stamp tag by ACTION number (free order maps action → execution index)
   const execIdx = (n: number) => (deal.order ? deal.order.indexOf(n) : n - 1)
@@ -1262,7 +1433,9 @@ export default function PtbfMechanics() {
         { n: 3, label: 'Sell futures', px: fmtUsd(fut), px2: undefined, detail: 'fix before export → purchase = fix + diff, hedged', qty: 'lots' as const },
         { n: 4, label: 'Sell spot Antwerp (EUR)', px: `${fmtUsd(eurUsd)}/t`, px2: `FOB eq. ${dfmt(eurUsd - curFut - (deal.freight ?? freight) - CIF_INSTORE, 0)}`, detail: `${fmtEur(eurSpot)}/t × ${EURUSD.toFixed(2)}`, qty: 'boxes' as const },
         { n: 5, label: 'Buy futures', px: fmtUsd(curFut), px2: undefined, detail: 'locks your selling differential', qty: 'fixlots' as const },
-        { n: 2, label: 'Buy freight', px: `$${freight}/t`, px2: undefined, detail: `HCM → Antwerp (+$${CIF_INSTORE} CIF→instore) — needed before the book can square`, qty: null },
+        { n: 2, label: 'Buy freight',
+          px: `$${level === 'adv' ? destFr(deal.dest ?? destSel) : freight}/t`, px2: undefined,
+          detail: `HCM → ${level === 'adv' ? DESTS[deal.dest ?? destSel].name : 'Antwerp'} (+$${CIF_INSTORE} CIF→instore) — needed before the book can square`, qty: null },
       ]
 
 
@@ -1356,7 +1529,7 @@ export default function PtbfMechanics() {
             ? 'actions execute in a fixed, guided order'
             : level === 'inter'
               ? 'any order — sell first, even buy futures naked (know why!) · 8% p.a. financing on drawn capital · booked = diff sold: square the futures within 10 s or auto-fix, −$20k'
-              : 'everything intermediate has, PLUS the screen is an order book: futures fills pay a bid/ask spread and SIZE moves your price ($3 half-spread + $0.50/lot beyond 10)'}
+              : 'everything intermediate has, PLUS: the screen is an order book ($3 half-spread + $0.50/lot beyond 10) · sales go through the 📬 MAILBOX — customers tender, you fulfil while it is open · importer: a 3-destination freight market (Antwerp €, Tunis $, Kobe $) — ship where your customer buys'}
         </span>
       </div>
 
@@ -1642,6 +1815,20 @@ export default function PtbfMechanics() {
                       {volT > 0 && <span className="font-mono text-[8px] text-slate-500">grade locked</span>}
                     </div>
                   )}
+                  {a.n === 2 && mode === 'importer' && level === 'adv' && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {(Object.keys(DESTS) as Dest[]).map(d => (
+                        <button key={d} type="button" disabled={deal.dest !== undefined} onClick={() => setDestSel(d)} aria-label={`Destination ${d}`}
+                          title={`HCM → ${DESTS[d].name}: $${destFr(d)}/t — the route must match where your customer wants the coffee`}
+                          className={`rounded px-1.5 py-px font-mono text-[9px] font-bold transition-colors ${
+                            (deal.dest ?? destSel) === d ? 'bg-amber-500/20 text-amber-200' : deal.dest !== undefined ? 'text-slate-600' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200'
+                          }`}>
+                          {DESTS[d].name} ${destFr(d)}
+                        </button>
+                      ))}
+                      {deal.dest !== undefined && <span className="font-mono text-[8px] text-slate-500">route locked</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -1655,6 +1842,54 @@ export default function PtbfMechanics() {
                 {label}
               </button>
             )
+            // The MAILBOX (Advanced): customer tenders replace the free sell button
+            const mailbox = (
+              <div className={`rounded-xl border p-2 transition-all ${
+                openTenders.some(td => live && elapsed - td.at < 5)
+                  ? 'animate-pulse border-amber-400 bg-amber-500/[0.10] shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                  : 'border-amber-500/25 bg-amber-500/[0.03]'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] font-bold text-amber-200">📬 Mailbox — customer tenders</span>
+                  <span className="font-mono text-[9px] text-slate-500">{openTenders.length} open</span>
+                </div>
+                <p className="mt-0.5 font-mono text-[8.5px] leading-snug text-slate-500">
+                  On Advanced THIS is how you sell: fulfil a tender while it is open{mode === 'importer' ? ' — and ship to ITS port' : ''}.
+                </p>
+                <div className="mt-1 space-y-1">
+                  {openTenders.length === 0 && (
+                    <div className="rounded border border-white/5 bg-white/[0.02] p-1.5 font-mono text-[9px] text-slate-500">
+                      No tender open — watch the mail: customers arrive with the news.
+                    </div>
+                  )}
+                  {openTenders.map(td => {
+                    const left = td.qty - (tenderFills[td.id] ?? 0)
+                    const ok = tenderOk(td)
+                    const px = tenderPx(td)
+                    const wrongPort = mode === 'importer' && deal.dest !== undefined && deal.dest !== td.dest
+                    return (
+                      <div key={td.id} className={`rounded border p-1.5 ${ok ? 'border-amber-500/30 bg-amber-500/[0.05]' : 'border-white/5 bg-white/[0.02] opacity-60'}`}>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate font-mono text-[9.5px] font-bold text-white">{td.from}</span>
+                          <button type="button" onClick={() => fulfillTender(td)} disabled={!ok} aria-label={`Fulfill ${td.from}`}
+                            className={`chip !py-0 !px-1.5 shrink-0 font-mono text-[9px] ${ok ? 'cursor-pointer border-amber-500/60 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30' : 'cursor-not-allowed opacity-50 text-slate-500'}`}>
+                            {wrongPort ? 'wrong port' : 'fulfil'}
+                          </button>
+                        </div>
+                        <div className="mt-0.5 font-mono text-[9px] text-slate-400">
+                          {td.dest && <span className="mr-1 rounded bg-brand-cyan/10 px-1 text-brand-cyan">{DESTS[td.dest].name}</span>}
+                          <span className="rounded bg-amber-500/10 px-1 font-bold text-amber-300">
+                            {td.side === 'exporter' ? `diff ${dfmt(px.local)}` : `${fmtLocal(td.dest!, px.local)}/t`}
+                          </span>{' '}
+                          · {left} bx{live && Number.isFinite(td.life) ? ` · expires in ${Math.max(0, td.at + td.life - elapsed)}s` : ''}
+                        </div>
+                        <div className="font-mono text-[8.5px] text-slate-500">{td.note}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
             if (mode === 'importer') return (
               <>
                 {/* buy the FOB diff + fix/hedge together */}
@@ -1662,24 +1897,29 @@ export default function PtbfMechanics() {
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[0])}{row(ACTIONS[1])}</div>
                   {vertBtn('Buy FOB & fix ⚡', comboI1Ok, comboImpBuyFix)}
                 </div>
-                {/* sell the spot + buy the futures back = sell in diff terms */}
+                {/* sell the spot + buy the futures back = sell in diff terms.
+                    Advanced: the sale happens through the mailbox. */}
                 <div className="flex items-stretch gap-1.5">
-                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
+                  <div className="min-w-0 flex-1 space-y-1.5">{advMail ? mailbox : row(ACTIONS[2])}{row(ACTIONS[3])}</div>
                   {vertBtn('Sell spot diff ⚡', comboI2Ok, comboImpSellDiff)}
                 </div>
                 {row(ACTIONS[4])}
                 {/* advanced: the buyer of last resort — only the importer can
                     tender: the coffee must already be shipped to Europe */}
                 {level === 'adv' && (() => {
-                  const tenderOk = !complete && !sessionOver && remainingBoxes > 0 && deal.freight !== undefined
+                  const exchOk = !complete && !sessionOver && remainingBoxes > 0 && deal.freight !== undefined && (deal.dest ?? 'ANT') === 'ANT'
                   return (
-                    <button type="button" onClick={actTender} disabled={!tenderOk} aria-label="Tender to exchange"
+                    <button type="button" onClick={actTender} disabled={!exchOk} aria-label="Tender to exchange"
                       className={`w-full rounded-xl border p-2 text-left font-mono text-[10px] transition-all ${
-                        tenderOk ? 'border-rose-500/40 bg-rose-500/[0.06] text-rose-200 hover:bg-rose-500/[0.12]' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+                        exchOk ? 'border-rose-500/40 bg-rose-500/[0.06] text-rose-200 hover:bg-rose-500/[0.12]' : 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
                       }`}>
                       <span className="font-bold">Tender to exchange</span> — deliver {Math.max(1, Math.min(boxesIn, remainingBoxes))} bx at{' '}
                       <span className="font-bold text-amber-300">{fmtUsd(curFut - TENDER_FRICTION)}/t</span>
-                      <span className="text-slate-500"> · {deal.freight === undefined ? 'book the freight first — the coffee must reach Europe' : 'a spot sale to the buyer of last resort (futures − $95 tender costs)'}</span>
+                      <span className="text-slate-500"> · {deal.freight === undefined
+                        ? 'book the freight first — the coffee must reach Europe'
+                        : (deal.dest ?? 'ANT') !== 'ANT'
+                          ? `exchange warrants live in Europe — your coffee landed in ${DESTS[deal.dest!].name}`
+                          : 'a spot sale to the buyer of last resort (futures − $95 tender costs)'}</span>
                     </button>
                   )
                 })()}
@@ -1692,9 +1932,10 @@ export default function PtbfMechanics() {
                   <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[0])}{row(ACTIONS[1])}</div>
                   {vertBtn('Buy G2 diff ⚡', combo1Ok, comboBuyDiff)}
                 </div>
-                {/* sell FOB + fix = sell & load immediately, one click */}
+                {/* sell FOB + fix = sell & load immediately, one click.
+                    Advanced: the FOB sale happens through the mailbox. */}
                 <div className="flex items-stretch gap-1.5">
-                  <div className="min-w-0 flex-1 space-y-1.5">{row(ACTIONS[2])}{row(ACTIONS[3])}</div>
+                  <div className="min-w-0 flex-1 space-y-1.5">{advMail ? mailbox : row(ACTIONS[2])}{row(ACTIONS[3])}</div>
                   {vertBtn('Sell FOB & fix ⚡', combo2Ok, comboSellFix)}
                 </div>
               </>
@@ -1718,8 +1959,19 @@ export default function PtbfMechanics() {
           )}
 
           {mode === 'importer' && (
-            <Field live={live} label="Freight HCM → Antwerp ($/t)" value={freight} min={40} max={150} step={5} onChange={setFreight}
-              locked={deal.freight !== undefined} lockedAt={deal.freight !== undefined ? `@ $${deal.freight}` : undefined} />
+            <>
+              <Field live={live} label="Freight HCM → Antwerp ($/t)" value={freight} min={40} max={150} step={5} onChange={setFreight}
+                locked={deal.freight !== undefined} lockedAt={deal.freight !== undefined ? `@ $${deal.freight}${deal.dest ? ` → ${DESTS[deal.dest].name}` : ''}` : undefined} />
+              {level === 'adv' && (
+                <div className="flex flex-wrap gap-1.5 font-mono text-[10px]" data-testid="freight-market">
+                  {(['TUN', 'KOB'] as Dest[]).map(d => (
+                    <span key={d} className="rounded-lg border border-brand-cyan/20 bg-brand-cyan/[0.04] px-2 py-1 tabular-nums text-slate-300">
+                      → {DESTS[d].name} <span className="font-bold text-white">${destFr(d)}</span>/t
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <Field live={live} label="London futures — hedge leg ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut} locked={false} />
@@ -1736,7 +1988,18 @@ export default function PtbfMechanics() {
               <p className="-mt-1 text-[10px] text-slate-500">The rose line on the graph is tenderable parity — it MOVES: −(freight + $100 instore + $95 tender costs). Dearer freight pushes the floor lower.</p>
             </>
           ) : (
-            <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot} locked={false} />
+            <>
+              <Field live={live} label="Spot Antwerp, outright (€/t)" value={eurSpot} min={3200} max={5000} step={10} onChange={setEurSpot} locked={false} />
+              {level === 'adv' && (
+                <div className="flex flex-wrap gap-1.5 font-mono text-[10px]" data-testid="spot-markets">
+                  {(['TUN', 'KOB'] as Dest[]).map(d => (
+                    <span key={d} className="rounded-lg border border-brand-cyan/20 bg-brand-cyan/[0.04] px-2 py-1 tabular-nums text-slate-300">
+                      Spot {DESTS[d].name} <span className="font-bold text-white">${destSpotLocal(d).toLocaleString('en-US')}</span>/t
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
         </div>
@@ -1757,9 +2020,9 @@ export default function PtbfMechanics() {
               ) : (
                 <>
                   {volT > 0 && <div className="flex justify-between"><span className="text-slate-400">1 · Bought FOB (diff){roundTagA(1)}</span><span className="text-white">London {dfmt(deal.dBuy!)} · price TBF · {volT} t</span></div>}
-                  {deal.freight !== undefined && <div className="flex justify-between"><span className="text-slate-400">2 · Freight booked{roundTagA(2)}</span><span className="text-white">${deal.freight}/t + ${CIF_INSTORE} instore</span></div>}
+                  {deal.freight !== undefined && <div className="flex justify-between"><span className="text-slate-400">2 · Freight booked{roundTagA(2)}</span><span className="text-white">${deal.freight}/t → {DESTS[deal.dest ?? 'ANT'].name} + ${CIF_INSTORE} instore</span></div>}
                   {lotsH > 0 && <div className="flex justify-between"><span className="text-slate-400">3 · Fixed & hedged{roundTagA(3)}</span><span className="text-white">{fmtUsd(deal.fHedge!)} × {lotsH} lots{impInvoice !== null ? <> → purchase {fmtUsd(impInvoice)}/t</> : <span className="text-slate-500"> · purchase TBD (no diff yet)</span>}</span></div>}
-                  {boxesS > 0 && <div className="flex justify-between"><span className="text-slate-400">4 · Sold outright{roundTagA(4)}</span><span className="text-white">{fmtEur(deal.eur!)}/t = {fmtUsd(deal.sell!)}/t × {boxesS} boxes</span></div>}
+                  {boxesS > 0 && <div className="flex justify-between"><span className="text-slate-400">4 · Sold outright · {DESTS[deal.dest ?? 'ANT'].name}{roundTagA(4)}</span><span className="text-white">{fmtLocal(deal.dest ?? 'ANT', deal.eur!)}/t{(deal.dest ?? 'ANT') === 'ANT' ? <> = {fmtUsd(deal.sell!)}/t</> : null} × {boxesS} boxes</span></div>}
                   {lotsX > 0 && <div className="flex justify-between"><span className="text-slate-400">5 · Bought futures → selling diff{roundTagA(5)}</span><span className="text-white">{fmtUsd(deal.fFix!)}{dSellImp !== null ? <> → {dfmt(dSellImp, 0)}</> : null}</span></div>}
                 </>
               )}
@@ -1848,7 +2111,7 @@ export default function PtbfMechanics() {
                     <td className="px-2 text-slate-400">
                       {t.mode === 'exporter'
                         ? `${t.deal.vnd?.toLocaleString('en-US')} VND → FOB ${dfmt(t.deal.sell!)}`
-                        : `FOB ${dfmt(t.deal.dBuy!)} → ${fmtEur(t.deal.eur!)}`}
+                        : `FOB ${dfmt(t.deal.dBuy!)} → ${DESTS[t.deal.dest ?? 'ANT'].name} ${fmtLocal(t.deal.dest ?? 'ANT', t.deal.eur!)}`}
                     </td>
                     <td className="px-2 text-slate-400">{t.tonnes} t · {t.lots} lots · {t.boxes} bx</td>
                     <td className="px-2 text-slate-500">

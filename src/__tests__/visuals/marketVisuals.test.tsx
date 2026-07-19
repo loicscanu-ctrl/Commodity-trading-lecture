@@ -229,11 +229,14 @@ test('PtbfMechanics advanced level: futures fills pay the bid/ask spread and siz
   expect(container.textContent).toContain('20 lots @ $4,792')
 })
 
-test('PtbfMechanics advanced: grade choice adjusts both legs of the exporter book', () => {
+test('PtbfMechanics advanced: grade choice adjusts both legs, sales go through the mailbox', () => {
   const { container } = render(<PtbfMechanics />)
   fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
   // No tender button on the exporter side — delivery needs the freight leg
   expect(screen.queryByRole('button', { name: 'Tender to exchange' })).toBeNull()
+  // On Advanced the free FOB sell button is GONE: the mailbox sells
+  expect(screen.queryByRole('button', { name: 'Sell FOB HCM' })).toBeNull()
+  expect(container.textContent).toContain('Mailbox — customer tenders')
   // Originate G3: −$70 on cost, −$90 on the sale ladder
   fireEvent.click(screen.getByRole('button', { name: 'Grade G3' }))
   fireEvent.click(screen.getByRole('button', { name: 'Buy G3 spot HCM' }))
@@ -241,12 +244,60 @@ test('PtbfMechanics advanced: grade choice adjusts both legs of the exporter boo
   // Hedge 10 lots with the order-book spread: 4,800 − $3 half-spread = 4,797
   fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
   expect(container.textContent).toContain('10 lots @ $4,797')
-  // Sell FOB with the G3 ladder: −60 diff − 90 ladder = −150
-  fireEvent.click(screen.getByRole('button', { name: 'Sell FOB HCM' }))
+  // Fulfil the standing tender (bids the market): −60 diff − 90 ladder = −150
+  fireEvent.click(screen.getByRole('button', { name: 'Fulfill Hamburg Trade House' }))
   expect(container.textContent).toContain('5 bx @ −$150')
   // Square the futures → the book completes
   fireEvent.click(screen.getByRole('button', { name: 'Buy futures (Load & fix)' }))
   expect(container.textContent).toContain('FLAT — trade complete')
+})
+
+test('PtbfMechanics advanced importer: the freight market — ship to the port your customer buys in', () => {
+  const { container } = render(<PtbfMechanics />)
+  fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Importer: buy FOB/ }))
+  // Three routes quoted off the Antwerp base ($70): Tunis 70×0.85+8=$68, Kobe 70×0.55+12=$51
+  expect(screen.getByTestId('freight-market').textContent).toContain('Tunis')
+  expect(screen.getByTestId('freight-market').textContent).toContain('Kobe')
+  // Kobe pays a quality premium: spot = 4,920 + (51 − 70) + 60 = $4,961 (USD)
+  expect(screen.getByTestId('spot-markets').textContent).toContain('$4,961')
+  // Book the KOBE freight, then work the trade
+  fireEvent.click(screen.getByRole('button', { name: 'Destination KOB' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Buy freight' }))
+  expect(container.textContent).toContain('route locked')
+  fireEvent.click(screen.getByRole('button', { name: 'Buy FOB HCM' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+  // The Antwerp customer is now the WRONG PORT; the exchange (Antwerp) too
+  expect(screen.getByRole('button', { name: 'Fulfill Beveren Roasters' })).toBeDisabled()
+  expect(container.textContent).toContain('wrong port')
+  expect(screen.getByRole('button', { name: 'Tender to exchange' })).toBeDisabled()
+  expect(container.textContent).toContain('your coffee landed in Kobe')
+  // The Kobe customer fulfils at spot Kobe + $45 = $5,006/t, in USD
+  fireEvent.click(screen.getByRole('button', { name: 'Fulfill Ueshima Coffee' }))
+  expect(container.textContent).toContain('5 bx @ $5,006')
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  expect(container.textContent).toContain('FLAT — trade complete')
+})
+
+test('PtbfMechanics advanced live: customer tenders arrive with the mail and expire', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<PtbfMechanics />)
+    fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // Before the first mail lands, the box is empty
+    expect(container.textContent).toContain('No tender open')
+    // t=9: Bremen Handelshaus tenders (FOB +10 over the market, 50 s validity)
+    act(() => { jest.advanceTimersByTime(9_000) })
+    expect(container.textContent).toContain('Bremen Handelshaus')
+    expect(container.textContent).toContain('expires in')
+    // t=69: Bremen expired (t=58); the Geneva desk low-ball (t=66) is open
+    act(() => { jest.advanceTimersByTime(60_000) })
+    expect(screen.queryByRole('button', { name: 'Fulfill Bremen Handelshaus' })).toBeNull()
+    expect(container.textContent).toContain('Geneva desk')
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 test('PtbfMechanics advanced importer: tendering needs the freight booked, then delivers at futures − $95', () => {
@@ -538,7 +589,7 @@ test('buildTradeReport includes volumes, every execution, stamps and totals', ()
   expect(report).toContain('Trader: Ada Lovelace')
   expect(report).toContain('Trade 1 — Exporter (buy VND → sell FOB) · 96 t bought · 10 lots hedged (100 t) · 5 containers shipped (96.0 t)')
   expect(report).toContain('120,000 VND/kg')
-  expect(report).toContain('buying diff −$94.1 · Y1 Nov')
+  expect(report).toContain('buying diff −$94.1 · Y1 Sep')
   expect(report).toContain('Rounds unhedged (flat risk): 1')
   expect(report).toContain('NET: +$3,275 (+$34.1/t on 96 t)')
   expect(report).toContain('SESSION TOTAL (1 trade): +$3,275')
