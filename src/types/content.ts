@@ -43,5 +43,6 @@ export type Module = {
   id: number
   title: string
   level: string
+  objectives: string[] // what the student will know after this module (shown as the hero band)
   topics: Topic[]
 }
