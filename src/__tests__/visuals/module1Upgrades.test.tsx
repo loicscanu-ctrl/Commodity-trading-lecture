@@ -1,5 +1,7 @@
 import { render, fireEvent, screen } from '@testing-library/react'
 import NetworkExplosion from '@/visuals/NetworkExplosion'
+import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
+import CbotTimeline from '@/visuals/CbotTimeline'
 import OrderBook from '@/visuals/OrderBook'
 import ParcelJourney from '@/visuals/ParcelJourney'
 import MarketBenefits from '@/visuals/MarketBenefits'
@@ -17,8 +19,35 @@ test('NetworkExplosion: quadratic bilateral links collapse to linear with the ex
   expect(container.textContent).toContain('49')
   fireEvent.click(screen.getByRole('button', { name: /One exchange/ }))
   expect(container.textContent).toContain('14')
-  // The olive-oil case is on the same slide
-  expect(container.textContent).toContain('olive oil')
+  expect(container.textContent).toContain('one public price')
+})
+
+test('UnhedgeableMarkets: olive oil deep case plus rice, pepper and the onion experiment', () => {
+  const { container } = render(<UnhedgeableMarkets />)
+  // The olive-oil chart with its swing annotation
+  expect(container.textContent).toContain('Extra-virgin olive oil')
+  expect(container.textContent).toContain('×4.7 top-to-bottom in five years')
+  // Even the best buyer could not do much: the two failed defences
+  expect(container.textContent).toContain('tanks hold ~1 month of supply')
+  // The three mini-cases
+  expect(container.textContent).toContain('Rice · world price')
+  expect(container.textContent).toContain('Vietnamese pepper')
+  expect(container.textContent).toContain('after the ban')
+  // The four no-exchange problems are still on the slide
+  expect(container.textContent).toContain('No buyer of last resort')
+  expect(container.textContent).toContain('suppliers walk away')
+})
+
+test('CbotTimeline: the chronology runs from harvest chaos to the modern clearing house', () => {
+  const { container } = render(<CbotTimeline />)
+  ;['1840s', '1848', '1850s', '1865', '1925', 'Today'].forEach(y =>
+    expect(container.textContent).toContain(y))
+  // Each invention is tagged with the problem it solves
+  expect(container.textContent).toContain('reference price')
+  expect(container.textContent).toContain('protection in advance')
+  expect(container.textContent).toContain('no counterparty risk')
+  expect(container.textContent).toContain('82 merchants')
+  expect(container.textContent).toContain('CME · ICE · LME')
 })
 
 test('OrderBook: a large market order walks the book; an unmarketable limit rests', () => {
