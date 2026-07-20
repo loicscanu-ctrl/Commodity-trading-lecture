@@ -2,7 +2,7 @@ import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
-import PtbfMechanics, { buildTradeReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
+import PtbfMechanics, { FuturesOnlySim, buildTradeReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -574,6 +574,48 @@ test('PtbfMechanics: completed trades are recorded and a new trade can start', (
   fireEvent.click(screen.getByRole('button', { name: /Record trade/ }))
   expect(container.textContent).toContain('#2')
   expect(container.textContent).toContain('+$6,551')
+})
+
+test('FuturesOnlySim: buy, mark to market, sell — the position maths of the Module 1 screen', () => {
+  const { container } = render(<FuturesOnlySim />)
+  // No PTBF machinery on this screen: futures panel only
+  expect(container.textContent).not.toContain('FOB HCM DIFFERENTIAL')
+  expect(container.textContent).not.toContain('tenderable parity')
+  // Buy 10 lots at the 4,800 default
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  expect(container.textContent).toContain('LONG 10 lots @ $4,800')
+  // Market rallies to 4,900: open MTM = $100/t × 100 t = +$10,000
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'London futures ($/t)' }), { target: { value: '4900' } })
+  expect(container.textContent).toContain('+$10,000')
+  // Sell 10 lots: the profit realizes and the book is flat
+  fireEvent.click(screen.getByRole('button', { name: 'Sell futures' }))
+  expect(container.textContent).toContain('FLAT')
+  expect(container.textContent).toContain('Realized')
+  expect(container.textContent).toContain('S 10 @ $4,900')
+})
+
+test('FuturesOnlySim live: same news tape as the floor, executions stamped by round', () => {
+  jest.useFakeTimers()
+  try {
+    const { container } = render(<FuturesOnlySim />)
+    fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
+    // The sliders disappear — the feed prices the market
+    expect(screen.queryByRole('spinbutton', { name: 'London futures ($/t)' })).toBeNull()
+    expect(container.textContent).toContain('warehouses almost full')
+    act(() => { jest.advanceTimersByTime(5_000) })
+    fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+    // The execution is stamped with its round — the same audit logic as the floor
+    expect(container.textContent).toContain('· Y1 Apr')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+test('the PTBF case study now opens module 2, and module 1 trades futures only', () => {
+  expect(modules[1].topics[0].id).toBe('06-ptbf-trading')
+  const m1Ids = modules[0].topics.map(t => t.id)
+  expect(m1Ids).toContain('06-futures-first')
+  expect(m1Ids).not.toContain('06-ptbf-trading')
 })
 
 test('buildTradeReport includes volumes, every execution, stamps and totals', () => {

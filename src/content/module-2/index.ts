@@ -1,3 +1,4 @@
+import ptbfTrading from './00-ptbf-trading'
 import differential from './01-differential'
 import knowExposure from './02-knowyourexposure'
 import hedgingTool from './02b-hedging-tool'
@@ -9,6 +10,7 @@ import liveTrading from './06-live-trading-exercise'
 import type { Topic } from '@/types/content'
 
 export const topics: Topic[] = [
+  ptbfTrading,   // PTBF & the two trades — the module's opening case study (Easy level in class)
   differential,
   knowExposure,
   hedgingTool,

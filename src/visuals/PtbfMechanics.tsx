@@ -492,10 +492,11 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
 // ticker crawls right every second, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins, coverDeadline }: {
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins, coverDeadline, futOnly }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; calSpread: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
   dots: DotSpec[]; sides: readonly Side[]; order?: number[]; stamps?: number[]; stampTimes?: number[]; liveLabel: string
   elapsed?: number; pins: Pin[]; coverDeadline?: number
+  futOnly?: boolean // futures panel only — no differential panel, no outright, no parity (the Module 1 screen)
 }) {
   // Which ACTION the i-th execution was (free order on the intermediate level)
   const actionOf = (i: number) => order?.[i] ?? i + 1
@@ -505,6 +506,9 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
   const y = (p: number) => mt + (1 - (p - PMINg) / (PMAXg - PMINg)) * ph
   // Second panel: the FOB differential — the risk the desk actually trades
   const D = { top: 292, h: 110, min: -580, max: 760 }
+  // Futures-only layout: the calendar axis sits right under the futures panel
+  const axisY = futOnly ? mt + ph + 8 : D.top + D.h
+  const VH = futOnly ? axisY + 34 : H
   const clampD = (v: number) => Math.min(D.max, Math.max(D.min, v))
   const yd = (v: number) => D.top + (1 - (clampD(v) - D.min) / (D.max - D.min)) * D.h
 
@@ -571,10 +575,10 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
         <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> buy</span>
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-rose-500" /> sell</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-4 border-t border-dotted border-slate-200" /> outright (fut + diff)</span>
+          {!futOnly && <span className="flex items-center gap-1"><span className="inline-block w-4 border-t border-dotted border-slate-200" /> outright (fut + diff)</span>}
         </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '430px' }}>
+      <svg viewBox={`0 0 ${W} ${VH}`} className="w-full" style={{ maxHeight: `${VH}px` }}>
         {[4000, 4500, 5000, 5500].map(p => (
           <g key={p}>
             <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
@@ -593,11 +597,11 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
               const labelled = m % 3 === 0
               return (
                 <g key={`mo-${m}`}>
-                  {isYear && <line x1={bx} y1={mt} x2={bx} y2={D.top + D.h} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />}
-                  <line x1={bx} y1={D.top + D.h} x2={bx} y2={D.top + D.h + (labelled ? 5 : 3)} stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+                  {isYear && <line x1={bx} y1={mt} x2={bx} y2={axisY} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />}
+                  <line x1={bx} y1={axisY} x2={bx} y2={axisY + (labelled ? 5 : 3)} stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
                   {labelled && (
-                    <text x={bx + 2} y={H - 8} textAnchor="start" fill="#64748b" fontSize="7.5" fontFamily="monospace"
-                      transform={`rotate(-33 ${bx + 2} ${H - 8})`}>
+                    <text x={bx + 2} y={VH - 8} textAnchor="start" fill="#64748b" fontSize="7.5" fontFamily="monospace"
+                      transform={`rotate(-33 ${bx + 2} ${VH - 8})`}>
                       {monthLabel(m)}
                     </text>
                   )}
@@ -610,7 +614,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
               const fx = xT(f.start + f.dur / 2)
               return (
                 <g key={`fl-${f.start}`}>
-                  <line x1={fx} y1={mt} x2={fx} y2={D.top + D.h} stroke="#f43f5e" strokeWidth="1" strokeDasharray="2 4" opacity="0.35" />
+                  <line x1={fx} y1={mt} x2={fx} y2={axisY} stroke="#f43f5e" strokeWidth="1" strokeDasharray="2 4" opacity="0.35" />
                   <text x={fx} y={mt + 8} textAnchor="middle" fill="#f43f5e" fontSize="9" fontWeight="bold">
                     ⚡<title>{`FLASH — ${f.label}`}</title>
                   </text>
@@ -620,7 +624,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
             {/* cover deadline — a physical short book MUST be bought back by here */}
             {coverDeadline !== undefined && (
               <g>
-                <line x1={xT(coverDeadline)} y1={mt} x2={xT(coverDeadline)} y2={D.top + D.h} stroke="#ef4444" strokeWidth="1.8" opacity="0.85" />
+                <line x1={xT(coverDeadline)} y1={mt} x2={xT(coverDeadline)} y2={axisY} stroke="#ef4444" strokeWidth="1.8" opacity="0.85" />
                 <text x={xT(coverDeadline) - 4} y={mt + 10} textAnchor="end" fill="#ef4444" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
                   COVER DEADLINE
                   <title>The book is physically SHORT — the sale ships in 3 months and cannot be postponed. Buy the physical before this line.</title>
@@ -653,14 +657,14 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
         )}
 
         {/* Flat outright — dotted white, above the futures path */}
-        {showOutright && (
+        {!futOnly && showOutright && (
           <path d={outrightPath} fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="2 4" opacity="0.75" strokeLinecap="round" />
         )}
-        {!isTime && !complete && marks.length > 0 && (
+        {!futOnly && !isTime && !complete && marks.length > 0 && (
           <line x1={xStep(marks.length)} y1={y(outright[outright.length - 1])} x2={xStep(nextStep)} y2={y(liveOutright)}
             stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 4" opacity="0.45" />
         )}
-        {showOutright && (
+        {!futOnly && showOutright && (
           <text x={ml + 6} y={y(isTime ? outrightSeries[0] : outright[0]) - 6} fill="#e2e8f0" fontSize="8.5" fontFamily="monospace" opacity="0.8">outright</text>
         )}
 
@@ -731,6 +735,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
         )}
 
         {/* ── FOB differential panel — the DIFF tile as a chart ── */}
+        {!futOnly && (<>
         <text x={ml} y={D.top - 8} fill="#94a3b8" fontSize="10" fontFamily="monospace">FOB HCM DIFFERENTIAL ($/t vs London)</text>
         {[0, 350, 700].map(v => (
           <g key={`d-${v}`}>
@@ -781,6 +786,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
             </text>
           </g>
         )}
+        </>)}
       </svg>
     </div>
   )
@@ -2124,6 +2130,224 @@ export default function PtbfMechanics() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module 1: the FUTURES-ONLY screen (level 0). Same deterministic market —
+// same news script, same drift/lag/flashes, same clock — but the only two
+// actions are BUY and SELL futures. The point is to FEEL how a futures price
+// trades against news before any hedging exists. Module 2 turns this
+// speculation into hedged PTBF trades with the full simulator.
+// ─────────────────────────────────────────────────────────────────────────────
+const FUT_DOTS: DotSpec[] = [{ fut: 'buy' }, { fut: 'sell' }]
+const FUT_SIDES: readonly Side[] = ['buy', 'sell']
+
+export function FuturesOnlySim() {
+  const [fut, setFut] = useState(4800)
+  const [spreadQ, setSpreadQ] = useState(-25)
+  const [lotsIn, setLotsIn] = useState(10)
+
+  // The book: a net position with a weighted-average entry + realized P&L
+  const [pos, setPos] = useState(0) // lots: + long · − short
+  const [avg, setAvg] = useState(0)
+  const [realized, setRealized] = useState(0)
+  const [execs, setExecs] = useState<{ side: Side; px: number; lots: number; t: number; round: number }[]>([])
+
+  const [live, setLive] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const startRef = useRef(0)
+  const pausedAtRef = useRef(0)
+  const liveRound = roundAt(elapsed)
+  const sessionOver = live && elapsed >= SESSION_SECONDS
+
+  useEffect(() => {
+    if (!live || paused) return
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
+    return () => clearInterval(t)
+  }, [live, paused])
+
+  useEffect(() => {
+    if (!live) return
+    setFut(feedAt(elapsed, 'fut'))
+    setSpreadQ(feedAt(elapsed, 'spread'))
+  }, [live, elapsed])
+
+  // Lock slide navigation while live — same event the big simulator uses
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('ptbf-live-lock', { detail: live }))
+    return () => { window.dispatchEvent(new CustomEvent('ptbf-live-lock', { detail: false })) }
+  }, [live])
+
+  function togglePause() {
+    if (!live) return
+    if (!paused) { pausedAtRef.current = Date.now() }
+    else { startRef.current += Date.now() - pausedAtRef.current }
+    setPaused(!paused)
+  }
+  function toggleLive() {
+    if (live) { setLive(false); setPaused(false); return }
+    startRef.current = Date.now()
+    setElapsed(0); setPos(0); setAvg(0); setRealized(0); setExecs([])
+    setPaused(false); setLive(true)
+  }
+
+  // Buy/sell at market: same-direction clips average up; opposite-direction
+  // clips REALIZE P&L on what they close, and any excess flips the position.
+  function trade(side: Side) {
+    if (sessionOver || lotsIn <= 0) return
+    const dir = side === 'buy' ? 1 : -1
+    const q = lotsIn
+    setExecs(e => [...e, { side, px: fut, lots: q, t: elapsed, round: liveRound }])
+    if (pos === 0 || Math.sign(pos) === dir) {
+      setAvg((Math.abs(pos) * avg + q * fut) / (Math.abs(pos) + q))
+      setPos(pos + dir * q)
+    } else {
+      const closing = Math.min(Math.abs(pos), q)
+      setRealized(realized + (fut - avg) * Math.sign(pos) * closing * LOT_T)
+      const newPos = pos + dir * q
+      setPos(newPos)
+      setAvg(newPos === 0 ? 0 : Math.abs(newPos) < Math.abs(pos) ? avg : fut)
+    }
+  }
+
+  const unrealized = pos !== 0 ? (fut - avg) * Math.sign(pos) * Math.abs(pos) * LOT_T : 0
+  const total = realized + unrealized
+
+  const btn = (side: Side) => (
+    <button key={side} type="button" onClick={() => trade(side)} disabled={sessionOver} aria-label={side === 'buy' ? 'Buy futures' : 'Sell futures'}
+      className={`flex-1 rounded-xl border p-3 text-center font-mono text-sm font-bold transition-all ${
+        sessionOver ? 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+        : side === 'buy' ? 'cursor-pointer border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+        : 'cursor-pointer border-rose-500/50 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
+      }`}>
+      {side === 'buy' ? '▲ Buy futures' : '▼ Sell futures'}
+      <span className="mt-0.5 block text-[10px] font-normal text-slate-400">{lotsIn} lot{lotsIn === 1 ? '' : 's'} at market · {fmtUsd(fut)}/t</span>
+    </button>
+  )
+
+  return (
+    <div className="glass mt-5 p-5 text-white">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="eyebrow">The Futures Screen · London Robusta — buy & sell only</div>
+        <span className={`rounded-full border px-3 py-1 font-mono text-[11px] ${
+          pos === 0 ? 'border-white/10 bg-white/[0.03] text-slate-400'
+          : pos > 0 ? 'border-emerald-500/40 bg-emerald-500/[0.10] text-emerald-300' : 'border-rose-500/40 bg-rose-500/[0.10] text-rose-300'
+        }`}>
+          {pos === 0 ? 'FLAT' : pos > 0 ? `LONG ${pos} lots @ ${fmtUsd(avg)}` : `SHORT ${-pos} lots @ ${fmtUsd(avg)}`}
+        </span>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <button onClick={toggleLive}
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+            live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
+          }`}>
+          {live ? '■ Stop live market' : '▶ Live market (45 months · 20 s/month ≈ 15 min)'}
+        </button>
+        {live && (
+          <button onClick={togglePause}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+              paused ? 'border-amber-500/60 bg-amber-500/15 text-amber-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
+            }`}>
+            {paused ? '▶ Resume' : '⏸ Pause'}
+          </button>
+        )}
+      </div>
+
+      {sessionOver && (
+        <div className="mb-4 rounded-xl border border-white/25 bg-white/[0.07] p-3 font-mono text-xs font-bold text-slate-100">
+          ⏹ SESSION OVER — 45 months complete. The market is closed. Note your P&L, then stop the live market.
+        </div>
+      )}
+
+      <div className="mb-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4">
+        <PriceGraph
+          marks={execs.map(e => e.px)}
+          liveFut={fut}
+          diffMarks={execs.map(() => 0)}
+          liveDiff={0}
+          liveParity={0}
+          calSpread={spreadQ}
+          lastStep={2}
+          hedgeIdx={0}
+          fixIdx={0}
+          complete={false}
+          dots={FUT_DOTS}
+          sides={FUT_SIDES}
+          order={execs.map(e => (e.side === 'buy' ? 1 : 2))}
+          stamps={live || execs.some(e => e.t > 0) ? execs.map(e => e.round) : undefined}
+          stampTimes={execs.map(e => e.t)}
+          liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
+          elapsed={live ? elapsed : undefined}
+          pins={[]}
+          futOnly
+        />
+
+        <div className="space-y-1.5 self-start">
+          {/* FLASH siren + news tile — identical machinery to the full floor */}
+          {live && (() => {
+            const f = FLASHES.find(fl => elapsed >= fl.start && elapsed < fl.start + fl.dur)
+            return f ? (
+              <div className="animate-pulse rounded-xl border border-rose-500 bg-rose-500/[0.15] p-2 font-mono text-[11px] font-bold text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.5)]">
+                ⚡ FLASH — {f.label}
+              </div>
+            ) : null
+          })()}
+          <div className={`rounded-xl border p-2.5 transition-all duration-500 ${
+            live && elapsed - ROUND_STARTS[liveRound] < 5
+              ? 'animate-pulse border-brand-cyan bg-brand-cyan/[0.12] shadow-[0_0_24px_rgba(34,211,238,0.45)]'
+              : 'border-brand-cyan/25 bg-brand-cyan/[0.04]'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS{live ? ` · ${LIVE_SCRIPT[liveRound].label}` : ''}</span>
+              {live && <span className="truncate font-mono text-[10px] font-bold text-cyan-200">{LIVE_SCRIPT[liveRound].headline}</span>}
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+              {live ? LIVE_SCRIPT[liveRound].news : 'The news feed wakes with the live market.'}
+            </p>
+          </div>
+
+          <div className="flex gap-2">{btn('buy')}{btn('sell')}</div>
+          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400">
+            Clip
+            <input type="number" min={1} max={60} step={1} value={lotsIn} aria-label="Lots to trade"
+              onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setLotsIn(Math.max(1, Math.min(60, v))) }}
+              className="w-16 rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 text-right tabular-nums text-white outline-none focus:border-brand-blue" />
+            lots <span className="text-slate-500">(× {LOT_T} t)</span>
+          </div>
+
+          {/* P&L tile — marked to market every second */}
+          <div className={`rounded-xl border p-3 font-mono text-xs tabular-nums ${total >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]'}`}>
+            <div className="eyebrow mb-1.5">P&L · marks to market every tick</div>
+            <div className="flex justify-between"><span className="text-slate-400">Realized (closed lots)</span><span className={realized >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(realized)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Open position MTM</span><span className={unrealized >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(unrealized)}</span></div>
+            <div className="mt-1 flex justify-between border-t border-white/15 pt-1"><span className="font-bold text-white">Total</span><span className={`font-bold ${total >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(total)}</span></div>
+          </div>
+
+          {execs.length > 0 && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+              <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">Executions</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {execs.map((e, i) => (
+                  <span key={i} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${e.side === 'buy' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>
+                    {e.side === 'buy' ? 'B' : 'S'} {e.lots} @ {fmtUsd(e.px)}{live || e.t > 0 ? ` · ${LIVE_SCRIPT[e.round].label}` : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!live && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field live={false} label="London futures ($/t)" value={fut} min={3500} max={6000} step={5} onChange={setFut} locked={false} />
+          <Field live={false} label="Calendar spread F1→F2 ($/t · + inverted)" value={spreadQ} min={-100} max={200} step={5} onChange={setSpreadQ} locked={false} />
         </div>
       )}
     </div>

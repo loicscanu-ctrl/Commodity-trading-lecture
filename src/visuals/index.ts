@@ -43,7 +43,7 @@ import ArabicaRobusta, { textDef as arabicaRobustaText } from './ArabicaRobusta'
 import ExchangeFunctions, { textDef as exchangeFunctionsText } from './ExchangeFunctions'
 import RobustaContract, { textDef as robustaContractText } from './RobustaContract'
 import VietnamCaseStudy, { textDef as vietnamCaseStudyText } from './VietnamCaseStudy'
-import PtbfMechanics from './PtbfMechanics'
+import PtbfMechanics, { FuturesOnlySim } from './PtbfMechanics'
 import OptionPayoff from './OptionPayoff'
 import BasisPnl from './BasisPnl'
 import SdScenario from './SdScenario'
@@ -111,6 +111,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'robusta-contract': RobustaContract,
   'vietnam-case-study': VietnamCaseStudy,
   'ptbf-mechanics': PtbfMechanics,
+  'futures-ticker': FuturesOnlySim,
   'option-payoff': OptionPayoff,
   'basis-pnl': BasisPnl,
   'sd-scenario': SdScenario,
