@@ -54,6 +54,8 @@ import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
 import MarginSimulator from './MarginSimulator'
 import SwapTimeline from './SwapTimeline'
 import NetworkExplosion, { textDef as networkExplosionText } from './NetworkExplosion'
+import UnhedgeableMarkets, { textDef as unhedgeableMarketsText } from './UnhedgeableMarkets'
+import CbotTimeline, { textDef as cbotTimelineText } from './CbotTimeline'
 import CropCalendar, { textDef as cropCalendarText } from './CropCalendar'
 import WarrantLifecycle, { textDef as warrantLifecycleText } from './WarrantLifecycle'
 import RollYield from './RollYield'
@@ -119,6 +121,8 @@ export const visualRegistry: Record<string, ComponentType> = {
   'margin-simulator': MarginSimulator,
   'swap-timeline': SwapTimeline,
   'network-explosion': NetworkExplosion,
+  'unhedgeable-markets': UnhedgeableMarkets,
+  'cbot-timeline': CbotTimeline,
   'crop-calendar': CropCalendar,
   'warrant-lifecycle': WarrantLifecycle,
   'roll-yield': RollYield,
@@ -161,6 +165,8 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'gasoline-swap': gasolineSwapText,
   'efp-diagram': efpDiagramText,
   'network-explosion': networkExplosionText,
+  'unhedgeable-markets': unhedgeableMarketsText,
+  'cbot-timeline': cbotTimelineText,
   'crop-calendar': cropCalendarText,
   'warrant-lifecycle': warrantLifecycleText,
   'futures-contract-doc': futuresContractDocText,
