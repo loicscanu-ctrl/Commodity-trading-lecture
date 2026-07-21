@@ -46,7 +46,7 @@ const topic: Topic = {
     {
       id: 'price-factors',
       title: 'Factors That Drive Price',
-      body: `The commodity price is not set by one variable. It emerges from the intersection of supply, demand, and a web of structural factors — each with different time horizons and magnitudes.`,
+      body: `The commodity price is not set by one variable. It emerges from the intersection of supply, demand, and a web of structural factors — each with different time horizons and magnitudes.\n\nGroup them into **four families** and every headline finds its box: **supply-side** forces (weather, crops, origin stocks, logistics), **demand-side** forces (consumption, substitution, preferences, processor margins), **exchange-related** forces (certified stocks, fund positioning, deliveries and squeezes, rule changes) and the **macro & policy** backdrop (FX, rates, tariffs, regulation). When the futures screen goes live two sessions from now, every news flash you trade will come out of one of these boxes — practice sorting them now.`,
       visual: 'price-factors-grid',
     },
   ],

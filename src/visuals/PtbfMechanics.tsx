@@ -2146,6 +2146,37 @@ export default function PtbfMechanics() {
 const FUT_DOTS: DotSpec[] = [{ fut: 'buy' }, { fut: 'sell' }]
 const FUT_SIDES: readonly Side[] = ['buy', 'sell']
 
+// The futures screen trades on a smaller line than the physical desk:
+// initial margin plus any LATENT LOSS must fit inside it at all times.
+const FUT_CAPITAL = 1_000_000
+
+export type FutExec = { side: Side; px: number; lots: number; t: number; round: number; flash: boolean }
+
+/** Plain-text session report for the Module 1 futures screen. */
+export function buildFuturesReport(execs: FutExec[], s: {
+  trader?: string; pos: number; avg: number; fut: number
+  realized: number; unrealized: number; maxDD: number
+}): string {
+  const L: string[] = []
+  L.push('FUTURES SCREEN REPORT — Module 1 (speculation, futures only)')
+  if (s.trader) L.push(`Trader: ${s.trader}`)
+  L.push(`Generated: ${new Date().toISOString()}`)
+  L.push('')
+  execs.forEach((e, i) => {
+    L.push(`${i + 1}. ${e.side === 'buy' ? 'BUY ' : 'SELL'} ${e.lots} lots @ ${fmtUsd(e.px)} · ${LIVE_SCRIPT[e.round].label} · t=${e.t}s${e.flash ? ' · DURING A FLASH WINDOW' : ''}`)
+  })
+  const flashCount = execs.filter(e => e.flash).length
+  L.push('')
+  L.push(`Executions: ${execs.length} · of which during a flash window: ${flashCount}`)
+  L.push(`Realized P&L: ${sgn(s.realized)}`)
+  L.push(s.pos !== 0
+    ? `Open position: ${s.pos > 0 ? 'LONG' : 'SHORT'} ${Math.abs(s.pos)} lots @ ${fmtUsd(s.avg)} · MTM ${sgn(s.unrealized)} (market ${fmtUsd(s.fut)})`
+    : 'Open position: FLAT')
+  L.push(`TOTAL P&L: ${sgn(s.realized + s.unrealized)}`)
+  L.push(`Max drawdown (peak-to-trough of total P&L): −${fmtUsd(s.maxDD)}`)
+  return L.join('\n')
+}
+
 export function FuturesOnlySim() {
   const [fut, setFut] = useState(4800)
   const [spreadQ, setSpreadQ] = useState(-25)
@@ -2155,7 +2186,10 @@ export function FuturesOnlySim() {
   const [pos, setPos] = useState(0) // lots: + long · − short
   const [avg, setAvg] = useState(0)
   const [realized, setRealized] = useState(0)
-  const [execs, setExecs] = useState<{ side: Side; px: number; lots: number; t: number; round: number }[]>([])
+  const [execs, setExecs] = useState<FutExec[]>([])
+  const [trader, setTrader] = useState('')
+  const [maxDD, setMaxDD] = useState(0)
+  const peakRef = useRef(0)
 
   const [live, setLive] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -2193,16 +2227,44 @@ export function FuturesOnlySim() {
     if (live) { setLive(false); setPaused(false); return }
     startRef.current = Date.now()
     setElapsed(0); setPos(0); setAvg(0); setRealized(0); setExecs([])
+    setMaxDD(0); peakRef.current = 0
     setPaused(false); setLive(true)
   }
+
+  const unrealized = pos !== 0 ? (fut - avg) * Math.sign(pos) * Math.abs(pos) * LOT_T : 0
+  const total = realized + unrealized
+
+  // Max drawdown of the TOTAL P&L — the number that settles "skill or luck?"
+  useEffect(() => {
+    if (total > peakRef.current) peakRef.current = total
+    const dd = peakRef.current - total
+    if (dd > maxDD) setMaxDD(dd)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total])
+
+  // The capital line: initial margin on the open position plus any LATENT
+  // LOSS must fit inside it. Growing the position needs margin headroom.
+  const latent = Math.max(0, -unrealized)
+  const capitalLine = FUT_CAPITAL + realized
+  const marginUsed = Math.abs(pos) * MARGIN_PER_LOT + latent
+  const availableCap = capitalLine - marginUsed
+  const marginBlocked = (side: Side): boolean => {
+    const dir = side === 'buy' ? 1 : -1
+    const addLots = Math.abs(pos + dir * lotsIn) - Math.abs(pos)
+    return addLots > 0 && addLots * MARGIN_PER_LOT > availableCap
+  }
+  // How much is at risk for a 1% move in the futures price
+  const riskPer1 = Math.abs(pos) * LOT_T * fut * 0.01
 
   // Buy/sell at market: same-direction clips average up; opposite-direction
   // clips REALIZE P&L on what they close, and any excess flips the position.
   function trade(side: Side) {
-    if (sessionOver || lotsIn <= 0) return
+    if (sessionOver || lotsIn <= 0 || marginBlocked(side)) return
     const dir = side === 'buy' ? 1 : -1
     const q = lotsIn
-    setExecs(e => [...e, { side, px: fut, lots: q, t: elapsed, round: liveRound }])
+    // Executions taken inside a flash window are stamped — the debrief will ask
+    const inFlash = live && FLASHES.some(f => elapsed >= f.start && elapsed < f.start + f.dur)
+    setExecs(e => [...e, { side, px: fut, lots: q, t: elapsed, round: liveRound, flash: inFlash }])
     if (pos === 0 || Math.sign(pos) === dir) {
       setAvg((Math.abs(pos) * avg + q * fut) / (Math.abs(pos) + q))
       setPos(pos + dir * q)
@@ -2215,20 +2277,32 @@ export function FuturesOnlySim() {
     }
   }
 
-  const unrealized = pos !== 0 ? (fut - avg) * Math.sign(pos) * Math.abs(pos) * LOT_T : 0
-  const total = realized + unrealized
+  function exportFutReport() {
+    const blob = buildPdfBlob(buildFuturesReport(execs, { trader: trader.trim() || undefined, pos, avg, fut, realized, unrealized, maxDD }))
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = trader.trim() ? `futures-report-${trader.trim().toLowerCase().replace(/\s+/g, '-')}.pdf` : 'futures-screen-report.pdf'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
-  const btn = (side: Side) => (
-    <button key={side} type="button" onClick={() => trade(side)} disabled={sessionOver} aria-label={side === 'buy' ? 'Buy futures' : 'Sell futures'}
-      className={`flex-1 rounded-xl border p-3 text-center font-mono text-sm font-bold transition-all ${
-        sessionOver ? 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
-        : side === 'buy' ? 'cursor-pointer border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
-        : 'cursor-pointer border-rose-500/50 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
-      }`}>
-      {side === 'buy' ? '▲ Buy futures' : '▼ Sell futures'}
-      <span className="mt-0.5 block text-[10px] font-normal text-slate-400">{lotsIn} lot{lotsIn === 1 ? '' : 's'} at market · {fmtUsd(fut)}/t</span>
-    </button>
-  )
+  const btn = (side: Side) => {
+    const noMargin = !sessionOver && marginBlocked(side)
+    return (
+      <button key={side} type="button" onClick={() => trade(side)} disabled={sessionOver || noMargin} aria-label={side === 'buy' ? 'Buy futures' : 'Sell futures'}
+        className={`flex-1 rounded-xl border p-3 text-center font-mono text-sm font-bold transition-all ${
+          sessionOver || noMargin ? 'cursor-not-allowed border-white/5 bg-white/[0.01] text-slate-600'
+          : side === 'buy' ? 'cursor-pointer border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+          : 'cursor-pointer border-rose-500/50 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
+        }`}>
+        {side === 'buy' ? '▲ Buy futures' : '▼ Sell futures'}
+        <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
+          {noMargin ? 'NO MARGIN — the line is full' : <>{lotsIn} lot{lotsIn === 1 ? '' : 's'} at market · {fmtUsd(fut)}/t</>}
+        </span>
+      </button>
+    )
+  }
 
   return (
     <div className="glass mt-5 p-5 text-white">
@@ -2243,6 +2317,12 @@ export function FuturesOnlySim() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {live ? (
+          trader.trim() && <span className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1 font-mono text-[11px] text-slate-200">{trader.trim()}</span>
+        ) : (
+          <input type="text" value={trader} onChange={e => setTrader(e.target.value)} aria-label="Trader name" placeholder="Trader name"
+            className="w-32 rounded-lg border border-white/15 bg-white/[0.05] px-2 py-1 text-xs text-white outline-none placeholder:text-slate-600 focus:border-brand-blue" />
+        )}
         <button onClick={toggleLive}
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             live ? 'border-brand-cyan/60 bg-brand-cyan/15 text-cyan-100' : 'border-white/10 text-slate-400 hover:border-white/25 hover:text-white'
@@ -2321,21 +2401,46 @@ export function FuturesOnlySim() {
             lots <span className="text-slate-500">(× {LOT_T} t)</span>
           </div>
 
+          {/* The capital line — initial margin + latent loss must fit inside it */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5 font-mono text-[10px] tabular-nums">
+            <div className="flex justify-between"><span className="text-slate-500">Capital line</span><span className="text-slate-200">{fmtUsd(capitalLine)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Initial margin · {Math.abs(pos)} lots × ${MARGIN_PER_LOT / 1000}k</span><span className="text-amber-300">{fmtUsd(Math.abs(pos) * MARGIN_PER_LOT)}</span></div>
+            {latent > 0 && <div className="flex justify-between"><span className="text-slate-500">Latent loss (open MTM)</span><span className="font-bold text-rose-300">{fmtUsd(latent)}</span></div>}
+            <div className="mt-1 flex justify-between border-t border-white/10 pt-1"><span className="text-slate-400">Available</span><span className={`font-bold ${availableCap < MARGIN_PER_LOT * lotsIn ? 'text-rose-300' : 'text-emerald-300'}`}>{fmtUsd(Math.max(0, availableCap))}</span></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className={`h-full transition-all ${marginUsed / capitalLine > 0.8 ? 'bg-rose-500' : 'bg-amber-500'}`}
+                style={{ width: `${Math.min(100, (marginUsed / Math.max(1, capitalLine)) * 100)}%` }} />
+            </div>
+          </div>
+
           {/* P&L tile — marked to market every second */}
           <div className={`rounded-xl border p-3 font-mono text-xs tabular-nums ${total >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]'}`}>
             <div className="eyebrow mb-1.5">P&L · marks to market every tick</div>
             <div className="flex justify-between"><span className="text-slate-400">Realized (closed lots)</span><span className={realized >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(realized)}</span></div>
             <div className="flex justify-between"><span className="text-slate-400">Open position MTM</span><span className={unrealized >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(unrealized)}</span></div>
             <div className="mt-1 flex justify-between border-t border-white/15 pt-1"><span className="font-bold text-white">Total</span><span className={`font-bold ${total >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{sgn(total)}</span></div>
+            <div className="mt-1.5 flex justify-between text-[10px]" title="Position size × 1% of the futures price — how much a 1% move gains or costs you, right now.">
+              <span className="text-slate-500">At risk per 1% move</span>
+              <span className={pos === 0 ? 'text-slate-500' : 'font-bold text-amber-300'}>{pos === 0 ? '—' : fmtUsd(riskPer1)}</span>
+            </div>
+            {maxDD > 0 && (
+              <div className="flex justify-between text-[10px]">
+                <span className="text-slate-500">Max drawdown</span><span className="text-rose-300">−{fmtUsd(maxDD)}</span>
+              </div>
+            )}
           </div>
 
           {execs.length > 0 && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-              <div className="font-mono text-[9px] uppercase tracking-wide text-slate-500">Executions</div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[9px] uppercase tracking-wide text-slate-500">Executions</span>
+                <button type="button" onClick={exportFutReport} className="btn-ghost !px-2 !py-0.5 text-[10px]">↓ PDF report</button>
+              </div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {execs.map((e, i) => (
-                  <span key={i} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${e.side === 'buy' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>
-                    {e.side === 'buy' ? 'B' : 'S'} {e.lots} @ {fmtUsd(e.px)}{live || e.t > 0 ? ` · ${LIVE_SCRIPT[e.round].label}` : ''}
+                  <span key={i} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${e.side === 'buy' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}
+                    title={e.flash ? 'Executed during a FLASH window — the debrief will ask about this one' : undefined}>
+                    {e.side === 'buy' ? 'B' : 'S'} {e.lots} @ {fmtUsd(e.px)}{live || e.t > 0 ? ` · ${LIVE_SCRIPT[e.round].label}` : ''}{e.flash ? ' ⚡' : ''}
                   </span>
                 ))}
               </div>

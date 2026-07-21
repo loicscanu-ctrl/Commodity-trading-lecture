@@ -28,15 +28,15 @@ const topic: Topic = {
       },
       {
         id: 'q3',
-        question: 'What is the "differential" in a physical commodity trade?',
+        question: 'On the live futures screen, a clearly bullish story breaks. What does the price typically do in the first seconds?',
         options: [
-          'The fee paid to the exchange for futures clearing',
-          'The spread between bid and ask prices on the exchange',
-          'The premium or discount added to the futures price to arrive at the physical price',
-          'The difference between Arabica and Robusta coffee prices',
+          'It jumps instantly to its new level — markets are efficient',
+          'It keeps breathing at the old level for a few seconds, then DRIFTS to the new one',
+          'Nothing happens until the next day\u2019s open',
+          'It falls first, because news is always priced in already',
         ],
-        correctIndex: 2,
-        explanation: 'Physical price = Futures fixing + Differential — the PTBF (Price To Be Fixed) structure. The differential captures origin, quality, logistics, and timing factors not reflected in the generic futures contract.',
+        correctIndex: 1,
+        explanation: 'Markets absorb news with a LAG: traders must read, decide and execute. On the course\u2019s live screen the tape breathes for ~3 seconds, then drifts to the published level over up to 35 seconds \u2014 the fast readers position during the lag.',
       },
       {
         id: 'q4',
@@ -52,15 +52,15 @@ const topic: Topic = {
       },
       {
         id: 'q5',
-        question: 'Vietnam 2024–25: robusta futures spiked and the Gd2 cash differential collapsed to ~$298/t below the screen. What happened next?',
+        question: 'The screen spikes $300 in seconds on an UNCONFIRMED frost rumour, then fully retraces within a minute. The lesson?',
         options: [
-          'Vietnamese exporters stopped selling entirely',
-          'Coffee flowed to ICE warehouses — gradings surged with a ~3-month lag',
-          'ICE suspended the robusta contract',
-          'The differential stayed negative permanently',
+          'Always chase momentum \u2014 the first move is the true one',
+          'Unconfirmed flashes tend to REVERT \u2014 real news drifts to a new level and HOLDS it',
+          'The exchange made a pricing error and cancelled the trades',
+          'Frost is never bullish for coffee',
         ],
         correctIndex: 1,
-        explanation: 'When the physical market pays less than the exchange, the arbitrage is to sell futures, grade your coffee and deliver it. Vietnamese gradings surged (630 lots in one month) about three months after the differential trough — the "buyer of last resort" function in action.',
+        explanation: 'A flash move with no confirmed story behind it is position-driven \u2014 stops, panic, thin books \u2014 and it mean-reverts when the dust settles. Confirmed fundamental news behaves differently: the price drifts to a new level and stays. Distinguishing the two is the first skill of the futures screen.',
       },
       {
         id: 'q6',
@@ -107,7 +107,7 @@ const topic: Topic = {
       },
       {
         id: 'q10',
-        question: 'Under LME-style "lending rules", what happens when one trader controls a dominant share of deliverable warrants?',
+        question: '(Stretch) Under LME-style "lending rules", what happens when one trader controls a dominant share of deliverable warrants?',
         options: [
           'The trader is banned from the exchange',
           'All their positions are cancelled at the previous settlement price',

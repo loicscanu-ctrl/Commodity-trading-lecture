@@ -50,7 +50,7 @@ const topic: Topic = {
     {
       id: 'differential',
       title: 'The Differential',
-      body: `**Physical price = Futures price + Differential**\n\nThe differential is expressed as a premium (+) or discount (−) to the nearby futures contract.\n\nFactors that affect the differential:\n- **Origin quality:** high-quality Yirgacheffe Arabica trades at a premium vs generic Brazil\n- **Logistics:** proximity to port, bagging quality\n- **Timing:** nearby supply tightness vs forward surplus\n- **Certifiability:** whether the physical coffee can be tendered against the exchange contract\n\nTrading the differential (basis trading) is where much of the commercial edge in physical trading lies.`,
+      body: `**Physical price = Futures price + Differential**\n\nThe differential is expressed as a premium (+) or discount (−) to the nearby futures contract.\n\nFactors that affect the differential:\n- **Origin quality:** high-quality Yirgacheffe Arabica trades at a premium vs generic Brazil\n- **Logistics:** proximity to port, bagging quality\n- **Timing:** nearby supply tightness vs forward surplus\n- **Certifiability:** whether the physical coffee can be tendered against the exchange contract\n\nTrading the differential (basis trading) is where much of the commercial edge in physical trading lies.\n\n**Defining the differential is Module 1\u2019s job — *trading* it is Module 2\u2019s.**`,
     },
   ],
 }

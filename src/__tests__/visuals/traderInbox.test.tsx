@@ -1,5 +1,6 @@
 import { render, fireEvent, screen } from '@testing-library/react'
 import TraderInbox from '@/visuals/TraderInbox'
+import AnalystInbox from '@/visuals/AnalystInbox'
 
 const best = [
   /Confirmed: net flat zero/,
@@ -50,4 +51,38 @@ test('answered emails can be revisited from the inbox list', () => {
   fireEvent.click(screen.getByRole('button', { name: /06:30/ }))
   expect(container.textContent).toContain('You replied:')
   expect(container.textContent).toContain('Risk signs off')
+})
+
+// ── Module 1's junior inbox — same engine, Module 1 concepts ──
+
+const analystBest = [
+  /Wire \$30,000/,
+  /WALKS the book/,
+  /unconfirmed flashes revert/i,
+  /Cash-and-carry/,
+  /trade houses and cooperatives bridge/,
+  /price response is CONVEX/,
+  /Roll or close before first notice day/,
+]
+
+test('AnalystInbox: a perfect first day banks the +$2,000 base', () => {
+  const { container } = render(<AnalystInbox />)
+  expect(container.textContent).toContain('junior analyst')
+  expect(container.textContent).toContain('Overnight margin call')
+  analystBest.forEach((r, i) => {
+    fireEvent.click(screen.getByRole('button', { name: r }))
+    if (i < analystBest.length - 1) fireEvent.click(screen.getByRole('button', { name: /Open next email/ }))
+  })
+  const text = container.textContent ?? ''
+  expect(text).toContain('day complete')
+  expect(text).toContain('+$2,000')
+  expect(text).toContain('Clean first day')
+})
+
+test('AnalystInbox: the margin arithmetic mistake costs and explains the lot size', () => {
+  const { container } = render(<AnalystInbox />)
+  fireEvent.click(screen.getByRole('button', { name: /Wire \$3,000/ }))
+  const text = container.textContent ?? ''
+  expect(text).toContain('−$1,500')
+  expect(text).toContain('a lot is 10 TONNES')
 })
