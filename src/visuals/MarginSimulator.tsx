@@ -134,7 +134,7 @@ export default function MarginSimulator() {
             <div className="mt-3 rounded-xl border border-rose-500/50 bg-rose-500/[0.12] p-3 font-mono text-xs">
               <div className="eyebrow mb-1 text-rose-400">FORCED OUT — credit line exhausted</div>
               <p className="leading-relaxed text-slate-300">
-                Cumulative variation margin ({sgn(cumulative)}) blew through the {usd(CREDIT)} funding line. Your clearing member closes the 10 lots at {settles[settles.length - 1]?.toLocaleString('en-US')} — the loss is locked, and the physical coffee it hedged is still unsold: you are now naked long, at the top. This is the Ashanti mechanism: the hedge didn&rsquo;t fail, the funding did.
+                Today&rsquo;s settlement triggers one more margin call — the account must be topped back up — but cumulative variation margin ({sgn(cumulative)}) has exhausted the {usd(CREDIT)} funding line, so the call goes UNMET. That, and only that, is what forces the close-out: a margin call is never itself a liquidation — failing to FUND it is. Your clearing member (not the exchange) liquidates the 10 lots at {settles[settles.length - 1]?.toLocaleString('en-US')}; the loss is locked, and the physical coffee the hedge covered is still unsold: you are naked long, at the top. This is the Ashanti mechanism: the hedge didn&rsquo;t fail, the funding did.
               </p>
             </div>
           )}
@@ -179,7 +179,7 @@ export default function MarginSimulator() {
           </div>
 
           <p className="text-[10px] leading-relaxed text-slate-500">
-            Short position: price up = pay, price down = receive, $100 per $1/t move. A desk that cannot fund the red days is forced to lift its hedge at the top — how &ldquo;hedged&rdquo; books blow up (Ashanti 1999).
+            Short position: price up = pay, price down = receive, $100 per $1/t move. Keep funding the calls and nobody ever cuts you — run out of line, miss ONE call, and your clearing member lifts the hedge at the top: how &ldquo;hedged&rdquo; books blow up (Ashanti 1999, Metallgesellschaft 1993).
           </p>
         </div>
       </div>
