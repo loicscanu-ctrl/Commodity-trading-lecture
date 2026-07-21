@@ -1,4 +1,5 @@
 import ptbfTrading from './00-ptbf-trading'
+import dayInLife from './00b-day-in-life'
 import differential from './01-differential'
 import knowExposure from './02-knowyourexposure'
 import hedgingTool from './02b-hedging-tool'
@@ -11,6 +12,7 @@ import type { Topic } from '@/types/content'
 
 export const topics: Topic[] = [
   ptbfTrading,   // PTBF & the two trades — the module's opening case study (Easy level in class)
+  dayInLife,     // the hedged desk's inbox — every PTBF concept under time pressure
   differential,
   knowExposure,
   hedgingTool,

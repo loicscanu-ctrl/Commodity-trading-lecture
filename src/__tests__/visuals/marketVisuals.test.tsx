@@ -2,7 +2,7 @@ import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
-import PtbfMechanics, { FuturesOnlySim, buildTradeReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
+import PtbfMechanics, { FuturesOnlySim, buildTradeReport, buildFuturesReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -616,6 +616,49 @@ test('the PTBF case study now opens module 2, and module 1 trades futures only',
   const m1Ids = modules[0].topics.map(t => t.id)
   expect(m1Ids).toContain('06-futures-first')
   expect(m1Ids).not.toContain('06-ptbf-trading')
+})
+
+test('module 1 review: panorama split in two, junior inbox in module 1, trader day in module 2', () => {
+  const m1Ids = modules[0].topics.map(t => t.id)
+  // The panorama split: why-markets-exist, then the universe & the players
+  expect(m1Ids.indexOf('01a-universe')).toBe(m1Ids.indexOf('01-panorama') + 1)
+  // The day-in-the-life swap: junior inbox in module 1, hedged desk in module 2
+  expect(m1Ids).toContain('05-day-one-desk')
+  expect(m1Ids).not.toContain('05-case-study-adayinlife')
+  expect(modules[1].topics[1].id).toBe('05-case-study-adayinlife')
+})
+
+test('FuturesOnlySim: the capital line caps the position — initial margin plus latent loss', () => {
+  const { container } = render(<FuturesOnlySim />)
+  // 2 × 60 lots = $720k of IM on the $1M line; a third clip needs $360k > $280k left
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Lots to trade' }), { target: { value: '60' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
+  expect(container.textContent).toContain('LONG 120 lots')
+  expect(screen.getByRole('button', { name: 'Buy futures' })).toBeDisabled()
+  expect(container.textContent).toContain('NO MARGIN — the line is full')
+  // The risk number: 120 lots × 10 t × $4,800 × 1% = $57,600
+  expect(container.textContent).toContain('At risk per 1% move')
+  expect(container.textContent).toContain('$57,600')
+  // Selling (reducing) stays allowed — margin blocks only position growth
+  expect(screen.getByRole('button', { name: 'Sell futures' })).toBeEnabled()
+})
+
+test('buildFuturesReport: executions with flash stamps, totals and max drawdown', () => {
+  const report = buildFuturesReport(
+    [
+      { side: 'buy', px: 4800, lots: 10, t: 5, round: 0, flash: false },
+      { side: 'sell', px: 4950, lots: 10, t: 161, round: 4, flash: true },
+    ],
+    { trader: 'Ada Lovelace', pos: 0, avg: 0, fut: 4950, realized: 15000, unrealized: 0, maxDD: 2500 },
+  )
+  expect(report).toContain('Trader: Ada Lovelace')
+  expect(report).toContain('1. BUY  10 lots @ $4,800 · Y1 Apr · t=5s')
+  expect(report).toContain('DURING A FLASH WINDOW')
+  expect(report).toContain('of which during a flash window: 1')
+  expect(report).toContain('Realized P&L: +$15,000')
+  expect(report).toContain('TOTAL P&L: +$15,000')
+  expect(report).toContain('Max drawdown (peak-to-trough of total P&L): −$2,500')
 })
 
 test('buildTradeReport includes volumes, every execution, stamps and totals', () => {

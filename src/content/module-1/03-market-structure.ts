@@ -57,7 +57,7 @@ const topic: Topic = {
     {
       id: 'squeeze-simulator',
       title: 'Simulator: Squeeze & Exchange Intervention',
-      body: `Use the sliders to build a squeeze scenario: reduce deliverable supply, raise short covering demand, and increase long concentration. Watch the front of the curve spike.\n\nThen toggle exchange interventions one by one to see how each mechanism flattens the curve and restores order.`,
+      body: `*Stretch material — this simulator runs ahead of the course: squeezes and lending rules come back in force in the oil modules. If it feels like a step too far today, play it once, note what the exchange did, and return after Module 2.*\n\nUse the sliders to build a squeeze scenario: reduce deliverable supply, raise short covering demand, and increase long concentration. Watch the front of the curve spike.\n\nThen toggle exchange interventions one by one to see how each mechanism flattens the curve and restores order.`,
       visual: 'squeeze-simulator',
     },
   ],

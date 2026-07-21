@@ -49,6 +49,7 @@ import BasisPnl from './BasisPnl'
 import SdScenario from './SdScenario'
 import GuidedTradeSim from './GuidedTradeSim'
 import TraderInbox from './TraderInbox'
+import AnalystInbox from './AnalystInbox'
 import GasolineSwap, { textDef as gasolineSwapText } from './GasolineSwap'
 import EfpDiagram, { textDef as efpDiagramText } from './EfpDiagram'
 import MarginSimulator from './MarginSimulator'
@@ -117,6 +118,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'sd-scenario': SdScenario,
   'guided-trade-sim': GuidedTradeSim,
   'trader-inbox': TraderInbox,
+  'analyst-inbox': AnalystInbox,
   'gasoline-swap': GasolineSwap,
   'efp-diagram': EfpDiagram,
   'margin-simulator': MarginSimulator,

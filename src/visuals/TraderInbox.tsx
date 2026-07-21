@@ -8,8 +8,9 @@ import { useState } from 'react'
 // every wrong reply subtracts its cost.
 const BASE_PNL = 4300
 
-type Reply = { label: string; delta: number; feedback: string }
-type Email = { time: string; from: string; dept: string; subject: string; body: string; replies: Reply[] }
+export type Reply = { label: string; delta: number; feedback: string }
+export type Email = { time: string; from: string; dept: string; subject: string; body: string; replies: Reply[] }
+export type InboxGrade = { label: string; cls: string; box: string }
 
 const EMAILS: Email[] = [
   {
@@ -157,16 +158,17 @@ Saigon Merchants Co.`,
   },
 ]
 
-function grade(total: number) {
-  if (total >= BASE_PNL) return { label: 'Clean day — the desk head signs without reading twice', cls: 'text-emerald-300', box: 'border-emerald-500/30 bg-emerald-500/[0.08]' }
-  if (total >= 0) return { label: 'Survived — reread the feedback before tomorrow’s open', cls: 'text-amber-300', box: 'border-amber-500/40 bg-amber-500/[0.10]' }
-  return { label: 'The desk lost money on a fully hedged book — impressive, in the wrong way', cls: 'text-rose-300', box: 'border-rose-500/40 bg-rose-500/[0.10]' }
-}
-
 const fmt = (n: number) => `${n < 0 ? '−' : '+'}$${Math.abs(n).toLocaleString('en-US')}`
 
-export default function TraderInbox() {
-  // The whole inbox is readable from the start — reply in any order.
+// Generic inbox simulation — the whole inbox is readable from the start,
+// replies land in any order, every answer prints its consequence. The
+// Module 1 (AnalystInbox) and Module 2 (TraderInbox) days both run on this.
+export function InboxSim({ emails, base, header, baseLine, grades }: {
+  emails: Email[]; base: number; header: string; baseLine: string
+  grades: (total: number, base: number) => InboxGrade
+}) {
+  const EMAILS = emails
+  const BASE_PNL = base
   const [answers, setAnswers] = useState<(number | null)[]>(Array(EMAILS.length).fill(null))
   const [selected, setSelected] = useState(0)
 
@@ -174,7 +176,7 @@ export default function TraderInbox() {
   const done = answeredCount === EMAILS.length
   const impact = answers.reduce((s: number, a, i) => s + (a !== null ? EMAILS[i].replies[a].delta : 0), 0)
   const total = BASE_PNL + impact
-  const g = grade(total)
+  const g = grades(total, BASE_PNL)
 
   const email = EMAILS[selected]
   const answer = answers[selected]
@@ -188,7 +190,7 @@ export default function TraderInbox() {
   return (
     <div className="glass mt-5 p-5 text-white">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="eyebrow">Inbox — Tuesday 12 November · HCM desk</div>
+        <div className="eyebrow">{header}</div>
         <span className="chip !py-0.5 font-mono text-slate-300">
           {done ? 'day complete' : `${answeredCount}/${EMAILS.length} handled`} · decisions {fmt(impact)}
         </span>
@@ -264,8 +266,8 @@ export default function TraderInbox() {
         <div className={`mt-4 rounded-xl border p-4 font-mono text-xs tabular-nums ${g.box}`}>
           <div className="eyebrow mb-2">End of day</div>
           <div className="space-y-1">
-            <div className="flex justify-between"><span className="text-slate-400">The clean day (flat $0 · basis +$2,000 · origination +$5,200 · costs −$2,900)</span><span className="text-white">+${BASE_PNL.toLocaleString('en-US')}</span></div>
-            <div className="flex justify-between"><span className="text-slate-400">Your seven replies</span><span className={impact >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{fmt(impact)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">{baseLine}</span><span className="text-white">+${BASE_PNL.toLocaleString('en-US')}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Your {EMAILS.length} replies</span><span className={impact >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{fmt(impact)}</span></div>
             <div className="flex justify-between border-t border-white/15 pt-1.5"><span className="font-bold text-white">Day P&L</span><span className={`text-base font-bold ${total >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmt(total)}</span></div>
           </div>
           <div className={`mt-2 font-bold ${g.cls}`}>{g.label}</div>
@@ -273,5 +275,23 @@ export default function TraderInbox() {
         </div>
       )}
     </div>
+  )
+}
+
+function gradeTrader(total: number, base: number): InboxGrade {
+  if (total >= base) return { label: 'Clean day — the desk head signs without reading twice', cls: 'text-emerald-300', box: 'border-emerald-500/30 bg-emerald-500/[0.08]' }
+  if (total >= 0) return { label: 'Survived — reread the feedback before tomorrow’s open', cls: 'text-amber-300', box: 'border-amber-500/40 bg-amber-500/[0.10]' }
+  return { label: 'The desk lost money on a fully hedged book — impressive, in the wrong way', cls: 'text-rose-300', box: 'border-rose-500/40 bg-rose-500/[0.10]' }
+}
+
+export default function TraderInbox() {
+  return (
+    <InboxSim
+      emails={EMAILS}
+      base={BASE_PNL}
+      header="Inbox — Tuesday 12 November · HCM desk"
+      baseLine="The clean day (flat $0 · basis +$2,000 · origination +$5,200 · costs −$2,900)"
+      grades={gradeTrader}
+    />
   )
 }
