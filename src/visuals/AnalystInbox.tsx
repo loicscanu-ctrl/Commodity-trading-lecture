@@ -154,14 +154,65 @@ function gradeAnalyst(total: number, base: number): InboxGrade {
   return { label: 'Day one ended in Risk’s office — the concepts are in Module 1, all of them', cls: 'text-rose-300', box: 'border-rose-500/40 bg-rose-500/[0.10]' }
 }
 
+// The screen above the inbox: the next five London contracts. The prices
+// carry the CONTANGO the 17:15 email will ask you to price ($80 to March),
+// and the open interest has already rolled out of the nearby — the
+// delivery period is knocking.
+const CURVE = [
+  { m: 'Jan', px: 4800, oi: 1850, nearby: true },
+  { m: 'Mar', px: 4880, oi: 61400, nearby: false },
+  { m: 'May', px: 4940, oi: 32800, nearby: false },
+  { m: 'Jul', px: 4990, oi: 19600, nearby: false },
+  { m: 'Sep', px: 5030, oi: 9200, nearby: false },
+]
+const MAX_OI = Math.max(...CURVE.map(c => c.oi))
+
+function MarketStrip() {
+  return (
+    <div className="glass mt-5 p-4 text-white">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="eyebrow">London Robusta — the screen at 06:30 · next 5 contracts</div>
+        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold text-emerald-300"
+          title="Each later month trades ABOVE the previous one — a carry structure. The 17:15 email will make you price it against storage and financing.">
+          CONTANGO — each month dearer than the last
+        </span>
+      </div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {CURVE.map((c, i) => (
+          <div key={c.m} className={`rounded-xl border p-2 text-center ${c.nearby ? 'border-rose-500/40 bg-rose-500/[0.05]' : 'border-white/10 bg-white/[0.03]'}`}>
+            <div className="font-mono text-[10px] font-bold text-slate-400">{c.m}</div>
+            <div className="font-mono text-sm font-bold tabular-nums text-white">{c.px.toLocaleString('en-US')}</div>
+            <div className="font-mono text-[9px] tabular-nums text-slate-500">
+              {i === 0 ? 'nearby' : <span className="text-emerald-300">+{c.px - CURVE[i - 1].px} vs {CURVE[i - 1].m}</span>}
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]" title={`Open interest: ${c.oi.toLocaleString('en-US')} lots`}>
+              <div className={`h-full rounded-full ${c.nearby ? 'bg-rose-500' : 'bg-brand-cyan/70'}`} style={{ width: `${Math.max(2, (c.oi / MAX_OI) * 100)}%` }} />
+            </div>
+            <div className={`mt-0.5 font-mono text-[9px] tabular-nums ${c.nearby ? 'font-bold text-rose-300' : 'text-slate-500'}`}>
+              OI {c.oi.toLocaleString('en-US')}
+            </div>
+            {c.nearby && <div className="font-mono text-[8px] font-bold text-rose-300">delivery period approaching</div>}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 font-mono text-[10px] text-slate-500">
+        Open interest has rolled out of Jan into Mar — holders who do NOT want to deliver (or take delivery) are leaving. Whoever is still long Jan needs a plan. Check the book you inherited.
+      </p>
+    </div>
+  )
+}
+
 export default function AnalystInbox() {
   return (
-    <InboxSim
-      emails={EMAILS}
-      base={BASE_PNL}
-      header="Inbox — your first day · junior analyst, HCM desk"
-      baseLine="The training book’s clean day (small speculative gains, no mistakes)"
-      grades={gradeAnalyst}
-    />
+    <>
+      <MarketStrip />
+      <InboxSim
+        emails={EMAILS}
+        base={BASE_PNL}
+        header="Inbox — your first day · junior analyst, HCM desk"
+        baseLine="The training book’s clean day (small speculative gains, no mistakes)"
+        grades={gradeAnalyst}
+      />
+    </>
   )
 }

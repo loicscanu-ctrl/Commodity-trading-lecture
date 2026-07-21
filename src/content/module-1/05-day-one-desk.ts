@@ -14,7 +14,7 @@ const topic: Topic = {
     {
       id: 'day-one-inbox',
       title: 'The Inbox — Run the Day',
-      body: `Reply to all seven. The scoring is unforgiving in the same way the desk is: being *roughly* right with the wrong reasoning still costs.\n\nWhen you are done, compare with a neighbour: which email cost the room the most money — the arithmetic ones, or the judgment ones?`,
+      body: `The screen above the inbox shows the **next five London contracts** \u2014 read the structure, the spreads and the **open interest** before you answer anything: at least one email is priced off that screen (notice where the open interest has gone, and what that says about the nearby month).\n\nReply to all seven. The scoring is unforgiving in the same way the desk is: being *roughly* right with the wrong reasoning still costs.\n\nWhen you are done, compare with a neighbour: which email cost the room the most money — the arithmetic ones, or the judgment ones?`,
       visual: 'analyst-inbox',
     },
   ],
