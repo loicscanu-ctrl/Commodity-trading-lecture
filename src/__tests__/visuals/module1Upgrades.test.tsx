@@ -2,6 +2,24 @@ import { render, fireEvent, screen } from '@testing-library/react'
 import NetworkExplosion from '@/visuals/NetworkExplosion'
 import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
 import CbotTimeline from '@/visuals/CbotTimeline'
+import VolumeOiFlow from '@/visuals/VolumeOiFlow'
+
+test('VolumeOiFlow: opening creates OI, changing hands only creates volume', () => {
+  const { container } = render(<VolumeOiFlow />)
+  // Trade 1: A buys, B sells → volume 1, OI 1, both sides positioned
+  fireEvent.click(screen.getByRole('button', { name: /A buys, B sells/ }))
+  expect(container.textContent).toContain('+1 — both sides OPENED')
+  expect(container.textContent).toContain('LONG 1')
+  expect(container.textContent).toContain('SHORT 1')
+  // Trade 2: A passes the lot to C → volume 2, OI unchanged
+  fireEvent.click(screen.getByRole('button', { name: /A passes its lot to C/ }))
+  expect(container.textContent).toContain('unchanged — it changed hands')
+  expect(container.textContent).toContain('still short')
+  const text = container.textContent ?? ''
+  // The counters read volume 2, OI 1
+  expect(text).toContain('Volume (today)2')
+  expect(text).toContain('Open interest1')
+})
 import OrderBook from '@/visuals/OrderBook'
 import ParcelJourney from '@/visuals/ParcelJourney'
 import MarketBenefits from '@/visuals/MarketBenefits'
