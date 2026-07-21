@@ -122,14 +122,20 @@ test('MarketBenefits: fixing the two lows beats the cheapest outright day by $21
   expect(container.textContent).toContain('outright purchase')
 })
 
-test('MarginSimulator: exhausting the funding line forces the position closed', () => {
+test('MarginSimulator: a funded call is not a liquidation — the first UNMET one is', () => {
   const { container } = render(<MarginSimulator />)
-  // One brutal settle: 4,500 → 5,200 = −$70,000 VM against a $60,000 line
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Day 1 settlement' }), { target: { value: '5200' } })
+  // Day 1: 4,500 → 4,900 = −$40,000 — the call is FUNDED, position lives
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Day 1 settlement' }), { target: { value: '4900' } })
   fireEvent.click(screen.getByRole('button', { name: 'Fix Day 1 settle' }))
+  expect(container.textContent).toContain('call funded')
+  expect(container.textContent).not.toContain('FORCED OUT')
+  // Day 2: another −$30,000 blows through the $60,000 line — call UNMET → closed
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Day 2 settlement' }), { target: { value: '5200' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Fix Day 2 settle' }))
   const text = container.textContent ?? ''
-  expect(text).toContain('−$70,000')
+  expect(text).toContain('call UNMET')
   expect(text).toContain('FORCED OUT')
+  expect(text).toContain('the call goes UNMET')
   expect(text).toContain('the funding did')
 })
 
