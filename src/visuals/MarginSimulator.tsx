@@ -27,10 +27,17 @@ export default function MarginSimulator() {
   const prevSettle = points[points.length - 1]
 
   // VM for a SHORT position: price up = cash out
-  const vmRows = settles.map((s, i) => {
-    const prev = i === 0 ? ENTRY : settles[i - 1]
-    return { day: i + 1, settle: s, move: s - prev, vm: -(s - prev) * TONNES }
-  })
+  const vmRows = (() => {
+    let run = 0
+    return settles.map((s, i) => {
+      const prev = i === 0 ? ENTRY : settles[i - 1]
+      const vm = -(s - prev) * TONNES
+      run += vm
+      // A losing day triggers a margin CALL; the line funds it — until the
+      // day the cumulative calls exceed the line: that call goes UNMET.
+      return { day: i + 1, settle: s, move: s - prev, vm, unmet: vm < 0 && run < -CREDIT }
+    })
+  })()
   const cumulative = vmRows.reduce((a, r) => a + r.vm, 0)
   const liveVm = -(live - prevSettle) * TONNES
   // Funding: cumulative cash OUT draws the credit line down. Exhaust it and
@@ -149,7 +156,14 @@ export default function MarginSimulator() {
               {vmRows.map(r => (
                 <div key={r.day} className="flex justify-between gap-2">
                   <span className="text-slate-400">Day {r.day} · {r.settle.toLocaleString()} ({r.move >= 0 ? '+' : '−'}{Math.abs(r.move)})</span>
-                  <span className={r.vm >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{sgn(r.vm)}</span>
+                  <span className={r.vm >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                    {sgn(r.vm)}
+                    {r.vm < 0 && (
+                      <span className={`ml-1 rounded px-1 py-px text-[8.5px] font-bold ${r.unmet ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+                        {r.unmet ? 'call UNMET' : 'call funded'}
+                      </span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -157,7 +171,7 @@ export default function MarginSimulator() {
 
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[11px] tabular-nums">
             <div className="mb-1 flex justify-between">
-              <span className="eyebrow">VM funding line</span>
+              <span className="eyebrow" title="The credit line that funds each day's margin call. Every red day draws it down; the first call it cannot fund is the close-out.">VM funding line</span>
               <span className={creditLeft < CREDIT * 0.35 ? 'text-rose-300 font-bold' : 'text-slate-300'}>{usd(creditLeft)} / {usd(CREDIT)}</span>
             </div>
             <div className="h-2 overflow-hidden rounded bg-white/[0.05]">
