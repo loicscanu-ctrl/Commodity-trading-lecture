@@ -59,10 +59,10 @@ const analystBest = [
   /Wire \$30,000/,
   /WALKS the book/,
   /unconfirmed flashes revert/i,
-  /Cash-and-carry/,
+  /File the rate/,
   /trade houses and cooperatives bridge/,
   /price response is CONVEX/,
-  /Roll or close before first notice day/,
+  /Take delivery AND sell March/,
 ]
 
 test('AnalystInbox: a perfect first day banks the +$2,000 base', () => {
