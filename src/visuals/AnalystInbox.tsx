@@ -68,23 +68,25 @@ sent from mobile`,
     ],
   },
   {
-    time: '11:45', from: 'Sophie Laurent', dept: 'Research', subject: 'Dec/Feb spread vs the cost of carry — worth a look?',
-    body: `Hi,
+    time: '11:45', from: 'Anke Vermeulen', dept: 'C. Steinweg — Warehousing', subject: 'Updated Antwerp tariff: coffee warehousing $10/t/month',
+    body: `Dear all,
 
-Quick structure check on London:
+Please find our updated Antwerp tariff for green coffee, effective the 1st:
 
-· Dec trades 4,800, Feb trades 4,880 — a $80 contango.
-· Full cost of carry for the two months (warehouse + finance + insurance): ~$55/t.
+· Storage, handling & insurance, all-in: USD 10.00 per tonne per month
+· Certified (exchange-approved) space currently AVAILABLE
+· Weighbridge, sampling and re-bagging on request
 
-Someone should look at this before the market does.
+We remain at your disposal for any delivery or storage programme.
 
-Sophie Laurent
-Research & Analytics
-Saigon Merchants Co. — Geneva`,
+Met vriendelijke groet,
+Anke Vermeulen
+Commercial Desk
+C. Steinweg Group — Antwerp · +32 3 545 8800`,
     replies: [
-      { label: 'Cash-and-carry: buy Dec (take delivery), store at $55, deliver into Feb at 4,880 — $25/t nearly risk-free. Size it and check warehouse space.', delta: 0, feedback: 'The contango exceeds full carry — the classic arbitrage. Do it in size and you (and everyone like you) will pull the spread back inside the carry: that is WHY contango is normally capped at carry.' },
-      { label: 'No trade — the $80 just means the market expects prices to rise $80 by February.', delta: -2000, feedback: 'Structure is not a forecast. Contango reflects the cost of CARRY, not expectations — and when it exceeds carry, storage plus delivery locks the difference regardless of where prices go. You left $25/t on the table. −$2,000.' },
-      { label: 'Sell Dec, buy Feb — the spread will widen further.', delta: -2500, feedback: 'You are now SHORT the arbitrage: every cash-and-carry trader in the market is working against your position. The spread converged back to carry and you paid it. −$2,500.' },
+      { label: 'File the rate and reply with thanks — carry numbers decide delivery questions, and one may land today.', delta: 0, feedback: 'Filed: $10/t/month, all-in, certified space available. A warehouse tariff is never junk mail on a futures desk — storage + finance against the spread IS market structure, with an invoice attached.' },
+      { label: 'Ignore — we trade futures, this is warehouse spam.', delta: -500, feedback: 'Deleted at 11:46. At 17:15 a delivery question landed that needed exactly this number, and you asked Steinweg to resend the tariff after their Antwerp office had closed. −$500 of scrambling.' },
+      { label: 'Reply asking for a discount before we have any business to store.', delta: -300, feedback: 'Steinweg politely points out the tariff is already the group rate. Negotiating with nothing to store weakens the call you will need to make when you DO have tonnage. −$300 of goodwill.' },
     ],
   },
   {
@@ -123,21 +125,25 @@ Saigon Merchants Co. — Geneva`,
     ],
   },
   {
-    time: '17:15', from: 'Linh Pham', dept: 'Risk', subject: 'EOD check: your 20 Jan lots and first notice day',
-    body: `Before you leave:
+    time: '17:15', from: 'Linh Pham', dept: 'Risk', subject: 'DECISION NEEDED: long Jan lots entering the delivery period',
+    body: `Before you leave — this cannot wait until tomorrow.
 
-The training book is LONG 20 lots of January, and January's first notice day is approaching. Confirm your intention.
+The training book is LONG 10 January lots (100 t) and January enters its delivery period soon. This contract is PHYSICALLY DELIVERABLE. Three ways out — pick one:
 
-Reminder that this contract is PHYSICALLY DELIVERABLE.
+1. TAKE DELIVERY — pay full value, receive certified warrants in an exchange warehouse.
+2. ROLL to March — the structure is a $80/t CONTANGO to the next contract (sell Jan, buy Mar above it). The bank charges 8% p.a. on the initial margin we keep posting.
+3. CLOSE — sell the lots now and realize the open profit of about +$10/t.
+
+Your screen: Jan 4,800 · Mar 4,880. I believe a warehouse tariff circulated this morning.
 
 Thanks,
 Linh Pham
 Risk & Product Control — HCM Desk
 Saigon Merchants Co.`,
     replies: [
-      { label: 'Roll or close before first notice day — unless we actually want 200 t of certified robusta in an exchange warehouse.', delta: 0, feedback: 'Signed. A deliverable contract held into the notice period can become a warrant and a warehouse invoice — the delivery mechanism anchors the price, and it is opt-in only for those equipped to handle beans.' },
-      { label: 'Do nothing — futures always cash-settle at expiry.', delta: -2000, feedback: 'Robusta is PHYSICALLY deliverable — that is precisely what anchors the futures to real coffee (remember WTI April 2020 for what delivery mechanics can do to the unprepared). Risk force-closed the position late with $10/t of slippage. −$2,000.' },
-      { label: 'Take delivery — free coffee, and warehouses sound fun.', delta: -1500, feedback: 'Not free: you pay the full contract value, plus warrant fees, warehouse rent and insurance — for 200 t of beans the desk has no roasting plan for. Risk vetoes it and books the carrying-cost estimate against your day. −$1,500.' },
+      { label: 'Take delivery AND sell March against it — cash and carry: earn the $80 contango, pay 2 × $10 Steinweg storage and ~$8 of 8% financing ≈ +$52/t locked, whatever prices do.', delta: 0, feedback: 'The morning email was the clue: with storage at $10/t/month, the $80 contango pays the carry roughly twice over. You take warrants, sell Mar at 4,880, redeliver in March — ≈ +$52/t locked on 100 t versus +$10/t for closing. Risk signs with a note: "read his mail before lunch."' },
+      { label: 'Roll to March — stay long, the trend is our friend.', delta: -2500, feedback: 'You PAID the $80/t contango to keep the position, and the bank keeps charging 8% on the margin — you paid the very carry the warehouse would have PAID YOU to collect. The desk head circles the two emails, 11:45 and 17:15, and staples them together. −$2,500.' },
+      { label: 'Close for +$10/t — never hold a deliverable contract into the notice period.', delta: -1500, feedback: 'Safe, clean — and ≈ $42/t light. "Never take delivery" is a rule for desks with no warehouse tariff in their inbox; you had one since 11:45. Banking +$10 while the structure pays +$52 is how carry desks eat speculators. −$1,500.' },
     ],
   },
 ]
