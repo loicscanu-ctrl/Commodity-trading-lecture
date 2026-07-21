@@ -69,6 +69,13 @@ test('AnalystInbox: a perfect first day banks the +$2,000 base', () => {
   const { container } = render(<AnalystInbox />)
   expect(container.textContent).toContain('junior analyst')
   expect(container.textContent).toContain('Overnight margin call')
+  // The market strip above the inbox: 5 contracts, contango, OI drained from Jan
+  expect(container.textContent).toContain('next 5 contracts')
+  expect(container.textContent).toContain('CONTANGO')
+  expect(container.textContent).toContain('4,880')
+  expect(container.textContent).toContain('+80 vs Jan')
+  expect(container.textContent).toContain('OI 1,850')
+  expect(container.textContent).toContain('delivery period approaching')
   analystBest.forEach((r, i) => {
     fireEvent.click(screen.getByRole('button', { name: r }))
     if (i < analystBest.length - 1) fireEvent.click(screen.getByRole('button', { name: /Open next email/ }))
