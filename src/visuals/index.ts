@@ -56,6 +56,7 @@ import MarginSimulator from './MarginSimulator'
 import SwapTimeline from './SwapTimeline'
 import NetworkExplosion, { textDef as networkExplosionText } from './NetworkExplosion'
 import VolumeOiFlow, { textDef as volumeOiFlowText } from './VolumeOiFlow'
+import RollingOiWave, { textDef as rollingOiWaveText } from './RollingOiWave'
 import UnhedgeableMarkets, { textDef as unhedgeableMarketsText } from './UnhedgeableMarkets'
 import CbotTimeline, { textDef as cbotTimelineText } from './CbotTimeline'
 import CropCalendar, { textDef as cropCalendarText } from './CropCalendar'
@@ -126,6 +127,7 @@ export const visualRegistry: Record<string, ComponentType> = {
   'swap-timeline': SwapTimeline,
   'network-explosion': NetworkExplosion,
   'volume-oi-flow': VolumeOiFlow,
+  'rolling-oi': RollingOiWave,
   'unhedgeable-markets': UnhedgeableMarkets,
   'cbot-timeline': CbotTimeline,
   'crop-calendar': CropCalendar,
@@ -171,6 +173,7 @@ export const visualTextRegistry: Record<string, VisualTextDef> = {
   'efp-diagram': efpDiagramText,
   'network-explosion': networkExplosionText,
   'volume-oi-flow': volumeOiFlowText,
+  'rolling-oi': rollingOiWaveText,
   'unhedgeable-markets': unhedgeableMarketsText,
   'cbot-timeline': cbotTimelineText,
   'crop-calendar': cropCalendarText,
