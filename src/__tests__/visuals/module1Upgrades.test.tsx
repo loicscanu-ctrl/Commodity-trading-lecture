@@ -3,6 +3,26 @@ import NetworkExplosion from '@/visuals/NetworkExplosion'
 import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
 import CbotTimeline from '@/visuals/CbotTimeline'
 import VolumeOiFlow from '@/visuals/VolumeOiFlow'
+import RollingOiWave, { oiAt } from '@/visuals/RollingOiWave'
+
+test('RollingOiWave: the OI wave rides the front and rolls into the next contract', () => {
+  // The model itself: front carries the crowd, the roll migrates it
+  const start = oiAt(0)
+  expect(Math.round(start[0])).toBe(52) // Jan, the front
+  expect(Math.round(start[1])).toBe(26)
+  const midRoll = oiAt(1.9) // deep in Jan's roll window
+  expect(midRoll[1]).toBeGreaterThan(midRoll[0]) // Mar has taken the crowd
+  const after = oiAt(2.5) // Jan expired: Mar is the new 52k front
+  expect(after[0]).toBe(0)
+  expect(Math.round(after[1])).toBe(52)
+  // The component: scrub the timeline instead of animating
+  const { container } = render(<RollingOiWave />)
+  expect(container.textContent).toContain('52k')
+  fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '1.9' } })
+  expect(container.textContent).toContain('ROLL — volume spikes, OI migrates')
+  fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '2.5' } })
+  expect(container.textContent).toContain('✕ expired')
+})
 
 test('VolumeOiFlow: opening creates OI, changing hands only creates volume', () => {
   const { container } = render(<VolumeOiFlow />)
