@@ -18,8 +18,16 @@ test('RollingOiWave: the OI wave rides the front and rolls into the next contrac
   // The component: scrub the timeline instead of animating
   const { container } = render(<RollingOiWave />)
   expect(container.textContent).toContain('52k')
+  // Exchange month codes on the y-axis, calendar months on the x-axis
+  ;['F', 'H', 'K', 'N', 'U'].forEach(c => expect(container.textContent).toContain(c))
+  expect(container.textContent).toContain('Nov')
+  expect(container.textContent).toContain('BACKWARDATION')
+  // Backwardation: Jan (2 months out) trades $80 under the $5,000 spot…
+  expect(container.textContent).toContain('4,920')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '1.9' } })
   expect(container.textContent).toContain('ROLL — volume spikes, OI migrates')
+  // …and has pulled to $4,996 with 0.1 months of life left: the pull to spot
+  expect(container.textContent).toContain('4,996')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '2.5' } })
   expect(container.textContent).toContain('✕ expired')
 })

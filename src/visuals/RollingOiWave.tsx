@@ -10,6 +10,11 @@ export const textDef = defineVisualText({
     multiline: true,
     value: 'Five contracts, five different death dates. The open interest never dies with them: as each front month approaches expiry, its holders ROLL — closing the dying contract, reopening the next. The bubble wave you are watching IS the market: the front carries the crowd, the roll passes it on, and only a handful of lots ride into delivery on purpose.',
   },
+  bwNote: {
+    label: 'Backwardation note',
+    multiline: true,
+    value: 'Watch the amber price under each bubble too: the market is BACKWARDATED — every forward trades under the $5,000 spot, and each one CLIMBS toward it as its own expiry approaches. That pull to spot is exactly the roll yield of the previous slide: in backwardation, time is on the long\u2019s side.',
+  },
   rollNote: {
     label: 'Roll-window note',
     multiline: true,
@@ -17,15 +22,25 @@ export const textDef = defineVisualText({
   },
 })
 
-// Five London contracts, expiries staggered every 2 months from "now + 2"
+// Five London contracts, expiries staggered every 2 months from "now + 2".
+// Codes are the exchange month letters: F=Jan H=Mar K=May N=Jul U=Sep.
 const CONTRACTS = [
-  { m: 'Jan', exp: 2 },
-  { m: 'Mar', exp: 4 },
-  { m: 'May', exp: 6 },
-  { m: 'Jul', exp: 8 },
-  { m: 'Sep', exp: 10 },
+  { m: 'Jan', code: 'F', exp: 2 },
+  { m: 'Mar', code: 'H', exp: 4 },
+  { m: 'May', code: 'K', exp: 6 },
+  { m: 'Jul', code: 'N', exp: 8 },
+  { m: 'Sep', code: 'U', exp: 10 },
 ]
 const TOTAL_MONTHS = 11
+// The x-axis is the CALENDAR: the course trades in November, so +2 months
+// lands on January — each contract expires in its own named month.
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const calLabel = (m: number) => MONTH_NAMES[(10 + m) % 12] // m=0 → Nov
+// A BACKWARDATED market: every forward sits UNDER the spot and climbs
+// toward it as its expiry approaches — the pull to spot.
+const SPOT = 5000
+const BW_SLOPE = 40 // $/t of backwardation per month of remaining life
+const pxAt = (t: number, exp: number) => Math.round(SPOT - BW_SLOPE * Math.max(0, exp - t))
 const ROLL_WINDOW = 0.9 // months before expiry during which the front rolls
 // Share of total OI by curve RANK (front, 2nd, 3rd…) — the front carries the crowd
 const RANK_SHARE = [0.52, 0.26, 0.13, 0.06, 0.03]
@@ -82,6 +97,10 @@ export default function RollingOiWave() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="eyebrow text-brand-cyan">{t('heading')}</div>
         <div className="flex items-center gap-2">
+          <span className="rounded-full border border-rose-500/40 bg-rose-500/[0.08] px-2.5 py-0.5 font-mono text-[10px] font-bold text-rose-300"
+            title="Every forward trades UNDER the spot; each climbs toward it as its expiry approaches — the pull to spot.">
+            SPOT ${SPOT.toLocaleString('en-US')} · BACKWARDATION
+          </span>
           <button type="button" onClick={() => { if (done) setNow(0); setPlaying(p => done ? true : !p) }}
             className="rounded-full border border-brand-cyan/50 bg-brand-cyan/10 px-3 py-1 font-mono text-xs font-bold text-cyan-100 hover:bg-brand-cyan/20">
             {done ? '↻ Replay' : playing ? '⏸ Pause' : '▶ Play'}
@@ -94,7 +113,7 @@ export default function RollingOiWave() {
         {Array.from({ length: TOTAL_MONTHS + 1 }, (_, m) => (
           <g key={m}>
             <line x1={x(m)} y1={mt} x2={x(m)} y2={H - mb} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-            <text x={x(m)} y={H - 8} textAnchor="middle" fill="#475569" fontSize="8" fontFamily="monospace">+{m}mo</text>
+            <text x={x(m)} y={H - 8} textAnchor="middle" fill={m === 0 ? '#fbbf24' : '#475569'} fontSize="8" fontFamily="monospace">{calLabel(m)}</text>
           </g>
         ))}
 
@@ -104,7 +123,8 @@ export default function RollingOiWave() {
           const yy = rowY(i)
           return (
             <g key={c.m}>
-              <text x={ml - 8} y={yy + 3} textAnchor="end" fill={expired ? '#475569' : '#94a3b8'} fontSize="10" fontFamily="monospace" fontWeight="bold">{c.m}</text>
+              <text x={ml - 8} y={yy - 1} textAnchor="end" fill={expired ? '#475569' : '#e2e8f0'} fontSize="12" fontFamily="monospace" fontWeight="bold">{c.code}</text>
+              <text x={ml - 8} y={yy + 10} textAnchor="end" fill={expired ? '#3f4a5c' : '#64748b'} fontSize="7.5" fontFamily="monospace">{c.m}</text>
               <line x1={ml} y1={yy} x2={x(c.exp)} y2={yy}
                 stroke={expired ? '#334155' : i === k ? '#22d3ee' : '#3b82f6'} strokeWidth={i === k && !expired ? 2 : 1.2}
                 strokeDasharray={expired ? '2 4' : undefined} opacity={expired ? 0.5 : 0.8} />
@@ -119,6 +139,9 @@ export default function RollingOiWave() {
                     stroke={i === k ? '#22d3ee' : '#3b82f6'} strokeWidth="1.2" />
                   <text x={x(Math.min(now, c.exp))} y={yy - (6 + Math.sqrt(oi[i]) * 2.6)} textAnchor="middle" fill={i === k ? '#22d3ee' : '#60a5fa'} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
                     {Math.round(oi[i])}k
+                  </text>
+                  <text x={x(Math.min(now, c.exp))} y={yy + (13 + Math.sqrt(oi[i]) * 2.6)} textAnchor="middle" fill="#fbbf24" fontSize="8" fontFamily="monospace">
+                    {pxAt(now, c.exp).toLocaleString('en-US')}
                   </text>
                 </g>
               )}
@@ -153,6 +176,7 @@ export default function RollingOiWave() {
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-slate-300">{t('caption')}</p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-400">{t('bwNote')}</p>
       <p className="mt-2 text-sm leading-relaxed text-slate-400">{t('rollNote')}</p>
     </div>
   )
