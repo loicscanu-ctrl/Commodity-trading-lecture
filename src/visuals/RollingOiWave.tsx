@@ -1,65 +1,92 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { defineVisualText, useVisualText } from '@/lib/visualText'
 
 export const textDef = defineVisualText({
-  heading: { label: 'Heading', value: 'The life of open interest — watching the roll across the curve' },
+  heading: { label: 'Heading', value: 'The life of open interest — one real year of Robusta, replayed' },
   caption: {
     label: 'Caption',
     multiline: true,
-    value: 'Five contracts, five different death dates. The open interest never dies with them: as each front month approaches expiry, its holders ROLL — closing the dying contract, reopening the next. The bubble wave you are watching IS the market: the front carries the crowd, the roll passes it on, and only a handful of lots ride into delivery on purpose.',
+    value: 'Six contracts, six different death dates. The open interest never dies with them: as each front month approaches expiry, its holders ROLL — closing the dying contract, reopening the next. The bubble wave you are watching IS the market: the front carries the crowd, the roll passes it on, and only a handful of lots ride into delivery on purpose.',
   },
   bwNote: {
-    label: 'Backwardation note',
+    label: 'Structure note',
     multiline: true,
-    value: 'Watch the amber price under each bubble too: the market is BACKWARDATED — every forward trades under the $5,000 spot, and each one CLIMBS toward it as its own expiry approaches. That pull to spot is exactly the roll yield of the previous slide: in backwardation, time is on the long\u2019s side.',
+    value: 'Read the price axis while it plays. Through the winter the market is deeply BACKWARDATED — every deferred trades under the front, and each contract CLIMBS toward the front price as its expiry approaches: the pull to spot, the roll yield of the previous section. Then watch mid-year: the record crop arrives, the front collapses hardest, and by autumn the curve has quietly flipped into a mild CONTANGO — structure is a live thing, not a diagram.',
   },
   rollNote: {
     label: 'Roll-window note',
     multiline: true,
-    value: 'During each roll window, VOLUME spikes (every migrating lot trades twice — one close, one open) while total OI barely moves: it only changes address. You saw this pair on the Volume & Open Interest slide.',
+    value: 'During each roll window, VOLUME spikes (every migrating lot trades twice — one close, one open) while total OI barely moves: it only changes address. Prices and open interest here replay the last 12 months of the real London Robusta market (indicative, reconstructed from settlement history).',
   },
 })
 
-// Five London contracts, expiries staggered every 2 months from "now + 2".
-// Codes are the exchange month letters: F=Jan H=Mar K=May N=Jul U=Sep.
+// The six London Robusta contracts that carried the last 12 months
+// (Nov 2024 → Nov 2025). Codes are the exchange month letters.
 const CONTRACTS = [
-  { m: 'Jan', code: 'F', exp: 2 },
-  { m: 'Mar', code: 'H', exp: 4 },
-  { m: 'May', code: 'K', exp: 6 },
-  { m: 'Jul', code: 'N', exp: 8 },
-  { m: 'Sep', code: 'U', exp: 10 },
+  { m: 'Jan 25', code: 'F', exp: 2, color: '#22d3ee' },
+  { m: 'Mar 25', code: 'H', exp: 4, color: '#3b82f6' },
+  { m: 'May 25', code: 'K', exp: 6, color: '#8b5cf6' },
+  { m: 'Jul 25', code: 'N', exp: 8, color: '#f59e0b' },
+  { m: 'Sep 25', code: 'U', exp: 10, color: '#34d399' },
+  { m: 'Nov 25', code: 'X', exp: 12, color: '#f43f5e' },
 ]
-const TOTAL_MONTHS = 11
-// The x-axis is the CALENDAR: the course trades in November, so +2 months
-// lands on January — each contract expires in its own named month.
+const TOTAL_MONTHS = 12
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const calLabel = (m: number) => MONTH_NAMES[(10 + m) % 12] // m=0 → Nov
-// A BACKWARDATED market: every forward sits UNDER the spot and climbs
-// toward it as its expiry approaches — the pull to spot.
-const SPOT = 5000
-const BW_SLOPE = 40 // $/t of backwardation per month of remaining life
-const pxAt = (t: number, exp: number) => Math.round(SPOT - BW_SLOPE * Math.max(0, exp - t))
+const calLabel = (m: number) => `${MONTH_NAMES[(10 + m) % 12]}${(10 + m) % 12 === 10 ? (m === 0 ? "'24" : "'25") : ''}`
+
+// Piecewise-linear series helper
+const lerp = (anchors: [number, number][], t: number): number => {
+  if (t <= anchors[0][0]) return anchors[0][1]
+  for (let i = 1; i < anchors.length; i++) {
+    if (t <= anchors[i][0]) {
+      const [t0, v0] = anchors[i - 1], [t1, v1] = anchors[i]
+      return v0 + ((t - t0) / (t1 - t0)) * (v1 - v0)
+    }
+  }
+  return anchors[anchors.length - 1][1]
+}
+
+// The REAL year, reconstructed (indicative): the front price rode the winter
+// spike toward $5,700, collapsed to ~$3,500 when the record crop landed
+// mid-2025, and rebounded through the autumn.
+const FRONT_PATH: [number, number][] = [
+  [0, 4950], [1, 5150], [2, 5500], [3, 5700], [4, 5450], [5, 5300],
+  [6, 4850], [7, 4400], [8, 3700], [9, 3500], [10, 4100], [11, 4500], [12, 4350],
+]
+// Curve structure, $/t per month of remaining life: deeply backwardated
+// (negative) through the tight winter, flipping to mild contango by autumn.
+const STRUCT_PATH: [number, number][] = [
+  [0, -45], [3, -50], [6, -30], [8, -10], [10, 5], [12, 12],
+]
+// Total open interest across the board, '000 lots (indicative)
+const TOTAL_OI_PATH: [number, number][] = [
+  [0, 126], [2, 132], [4, 128], [6, 118], [8, 108], [10, 112], [12, 120],
+]
+
+/** Price of contract i at time t (months from Nov 2024). */
+export const priceAt = (t: number, i: number): number =>
+  Math.round(lerp(FRONT_PATH, t) + lerp(STRUCT_PATH, t) * Math.max(0, CONTRACTS[i].exp - t))
+
 const ROLL_WINDOW = 0.9 // months before expiry during which the front rolls
 // Share of total OI by curve RANK (front, 2nd, 3rd…) — the front carries the crowd
-const RANK_SHARE = [0.52, 0.26, 0.13, 0.06, 0.03]
-const TOTAL_OI = 100 // '000 lots
+const RANK_SHARE = [0.5, 0.25, 0.12, 0.07, 0.04, 0.02]
 
 const smooth = (u: number) => { const c = Math.min(1, Math.max(0, u)); return c * c * (3 - 2 * c) }
 
-// OI of each contract at time t (months): rank shares, blended toward the
-// next rank as the front's roll window progresses. What the front loses,
-// the rest of the curve gains — one rank earlier each.
+// OI of each contract at time t: rank shares of the (real) total, blended
+// toward the next rank as the front's roll window progresses.
 export function oiAt(t: number): number[] {
-  const k = CONTRACTS.findIndex(c => t < c.exp) // current front (first unexpired)
+  const k = CONTRACTS.findIndex(c => t < c.exp)
   if (k === -1) return CONTRACTS.map(() => 0)
   const p = smooth((t - (CONTRACTS[k].exp - ROLL_WINDOW)) / ROLL_WINDOW)
+  const total = lerp(TOTAL_OI_PATH, t)
   return CONTRACTS.map((c, i) => {
     if (t >= c.exp) return 0
     const r = i - k
-    const share = (1 - p) * (RANK_SHARE[r] ?? 0) + p * (r === 0 ? 0.04 : RANK_SHARE[r - 1] ?? 0)
-    return share * TOTAL_OI
+    const share = (1 - p) * (RANK_SHARE[r] ?? 0) + p * (r === 0 ? 0.03 : RANK_SHARE[r - 1] ?? 0)
+    return share * total
   })
 }
 
@@ -67,39 +94,54 @@ export default function RollingOiWave() {
   const t = useVisualText(textDef)
   const [now, setNow] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const raf = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!playing) return
     const id = setInterval(() => {
       setNow(v => {
-        const next = v + 0.035
+        const next = v + 0.04
         if (next >= TOTAL_MONTHS) { setPlaying(false); return TOTAL_MONTHS }
         return next
       })
     }, 60)
-    raf.current = id
     return () => clearInterval(id)
   }, [playing])
 
-  const W = 560, H = 260, ml = 52, mr = 60, mt = 16, mb = 26
-  const pw = W - ml - mr
-  const rowY = (i: number) => mt + 18 + i * 44
+  const W = 560, H = 300, ml = 56, mr = 40, mt = 14, mb = 26
+  const pw = W - ml - mr, ph = H - mt - mb
+  const PMIN = 3300, PMAX = 5900
   const x = (months: number) => ml + (months / TOTAL_MONTHS) * pw
+  const y = (p: number) => mt + (1 - (p - PMIN) / (PMAX - PMIN)) * ph
+
   const oi = oiAt(now)
   const k = CONTRACTS.findIndex(c => now < c.exp)
   const rolling = k !== -1 && now > CONTRACTS[k].exp - ROLL_WINDOW && now < CONTRACTS[k].exp
   const rollP = k !== -1 ? smooth((now - (CONTRACTS[k].exp - ROLL_WINDOW)) / ROLL_WINDOW) : 0
   const done = now >= TOTAL_MONTHS
+  const struct = lerp(STRUCT_PATH, now)
+
+  // Each contract's price path, drawn up to NOW (or its death)
+  const pathOf = (i: number): string => {
+    const end = Math.min(now, CONTRACTS[i].exp)
+    if (end <= 0) return ''
+    const pts: string[] = []
+    for (let tt = 0; tt <= end + 1e-9; tt += 0.1) {
+      const tc = Math.min(tt, end)
+      pts.push(`${pts.length === 0 ? 'M' : 'L'}${x(tc).toFixed(1)},${y(priceAt(tc, i)).toFixed(1)}`)
+    }
+    return pts.join(' ')
+  }
 
   return (
     <div className="glass mt-5 p-5 text-white">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="eyebrow text-brand-cyan">{t('heading')}</div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full border border-rose-500/40 bg-rose-500/[0.08] px-2.5 py-0.5 font-mono text-[10px] font-bold text-rose-300"
-            title="Every forward trades UNDER the spot; each climbs toward it as its expiry approaches — the pull to spot.">
-            SPOT ${SPOT.toLocaleString('en-US')} · BACKWARDATION
+          <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-bold ${
+            struct < 0 ? 'border-rose-500/40 bg-rose-500/[0.08] text-rose-300' : 'border-emerald-500/40 bg-emerald-500/[0.08] text-emerald-300'
+          }`}
+            title="The live curve structure: deferreds under the front (backwardation) or above it (contango).">
+            {k !== -1 ? `front ${CONTRACTS[k].code} · ${priceAt(now, k).toLocaleString('en-US')} · ` : ''}{struct < 0 ? 'BACKWARDATION' : 'CONTANGO'}
           </span>
           <button type="button" onClick={() => { if (done) setNow(0); setPlaying(p => done ? true : !p) }}
             className="rounded-full border border-brand-cyan/50 bg-brand-cyan/10 px-3 py-1 font-mono text-xs font-bold text-cyan-100 hover:bg-brand-cyan/20">
@@ -108,55 +150,74 @@ export default function RollingOiWave() {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '270px' }}>
+      {/* legend — the six contracts by code, month and colour */}
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {CONTRACTS.map((c, i) => {
+          const expired = now >= c.exp
+          return (
+            <span key={c.code} className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] ${
+              expired ? 'border-white/5 text-slate-600' : i === k ? 'border-white/25 bg-white/[0.06] font-bold text-white' : 'border-white/10 text-slate-400'
+            }`}>
+              <span className="h-2 w-2 rounded-full" style={{ background: expired ? '#334155' : c.color }} />
+              {c.code} · {c.m}{expired ? ' ✕' : i === k ? ' · front' : ''}
+            </span>
+          )
+        })}
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '310px' }}>
+        {/* price grid — the y-axis IS the price */}
+        {[3500, 4000, 4500, 5000, 5500].map(p => (
+          <g key={p}>
+            <line x1={ml} y1={y(p)} x2={ml + pw} y2={y(p)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="9" fontFamily="monospace">{p.toLocaleString('en-US')}</text>
+          </g>
+        ))}
         {/* month grid */}
         {Array.from({ length: TOTAL_MONTHS + 1 }, (_, m) => (
           <g key={m}>
             <line x1={x(m)} y1={mt} x2={x(m)} y2={H - mb} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-            <text x={x(m)} y={H - 8} textAnchor="middle" fill={m === 0 ? '#fbbf24' : '#475569'} fontSize="8" fontFamily="monospace">{calLabel(m)}</text>
+            <text x={x(m)} y={H - 8} textAnchor="middle" fill={m === 0 || m === TOTAL_MONTHS ? '#fbbf24' : '#475569'} fontSize="7.5" fontFamily="monospace">{calLabel(m)}</text>
           </g>
         ))}
 
-        {/* the five contract lines — each ends at ITS expiry */}
+        {/* the six price paths — each dies at ITS expiry */}
         {CONTRACTS.map((c, i) => {
           const expired = now >= c.exp
-          const yy = rowY(i)
+          const endT = Math.max(0, Math.min(now, c.exp))
+          const endX = x(endT), endY = y(priceAt(endT, i))
           return (
-            <g key={c.m}>
-              <text x={ml - 8} y={yy - 1} textAnchor="end" fill={expired ? '#475569' : '#e2e8f0'} fontSize="12" fontFamily="monospace" fontWeight="bold">{c.code}</text>
-              <text x={ml - 8} y={yy + 10} textAnchor="end" fill={expired ? '#3f4a5c' : '#64748b'} fontSize="7.5" fontFamily="monospace">{c.m}</text>
-              <line x1={ml} y1={yy} x2={x(c.exp)} y2={yy}
-                stroke={expired ? '#334155' : i === k ? '#22d3ee' : '#3b82f6'} strokeWidth={i === k && !expired ? 2 : 1.2}
-                strokeDasharray={expired ? '2 4' : undefined} opacity={expired ? 0.5 : 0.8} />
-              {/* the death of the contract */}
-              <text x={x(c.exp) + 4} y={yy + 3} fill={expired ? '#f43f5e' : '#64748b'} fontSize="8.5" fontFamily="monospace">
-                {expired ? '✕ expired' : 'expiry'}
+            <g key={c.code}>
+              <path d={pathOf(i)} fill="none" stroke={c.color} strokeWidth={i === k ? 2 : 1.3}
+                opacity={expired ? 0.35 : 0.9} strokeDasharray={expired ? '3 3' : undefined} strokeLinejoin="round" strokeLinecap="round" />
+              {/* the contract's code rides the end of its own line — the on-chart legend */}
+              <text x={endX + 5} y={endY + 3} fill={expired ? '#64748b' : c.color} fontSize="9.5" fontFamily="monospace" fontWeight="bold">
+                {c.code}{expired ? ' ✕' : ''}
               </text>
-              {/* the OI bubble riding the NOW line */}
-              {!expired && now <= c.exp && oi[i] > 0.3 && (
+              {/* the OI bubble riding the line at NOW */}
+              {!expired && oi[i] > 0.4 && (
                 <g>
-                  <circle cx={x(Math.min(now, c.exp))} cy={yy} r={3 + Math.sqrt(oi[i]) * 2.6} fill={i === k ? 'rgba(34,211,238,0.25)' : 'rgba(59,130,246,0.22)'}
-                    stroke={i === k ? '#22d3ee' : '#3b82f6'} strokeWidth="1.2" />
-                  <text x={x(Math.min(now, c.exp))} y={yy - (6 + Math.sqrt(oi[i]) * 2.6)} textAnchor="middle" fill={i === k ? '#22d3ee' : '#60a5fa'} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
-                    {Math.round(oi[i])}k
-                  </text>
-                  <text x={x(Math.min(now, c.exp))} y={yy + (13 + Math.sqrt(oi[i]) * 2.6)} textAnchor="middle" fill="#fbbf24" fontSize="8" fontFamily="monospace">
-                    {pxAt(now, c.exp).toLocaleString('en-US')}
-                  </text>
+                  <circle cx={endX} cy={endY} r={2.5 + Math.sqrt(oi[i]) * 2.1} fill={`${c.color}33`} stroke={c.color} strokeWidth="1.2" />
+                  {oi[i] > 6 && (
+                    <text x={endX} y={endY - (7 + Math.sqrt(oi[i]) * 2.1)} textAnchor="middle" fill={c.color} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+                      {Math.round(oi[i])}k
+                    </text>
+                  )}
                 </g>
               )}
             </g>
           )
         })}
 
-        {/* the migration — lots streaming from the dying front to the next line */}
+        {/* the migration — lots streaming from the dying front to the next contract */}
         {rolling && k < CONTRACTS.length - 1 && (
           <g>
             {[0.25, 0.55, 0.85].map((f, j) => {
-              const yy = rowY(k) + (rowY(k + 1) - rowY(k)) * ((rollP + f) % 1)
+              const y1 = y(priceAt(now, k)), y2 = y(priceAt(now, k + 1))
+              const yy = y1 + (y2 - y1) * ((rollP + f) % 1)
               return <circle key={j} cx={x(now) + 6 + j * 4} cy={yy} r="2.2" fill="#f59e0b" opacity="0.9" />
             })}
-            <text x={x(now) + 14} y={(rowY(k) + rowY(k + 1)) / 2 + 3} fill="#f59e0b" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+            <text x={x(now) + 14} y={(y(priceAt(now, k)) + y(priceAt(now, k + 1))) / 2 + 3} fill="#f59e0b" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
               ROLL — volume spikes, OI migrates
             </text>
           </g>
@@ -164,7 +225,7 @@ export default function RollingOiWave() {
 
         {/* NOW — the vertical line of time passing */}
         <line x1={x(now)} y1={mt} x2={x(now)} y2={H - mb} stroke="#f59e0b" strokeWidth="1.5" opacity="0.9" />
-        <text x={x(now)} y={mt - 4} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">NOW</text>
+        <text x={x(now)} y={mt - 3} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">NOW</text>
       </svg>
 
       {/* scrub the timeline by hand — same state the animation drives */}
@@ -177,7 +238,7 @@ export default function RollingOiWave() {
 
       <p className="mt-3 text-sm leading-relaxed text-slate-300">{t('caption')}</p>
       <p className="mt-2 text-sm leading-relaxed text-slate-400">{t('bwNote')}</p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">{t('rollNote')}</p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-500">{t('rollNote')}</p>
     </div>
   )
 }

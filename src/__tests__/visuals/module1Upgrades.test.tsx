@@ -3,33 +3,39 @@ import NetworkExplosion from '@/visuals/NetworkExplosion'
 import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
 import CbotTimeline from '@/visuals/CbotTimeline'
 import VolumeOiFlow from '@/visuals/VolumeOiFlow'
-import RollingOiWave, { oiAt } from '@/visuals/RollingOiWave'
+import RollingOiWave, { oiAt, priceAt } from '@/visuals/RollingOiWave'
 
-test('RollingOiWave: the OI wave rides the front and rolls into the next contract', () => {
-  // The model itself: front carries the crowd, the roll migrates it
+test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to the front', () => {
+  // The OI model: the front carries ~50% of a ~126k board
   const start = oiAt(0)
-  expect(Math.round(start[0])).toBe(52) // Jan, the front
-  expect(Math.round(start[1])).toBe(26)
-  const midRoll = oiAt(1.9) // deep in Jan's roll window
-  expect(midRoll[1]).toBeGreaterThan(midRoll[0]) // Mar has taken the crowd
-  const after = oiAt(2.5) // Jan expired: Mar is the new 52k front
+  expect(Math.round(start[0])).toBe(63) // F, the front
+  expect(Math.round(start[1])).toBe(32) // H
+  const midRoll = oiAt(1.9) // deep in F's roll window
+  expect(midRoll[1]).toBeGreaterThan(midRoll[0]) // H has taken the crowd
+  const after = oiAt(2.5) // F expired: H is the new front
   expect(after[0]).toBe(0)
-  expect(Math.round(after[1])).toBe(52)
-  // The component: scrub the timeline instead of animating
+  expect(Math.round(after[1])).toBe(66)
+  // The price model: winter backwardation (deferreds under the nearby)…
+  expect(priceAt(0, 0)).toBe(4860)
+  expect(priceAt(0, 5)).toBeLessThan(priceAt(0, 0))
+  // …and the pull to spot: F converges onto the front path as it expires
+  expect(priceAt(1.9, 0)).toBeGreaterThan(priceAt(0, 0))
+  // …then the autumn flip: X trades ABOVE the front path — contango
+  expect(priceAt(11.5, 5)).toBeGreaterThan(4425)
+  // The component: legend, codes, live structure chip, scrub-driven states
   const { container } = render(<RollingOiWave />)
-  expect(container.textContent).toContain('52k')
-  // Exchange month codes on the y-axis, calendar months on the x-axis
-  ;['F', 'H', 'K', 'N', 'U'].forEach(c => expect(container.textContent).toContain(c))
-  expect(container.textContent).toContain('Nov')
+  expect(container.textContent).toContain('F · Jan 25')
+  expect(container.textContent).toContain('X · Nov 25')
+  expect(container.textContent).toContain('front F')
   expect(container.textContent).toContain('BACKWARDATION')
-  // Backwardation: Jan (2 months out) trades $80 under the $5,000 spot…
-  expect(container.textContent).toContain('4,920')
+  expect(container.textContent).toContain('63k')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '1.9' } })
   expect(container.textContent).toContain('ROLL — volume spikes, OI migrates')
-  // …and has pulled to $4,996 with 0.1 months of life left: the pull to spot
-  expect(container.textContent).toContain('4,996')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '2.5' } })
-  expect(container.textContent).toContain('✕ expired')
+  expect(container.textContent).toContain('✕')
+  expect(container.textContent).toContain('front H')
+  fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '11.5' } })
+  expect(container.textContent).toContain('CONTANGO')
 })
 
 test('VolumeOiFlow: opening creates OI, changing hands only creates volume', () => {
