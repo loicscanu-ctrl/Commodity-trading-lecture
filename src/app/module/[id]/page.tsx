@@ -27,7 +27,6 @@ export default function ModulePage({ params }: Props) {
         <section className="animate-fade-up">
           <div className="flex flex-wrap items-center gap-3">
             <span className="chip text-slate-300">Module {mod.id}</span>
-            <span className="chip text-slate-400">{mod.level}</span>
           </div>
           <h2 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl">
             <span className="text-gradient">{mod.title}</span>

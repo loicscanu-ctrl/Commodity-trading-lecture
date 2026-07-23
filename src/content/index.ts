@@ -9,7 +9,6 @@ export const modules: Module[] = [
   {
     id: 1,
     title: 'Panorama & Vocabulary',
-    level: 'Licence / M1',
     objectives: [
       'Map the commodity universe — hard vs soft markets, the players (farmers, trade houses, roasters) and how a parcel travels from Dak Lak to the cup',
       'Read a futures contract like a professional: standardisation, margin & clearing, swaps, and the EFP that links paper to physical',
@@ -21,7 +20,6 @@ export const modules: Module[] = [
   {
     id: 2,
     title: 'Operational Mechanics & Hedging',
-    level: 'M1 / M2',
     objectives: [
       'Run the two PTBF trades — split any physical deal into a futures leg and a differential leg — and manage the basis: quality, freight, tenderable parity',
       'Measure any book’s exposure (flat, basis, spread) and build the hedge that matches it',
@@ -33,7 +31,6 @@ export const modules: Module[] = [
   {
     id: 3,
     title: 'Strategies, ESG & Data',
-    level: 'M2 Spécialisé',
     objectives: [
       'Use options on futures: calls, puts, premiums — and when optionality beats a straight hedge',
       'Work the basis with numbers: quote, compare and arbitrate differentials with the calculator',
@@ -45,7 +42,6 @@ export const modules: Module[] = [
   {
     id: 4,
     title: 'Crude Oil: Market Analysis & Refining',
-    level: 'Oil Track',
     objectives: [
       'Analyse oil supply, demand and price: OPEC+, shale, inventories — the data that moves the barrel',
       'Follow the value chain from wellhead to pump: refining, cracks and product slates',
@@ -57,7 +53,6 @@ export const modules: Module[] = [
   {
     id: 5,
     title: 'Crude Oil: The Brent Complex & Hedging',
-    level: 'Oil Track',
     objectives: [
       'Identify an oil book’s exposures and apply the logic of hedging to each one',
       'Execute the simplest hedge — futures: sizing, rolling and the basis risk that remains',
