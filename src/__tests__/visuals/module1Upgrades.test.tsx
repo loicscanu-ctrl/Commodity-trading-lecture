@@ -3,7 +3,7 @@ import NetworkExplosion from '@/visuals/NetworkExplosion'
 import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
 import CbotTimeline from '@/visuals/CbotTimeline'
 import VolumeOiFlow from '@/visuals/VolumeOiFlow'
-import RollingOiWave, { oiAt, priceAt } from '@/visuals/RollingOiWave'
+import RollingOiWave, { oiAt, priceAt, rolledLongAt } from '@/visuals/RollingOiWave'
 
 test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to the front', () => {
   // The OI model: the front carries ~50% of a ~126k board
@@ -22,6 +22,14 @@ test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to t
   expect(priceAt(1.9, 0)).toBeGreaterThan(priceAt(0, 0))
   // …then the autumn flip: X trades ABOVE the front path — contango
   expect(priceAt(11.5, 5)).toBeGreaterThan(4425)
+  // The rolled long: flat at entry; in the backwardated winter the roll
+  // yield is POSITIVE — the rolled long beats the front-path move
+  expect(rolledLongAt(0).pnl).toBe(0)
+  const atTwo = rolledLongAt(2)
+  expect(atTwo.rolls).toBe(1) // F was rolled into H mid-window
+  expect(atTwo.rollYield).toBeGreaterThan(0)
+  expect(atTwo.pnl).toBe(atTwo.marketMove + atTwo.rollYield)
+  expect(rolledLongAt(12).rolls).toBe(5) // rolled all the way into X
   // The component: legend, codes, live structure chip, scrub-driven states
   const { container } = render(<RollingOiWave />)
   expect(container.textContent).toContain('F · Jan 25')
@@ -31,6 +39,9 @@ test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to t
   expect(container.textContent).toContain('OI 63k') // the front's OI in the structure chip
   expect(container.textContent).toContain('F 63k') // …and its band label in the OI panel
   expect(container.textContent).toContain('OPEN INTEREST')
+  expect(container.textContent).toContain('The rolled long')
+  expect(container.textContent).toContain('bought F @ 4,820')
+  expect(container.textContent).toContain('ROLL YIELD')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '1.9' } })
   expect(container.textContent).toContain('ROLL — volume spikes, OI migrates')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '2.5' } })

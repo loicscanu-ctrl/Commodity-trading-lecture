@@ -90,6 +90,30 @@ export function oiAt(t: number): number[] {
   })
 }
 
+// ── The rolled long: buy 1 lot of the front at the start, roll it into the
+// next contract mid-window, all year. The roll itself books NOTHING — the
+// edge comes from buying the deferred CHEAP (backwardation) and riding its
+// pull to spot. Decomposed against the front-path move so the ROLL YIELD
+// shows up as its own line.
+const LOT_TONNES = 10
+export function rolledLongAt(t: number): { pnl: number; marketMove: number; rollYield: number; holding: number; rolls: number } {
+  const tc = Math.min(t, TOTAL_MONTHS)
+  let pnl = 0
+  let j = 0
+  let a = 0
+  for (;;) {
+    const isLast = j >= CONTRACTS.length - 1
+    const rollT = isLast ? CONTRACTS[CONTRACTS.length - 1].exp : CONTRACTS[j].exp - ROLL_WINDOW / 2
+    const b = Math.min(tc, rollT)
+    if (b > a) pnl += (priceAt(b, j) - priceAt(a, j)) * LOT_TONNES
+    if (tc <= rollT || isLast) break
+    a = rollT
+    j++
+  }
+  const marketMove = (lerp(FRONT_PATH, tc) - lerp(FRONT_PATH, 0)) * LOT_TONNES
+  return { pnl: Math.round(pnl), marketMove: Math.round(marketMove), rollYield: Math.round(pnl - marketMove), holding: j, rolls: j }
+}
+
 export default function RollingOiWave() {
   const t = useVisualText(textDef)
   const [now, setNow] = useState(0)
@@ -168,6 +192,7 @@ export default function RollingOiWave() {
         })}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_195px] gap-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '420px' }}>
         {/* price grid — the y-axis IS the price */}
         {[3500, 4000, 4500, 5000, 5500].map(p => (
@@ -263,6 +288,41 @@ export default function RollingOiWave() {
         <line x1={x(now)} y1={mt} x2={x(now)} y2={OTOP + OH} stroke="#f59e0b" strokeWidth="1.5" opacity="0.9" />
         <text x={x(now)} y={mt - 3} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">NOW</text>
       </svg>
+
+      {/* ── The margin P&L: a long taken at the start and ROLLED all year ── */}
+      {(() => {
+        const rl = rolledLongAt(now)
+        const holdingC = CONTRACTS[rl.holding]
+        const alive = now < TOTAL_MONTHS
+        return (
+          <div className="space-y-2 self-start">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-[10px] tabular-nums">
+              <div className="eyebrow mb-1.5">The rolled long · 1 lot (10 t)</div>
+              <div className="flex justify-between"><span className="text-slate-500">Entry</span><span className="text-slate-200">bought F @ 4,820</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">{alive ? 'Holding' : 'Ended'}</span>
+                <span style={{ color: holdingC.color }} className="font-bold">
+                  {alive ? `${holdingC.code} @ ${priceAt(now, rl.holding).toLocaleString('en-US')}` : `${holdingC.code} expired`}
+                </span>
+              </div>
+              <div className="flex justify-between"><span className="text-slate-500">Rolls executed</span><span className="text-slate-200">{rl.rolls}</span></div>
+            </div>
+
+            <div className={`rounded-xl border p-3 font-mono text-[10px] tabular-nums ${rl.pnl >= 0 ? 'border-emerald-500/30 bg-emerald-500/[0.05]' : 'border-rose-500/40 bg-rose-500/[0.06]'}`}>
+              <div className="flex justify-between"><span className="text-slate-400">Rolled long P&L</span>
+                <span className={`text-sm font-bold ${rl.pnl >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{rl.pnl < 0 ? '−' : '+'}${Math.abs(rl.pnl).toLocaleString('en-US')}</span></div>
+              <div className="mt-1.5 flex justify-between border-t border-white/10 pt-1.5"><span className="text-slate-500">of which market move</span>
+                <span className={rl.marketMove >= 0 ? 'text-emerald-300/80' : 'text-rose-300/80'}>{rl.marketMove < 0 ? '−' : '+'}${Math.abs(rl.marketMove).toLocaleString('en-US')}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">of which ROLL YIELD</span>
+                <span className={`font-bold ${rl.rollYield >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{rl.rollYield < 0 ? '−' : '+'}${Math.abs(rl.rollYield).toLocaleString('en-US')}</span></div>
+            </div>
+
+            <p className="text-[9.5px] leading-relaxed text-slate-500">
+              The roll books nothing by itself — the ROLL YIELD is earned by buying each deferred CHEAP (backwardation) and riding its pull to spot. Watch it stall when the curve flips to contango.
+            </p>
+          </div>
+        )
+      })()}
+      </div>
 
       {/* scrub the timeline by hand — same state the animation drives */}
       <div className="mt-1 flex items-center gap-3">
