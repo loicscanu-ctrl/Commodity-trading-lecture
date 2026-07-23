@@ -16,7 +16,7 @@ test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to t
   expect(after[0]).toBe(0)
   expect(Math.round(after[1])).toBe(66)
   // The price model: winter backwardation (deferreds under the nearby)…
-  expect(priceAt(0, 0)).toBe(4860)
+  expect(priceAt(0, 0)).toBe(4820)
   expect(priceAt(0, 5)).toBeLessThan(priceAt(0, 0))
   // …and the pull to spot: F converges onto the front path as it expires
   expect(priceAt(1.9, 0)).toBeGreaterThan(priceAt(0, 0))
@@ -28,7 +28,9 @@ test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to t
   expect(container.textContent).toContain('X · Nov 25')
   expect(container.textContent).toContain('front F')
   expect(container.textContent).toContain('BACKWARDATION')
-  expect(container.textContent).toContain('63k')
+  expect(container.textContent).toContain('OI 63k') // the front's OI in the structure chip
+  expect(container.textContent).toContain('F 63k') // …and its band label in the OI panel
+  expect(container.textContent).toContain('OPEN INTEREST')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '1.9' } })
   expect(container.textContent).toContain('ROLL — volume spikes, OI migrates')
   fireEvent.change(screen.getByRole('slider', { name: 'Timeline (months)' }), { target: { value: '2.5' } })

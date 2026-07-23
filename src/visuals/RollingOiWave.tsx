@@ -8,7 +8,7 @@ export const textDef = defineVisualText({
   caption: {
     label: 'Caption',
     multiline: true,
-    value: 'Six contracts, six different death dates. The open interest never dies with them: as each front month approaches expiry, its holders ROLL — closing the dying contract, reopening the next. The bubble wave you are watching IS the market: the front carries the crowd, the roll passes it on, and only a handful of lots ride into delivery on purpose.',
+    value: 'Six contracts, six different death dates. The open interest never dies with them: as each front month approaches expiry, its holders ROLL — closing the dying contract, reopening the next. Read the THICKNESS of each price line (the fat line is where the market lives) and the coloured bands underneath (the same open interest, stacked): the crowd hands over contract by contract, and only a handful of lots ride into delivery on purpose.',
   },
   bwNote: {
     label: 'Structure note',
@@ -58,7 +58,7 @@ const FRONT_PATH: [number, number][] = [
 // Curve structure, $/t per month of remaining life: deeply backwardated
 // (negative) through the tight winter, flipping to mild contango by autumn.
 const STRUCT_PATH: [number, number][] = [
-  [0, -45], [3, -50], [6, -30], [8, -10], [10, 5], [12, 12],
+  [0, -65], [3, -60], [6, -35], [8, -12], [10, 5], [12, 12],
 ]
 // Total open interest across the board, '000 lots (indicative)
 const TOTAL_OI_PATH: [number, number][] = [
@@ -107,11 +107,14 @@ export default function RollingOiWave() {
     return () => clearInterval(id)
   }, [playing])
 
-  const W = 560, H = 300, ml = 56, mr = 40, mt = 14, mb = 26
-  const pw = W - ml - mr, ph = H - mt - mb
-  const PMIN = 3300, PMAX = 5900
+  const W = 560, H = 412, ml = 56, mr = 40, mt = 14
+  const pw = W - ml - mr
+  const ph = 270 // price panel height — tall, so the contract gaps read
+  const PMIN = 3400, PMAX = 5800
+  const OTOP = 306, OH = 82, OI_MAX = 140 // the OI band panel underneath
   const x = (months: number) => ml + (months / TOTAL_MONTHS) * pw
   const y = (p: number) => mt + (1 - (p - PMIN) / (PMAX - PMIN)) * ph
+  const oy = (v: number) => OTOP + OH - (v / OI_MAX) * OH
 
   const oi = oiAt(now)
   const k = CONTRACTS.findIndex(c => now < c.exp)
@@ -141,7 +144,7 @@ export default function RollingOiWave() {
             struct < 0 ? 'border-rose-500/40 bg-rose-500/[0.08] text-rose-300' : 'border-emerald-500/40 bg-emerald-500/[0.08] text-emerald-300'
           }`}
             title="The live curve structure: deferreds under the front (backwardation) or above it (contango).">
-            {k !== -1 ? `front ${CONTRACTS[k].code} · ${priceAt(now, k).toLocaleString('en-US')} · ` : ''}{struct < 0 ? 'BACKWARDATION' : 'CONTANGO'}
+            {k !== -1 ? `front ${CONTRACTS[k].code} · ${priceAt(now, k).toLocaleString('en-US')} · OI ${Math.round(oiAt(now)[k])}k · ` : ''}{struct < 0 ? 'BACKWARDATION' : 'CONTANGO'}
           </span>
           <button type="button" onClick={() => { if (done) setNow(0); setPlaying(p => done ? true : !p) }}
             className="rounded-full border border-brand-cyan/50 bg-brand-cyan/10 px-3 py-1 font-mono text-xs font-bold text-cyan-100 hover:bg-brand-cyan/20">
@@ -165,7 +168,7 @@ export default function RollingOiWave() {
         })}
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '310px' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '420px' }}>
         {/* price grid — the y-axis IS the price */}
         {[3500, 4000, 4500, 5000, 5500].map(p => (
           <g key={p}>
@@ -173,13 +176,54 @@ export default function RollingOiWave() {
             <text x={ml - 6} y={y(p) + 3} textAnchor="end" fill="#64748b" fontSize="9" fontFamily="monospace">{p.toLocaleString('en-US')}</text>
           </g>
         ))}
-        {/* month grid */}
+        {/* month grid — through the price panel and the OI panel */}
         {Array.from({ length: TOTAL_MONTHS + 1 }, (_, m) => (
           <g key={m}>
-            <line x1={x(m)} y1={mt} x2={x(m)} y2={H - mb} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+            <line x1={x(m)} y1={mt} x2={x(m)} y2={OTOP + OH} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
             <text x={x(m)} y={H - 8} textAnchor="middle" fill={m === 0 || m === TOTAL_MONTHS ? '#fbbf24' : '#475569'} fontSize="7.5" fontFamily="monospace">{calLabel(m)}</text>
           </g>
         ))}
+
+        {/* ── The OI sub-panel: the same open interest, stacked by contract ── */}
+        <text x={ml} y={OTOP - 5} fill="#94a3b8" fontSize="8.5" fontFamily="monospace">OPEN INTEREST · ’000 lots (stacked by contract)</text>
+        {[70, 140].map(v => (
+          <g key={`og-${v}`}>
+            <line x1={ml} y1={oy(v)} x2={ml + pw} y2={oy(v)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            <text x={ml - 6} y={oy(v) + 3} textAnchor="end" fill="#64748b" fontSize="8" fontFamily="monospace">{v}k</text>
+          </g>
+        ))}
+        <line x1={ml} y1={OTOP + OH} x2={ml + pw} y2={OTOP + OH} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+        {now > 0.05 && (() => {
+          const STEP = 0.15
+          const samples: { tt: number; cum: number[] }[] = []
+          for (let tt = 0; tt <= now + 1e-9; tt += STEP) {
+            const tc = Math.min(tt, now)
+            const vals = oiAt(tc)
+            const cum: number[] = [0]
+            for (let i = 0; i < vals.length; i++) cum.push(cum[i] + vals[i])
+            samples.push({ tt: tc, cum })
+          }
+          return CONTRACTS.map((c, i) => {
+            const upper = samples.map(sm => `L${x(sm.tt).toFixed(1)},${oy(sm.cum[i + 1]).toFixed(1)}`)
+            const lower = [...samples].reverse().map(sm => `L${x(sm.tt).toFixed(1)},${oy(sm.cum[i]).toFixed(1)}`)
+            const d = `M${x(0).toFixed(1)},${oy(samples[0].cum[i + 1]).toFixed(1)} ${upper.join(' ')} ${lower.join(' ')} Z`
+            return <path key={`band-${c.code}`} d={d} fill={`${c.color}55`} stroke={c.color} strokeWidth="0.6" />
+          })
+        })()}
+        {/* band labels at NOW — codes for whoever holds a visible share */}
+        {(() => {
+          const vals = oiAt(now)
+          let acc = 0
+          return CONTRACTS.map((c, i) => {
+            const lower = acc; acc += vals[i]
+            if (vals[i] < 14) return null
+            return (
+              <text key={`bl-${c.code}`} x={Math.max(ml + 10, x(now) - 8)} y={oy(lower + vals[i] / 2) + 3} textAnchor="end" fill="#fff" fontSize="9" fontFamily="monospace" fontWeight="bold">
+                {c.code} {Math.round(vals[i])}k
+              </text>
+            )
+          })
+        })()}
 
         {/* the six price paths — each dies at ITS expiry */}
         {CONTRACTS.map((c, i) => {
@@ -188,23 +232,15 @@ export default function RollingOiWave() {
           const endX = x(endT), endY = y(priceAt(endT, i))
           return (
             <g key={c.code}>
-              <path d={pathOf(i)} fill="none" stroke={c.color} strokeWidth={i === k ? 2 : 1.3}
-                opacity={expired ? 0.35 : 0.9} strokeDasharray={expired ? '3 3' : undefined} strokeLinejoin="round" strokeLinecap="round" />
+              {/* the line's THICKNESS is its open interest — the fat line is where the market lives */}
+              <path d={pathOf(i)} fill="none" stroke={c.color}
+                strokeWidth={expired ? 1 : Math.max(1, 0.8 + oi[i] * 0.075)}
+                opacity={expired ? 0.3 : i === k ? 0.95 : 0.75}
+                strokeDasharray={expired ? '3 3' : undefined} strokeLinejoin="round" strokeLinecap="round" />
               {/* the contract's code rides the end of its own line — the on-chart legend */}
               <text x={endX + 5} y={endY + 3} fill={expired ? '#64748b' : c.color} fontSize="9.5" fontFamily="monospace" fontWeight="bold">
                 {c.code}{expired ? ' ✕' : ''}
               </text>
-              {/* the OI bubble riding the line at NOW */}
-              {!expired && oi[i] > 0.4 && (
-                <g>
-                  <circle cx={endX} cy={endY} r={2.5 + Math.sqrt(oi[i]) * 2.1} fill={`${c.color}33`} stroke={c.color} strokeWidth="1.2" />
-                  {oi[i] > 6 && (
-                    <text x={endX} y={endY - (7 + Math.sqrt(oi[i]) * 2.1)} textAnchor="middle" fill={c.color} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
-                      {Math.round(oi[i])}k
-                    </text>
-                  )}
-                </g>
-              )}
             </g>
           )
         })}
@@ -224,7 +260,7 @@ export default function RollingOiWave() {
         )}
 
         {/* NOW — the vertical line of time passing */}
-        <line x1={x(now)} y1={mt} x2={x(now)} y2={H - mb} stroke="#f59e0b" strokeWidth="1.5" opacity="0.9" />
+        <line x1={x(now)} y1={mt} x2={x(now)} y2={OTOP + OH} stroke="#f59e0b" strokeWidth="1.5" opacity="0.9" />
         <text x={x(now)} y={mt - 3} textAnchor="middle" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">NOW</text>
       </svg>
 
