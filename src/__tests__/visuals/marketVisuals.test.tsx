@@ -2,7 +2,7 @@ import { render, fireEvent, screen, act } from '@testing-library/react'
 import ExchangeFunctions from '@/visuals/ExchangeFunctions'
 import RobustaContract from '@/visuals/RobustaContract'
 import VietnamCaseStudy from '@/visuals/VietnamCaseStudy'
-import PtbfMechanics, { FuturesOnlySim, buildTradeReport, buildFuturesReport, buildPdfString, feedAt } from '@/visuals/PtbfMechanics'
+import PtbfMechanics, { FuturesOnlySim, buildTradeReport, buildFuturesReport, buildPdfString, feedAt, m1FeedAt } from '@/visuals/PtbfMechanics'
 import { modules } from '@/content'
 
 test('ExchangeFunctions shows the three functions around liquidity', () => {
@@ -594,18 +594,26 @@ test('FuturesOnlySim: buy, mark to market, sell — the position maths of the Mo
   expect(container.textContent).toContain('S 10 @ $4,900')
 })
 
-test('FuturesOnlySim live: same news tape as the floor, executions stamped by round', () => {
+test('FuturesOnlySim live: its OWN tape — a different scenario from the Module 2 floor', () => {
   jest.useFakeTimers()
   try {
     const { container } = render(<FuturesOnlySim />)
     fireEvent.click(screen.getByRole('button', { name: /Live market/ }))
     // The sliders disappear — the feed prices the market
     expect(screen.queryByRole('spinbutton', { name: 'London futures ($/t)' })).toBeNull()
-    expect(container.textContent).toContain('warehouses almost full')
+    // The Module 1 scenario opens on stocks-to-use — NOT the floor's warehouse story
+    expect(container.textContent).toContain('cushioned market')
+    expect(container.textContent).not.toContain('warehouses almost full')
+    // …and its price path is its own: a ~4,400 open vs the floor's ~4,800
+    expect(Math.abs(m1FeedAt(0, 'fut') - 4400)).toBeLessThanOrEqual(100)
+    expect(m1FeedAt(0, 'fut')).not.toBe(feedAt(0, 'fut'))
     act(() => { jest.advanceTimersByTime(5_000) })
     fireEvent.click(screen.getByRole('button', { name: 'Buy futures' }))
     // The execution is stamped with its round — the same audit logic as the floor
     expect(container.textContent).toContain('· Y1 Apr')
+    // Its own flash traps too: the fat-finger order-book accident fires at t=80
+    act(() => { jest.advanceTimersByTime(78_000) })
+    expect(container.textContent).toContain('FAT FINGER')
   } finally {
     jest.useRealTimers()
   }

@@ -290,6 +290,80 @@ export const feedAt = (t: number, key: keyof typeof FEED) => {
   return Math.round((base + flash) / FEED[key].snap) * FEED[key].snap
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// The MODULE 1 tape — the futures-only screen runs its OWN deterministic
+// scenario, deliberately different from the Module 2 floor so nothing learnt
+// by heart carries over. Same clock (20 s/month, 45 months), different world:
+// regular, realistic news themed on Module 1 — stocks-to-use, fund
+// positioning (CoT), certified stocks, the dollar, margin rules, crop
+// calendars, substitution — and different flash traps.
+// ─────────────────────────────────────────────────────────────────────────────
+const M1_ROUND_MONTHS = [0, 2, 5, 7, 9, 12, 14, 16, 18, 21, 24, 26, 28, 31, 33, 36, 38, 40, 43, 45]
+const M1_ROUND_STARTS = M1_ROUND_MONTHS.map(m => m * SECONDS_PER_MONTH)
+const M1_ROUNDS = [
+  { fut: 4400, spread: -30, headline: 'Comfortable stocks', news: 'Opening bell: world stocks-to-use a comfortable 26% — a cushioned market absorbs shocks. Funds run a mild short.' },
+  { fut: 4300, spread: -35, headline: 'Funds add shorts', news: 'CoT report: managed money adds to shorts; certified stocks keep building. The carry pays the storers — contango behaves.' },
+  { fut: 4150, spread: -40, headline: 'Big Conilon crop', news: 'Brazil’s Conilon harvest lands big. Origin sellers are active on every rally — rallies keep dying at the offers.' },
+  { fut: 4050, spread: -45, headline: 'Heavy harvest', news: 'Vietnam’s harvest starts on time and heavy. The market barely moves — it was all in the price already. Lesson: news ≠ new.' },
+  { fut: 4200, spread: -30, headline: 'Shorts crowded', news: 'Certified stocks stop building and roasters quietly extend cover. The fund short starts to look crowded — who is left to sell?' },
+  { fut: 4350, spread: -15, headline: 'Dollar breaks', news: 'The USD index breaks lower — every dollar-priced commodity catches a macro bid. Nothing changed in coffee — what changed is the unit it is priced in.' },
+  { fut: 4500, spread: 5, headline: 'Certs draining', news: 'Certified stocks draining fast; stocks-to-use revised down to 21%. The curve flattens — nearbys find a bid.' },
+  { fut: 4650, spread: 25, headline: 'Funds flip long', news: 'The fund short capitulates: CoT flips net LONG. High volume with RISING open interest — new money entering, not churn.' },
+  { fut: 4600, spread: 30, headline: 'Margin hike', news: 'The exchange RAISES initial margins 20% after the volatility. Leveraged length trims — a mechanical, not fundamental, dip.' },
+  { fut: 4800, spread: 45, headline: 'Harvest delayed', news: 'Vietnam’s harvest delayed by late rains; nearby certified stocks at a multi-year low. Backwardation steepens.' },
+  { fut: 5000, spread: 60, headline: 'Convex zone', news: 'Stocks-to-use below 18% — the convex zone: the same surprise now moves price twice as far. Risk desks raise their numbers.' },
+  { fut: 5350, spread: 90, headline: 'Flowering risk', news: 'A dry spell over the Central Highlands at FLOWERING. With no stock cushion, the market pays attention this time.' },
+  { fut: 5150, spread: 70, headline: 'Rains return', news: 'Rains return; agronomists call the damage modest. Half the weather premium unwinds as fast as it was built.' },
+  { fut: 4900, spread: 40, headline: 'Supply responds', news: 'Harvest lands big again — high prices did their job: plantings up 6%, demand growth slowing. The cure for high prices…' },
+  { fut: 4600, spread: 15, headline: 'Substitution bites', news: 'Roasters push blends toward cheaper origins and instant mixes — demand-side substitution bites while supply expands.' },
+  { fut: 4300, spread: -10, headline: 'Certs rebuild', news: 'Certified stocks rebuild quickly. The carry returns; storers re-enter; the curve slips back toward contango.' },
+  { fut: 4100, spread: -25, headline: 'Longs liquidate', news: 'CoT: the fund long liquidates. High volume with FALLING open interest — holders leaving, not new sellers arriving.' },
+  { fut: 4250, spread: -15, headline: 'Tariff scare', news: 'A tariff scare on Brazilian goods bids the market — then cooler heads price the reroute: trade flows adapt, price gives most of it back.' },
+  { fut: 4150, spread: -20, headline: 'Cushion back', news: 'Another orderly harvest; stocks-to-use back at 24%. The cushion is rebuilt — shocks get absorbed again.' },
+  { fut: 4200, spread: -25, headline: 'Closing bell', news: 'Final stretch — square your book. This year belonged to whoever read stocks, positioning and the dollar, not the headlines.' },
+]
+export const M1_SCRIPT = M1_ROUNDS.map((r, i) => ({ ...r, label: monthLabel(M1_ROUND_MONTHS[i]) }))
+
+function m1RoundAt(t: number): number {
+  let r = 0
+  for (let i = 0; i < M1_ROUND_STARTS.length; i++) if (t >= M1_ROUND_STARTS[i]) r = i
+  return r
+}
+function m1TicksToTarget(r: number): number {
+  const len = r < M1_ROUND_STARTS.length - 1 ? M1_ROUND_STARTS[r + 1] - M1_ROUND_STARTS[r] : Infinity
+  return Math.max(1, Math.min(DRIFT_TICKS_MAX, (len - NEWS_LAG) / TICK_SECONDS - 1))
+}
+const M1_FEED = {
+  fut:    { get: (r: (typeof M1_ROUNDS)[number]) => r.fut,    snap: 5, seed: 101, amp: 60, holdAmp: 32 },
+  spread: { get: (r: (typeof M1_ROUNDS)[number]) => r.spread, snap: 1, seed: 113, amp: 8,  holdAmp: 4 },
+} as const
+// Different traps too: an order-book accident, a fake export-ban tweet, a
+// stop-run and a recycled frost headline — all fully reverting.
+export const M1_FLASHES: { start: number; dur: number; label: string; d: Partial<Record<keyof typeof M1_FEED, number>> }[] = [
+  { start: 4 * SECONDS_PER_MONTH, dur: 10, label: 'FAT FINGER — a market order walks the whole book!', d: { fut: -220, spread: -10 } },
+  { start: 15 * SECONDS_PER_MONTH, dur: 12, label: 'Unverified tweet: Vietnam export licences suspended!', d: { fut: 250, spread: 20 } },
+  { start: 25 * SECONDS_PER_MONTH, dur: 9, label: 'Stop-run through 5,000 — algo cascade, gone in seconds', d: { fut: 170, spread: 10 } },
+  { start: 37 * SECONDS_PER_MONTH, dur: 14, label: 'FROST headline goes viral — dated 1994, from an archive', d: { fut: 280, spread: 15 } },
+]
+export const m1FeedAt = (t: number, key: keyof typeof M1_FEED) => {
+  t = Math.min(t, SESSION_SECONDS)
+  const r = m1RoundAt(t)
+  const cfg = M1_FEED[key]
+  const prev = cfg.get(M1_ROUNDS[Math.max(0, r - 1)])
+  const target = cfg.get(M1_ROUNDS[r])
+  const f = Math.min(1, Math.floor(Math.max(0, t - M1_ROUND_STARTS[r] - NEWS_LAG) / TICK_SECONDS) / m1TicksToTarget(r))
+  const tick = Math.floor(Math.max(0, t) / TICK_SECONDS)
+  const scale = f > 0 && f < 1 ? cfg.amp * 4 * f * (1 - f) : cfg.holdAmp
+  const wiggle = scale * noise01(tick * 7.13 + cfg.seed)
+  const base = Math.round((prev + (target - prev) * f + wiggle) / cfg.snap) * cfg.snap
+  const flash = M1_FLASHES.reduce((sum, fl) => {
+    if (t < fl.start || t >= fl.start + fl.dur) return sum
+    const envelope = 1 - Math.abs((2 * (t - fl.start)) / fl.dur - 1)
+    return sum + (fl.d[key] ?? 0) * envelope
+  }, 0)
+  return Math.round((base + flash) / cfg.snap) * cfg.snap
+}
+
 const fmtUsd = (n: number, dp = 0) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
 const fmtEur = (n: number) => '€' + Math.abs(n).toLocaleString('en-US')
 const sgn = (n: number, dp = 0) => (n < 0 ? '−' : '+') + fmtUsd(n, dp)
@@ -492,12 +566,21 @@ export type Pin = { t: number; panel: 'fut' | 'diff' | 'out'; side: Side; value:
 // is CALENDAR TIME (months between rounds are realistic, not equal), the
 // ticker crawls right every second, executed actions pin green (buy) /
 // red (sell) dots on the curve they touched, and pins from past trades stay.
-function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins, coverDeadline, futOnly }: {
+function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread, lastStep, hedgeIdx, fixIdx, complete, dots, sides, order, stamps, stampTimes, liveLabel, elapsed, pins, coverDeadline, futOnly, futFeed, script, roundMonths, flashes }: {
   marks: number[]; liveFut: number; diffMarks: number[]; liveDiff: number; liveParity: number; calSpread: number; lastStep: number; hedgeIdx: number; fixIdx: number; complete: boolean
   dots: DotSpec[]; sides: readonly Side[]; order?: number[]; stamps?: number[]; stampTimes?: number[]; liveLabel: string
   elapsed?: number; pins: Pin[]; coverDeadline?: number
   futOnly?: boolean // futures panel only — no differential panel, no outright, no parity (the Module 1 screen)
+  // Alternative tape (the Module 1 screen runs its own scenario)
+  futFeed?: (t: number) => number
+  script?: { label: string; headline: string; news: string }[]
+  roundMonths?: number[]
+  flashes?: { start: number; dur: number; label: string }[]
 }) {
+  const SCRIPT = script ?? LIVE_SCRIPT
+  const RMONTHS = roundMonths ?? ROUND_MONTHS
+  const RSTARTS = RMONTHS.map(m => m * SECONDS_PER_MONTH)
+  const FL = flashes ?? FLASHES
   // Which ACTION the i-th execution was (free order on the intermediate level)
   const actionOf = (i: number) => order?.[i] ?? i + 1
   const W = 560, H = 430, ml = 56, mr = 16, mt = 12
@@ -528,7 +611,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
 
   // Live mode: reconstruct the whole tick-by-tick history (deterministic)
   const times: number[] = isTime ? Array.from({ length: tickNow / TICK_SECONDS + 1 }, (_, k) => k * TICK_SECONDS) : []
-  const futSeries = times.map(t => feedAt(t, 'fut'))
+  const futSeries = times.map(t => (futFeed ? futFeed(t) : feedAt(t, 'fut')))
   const diffSeries = times.map(t => feedAt(t, 'fob'))
   const seriesPath = (vals: number[], yf: (v: number) => number) =>
     vals.map((v, k) => `${k === 0 ? 'M' : 'L'}${xT(times[k]).toFixed(1)},${yf(v).toFixed(1)}`).join(' ')
@@ -542,7 +625,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
 
   const hex = (s: Side) => (s === 'buy' ? '#34d399' : '#f43f5e')
   // Time label of each executed action: live-round stamp, or T1/T2… by hand
-  const timeLabel = (i: number) => (stamps?.[i] !== undefined ? LIVE_SCRIPT[stamps[i]].label : `T${i + 1}`)
+  const timeLabel = (i: number) => (stamps?.[i] !== undefined ? SCRIPT[stamps[i]].label : `T${i + 1}`)
   // The flat outright = futures + differential, along the series (live) or the actions (manual)
   const outright = marks.map((v, i) => v + (diffMarks[i] ?? 0))
   const outrightSeries = futSeries.map((v, k) => v + diffSeries[k])
@@ -609,7 +692,7 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
               )
             })}
             {/* flash scars — rose ⚡ marks where a flash hit, revealed once passed */}
-            {FLASHES.map(f => {
+            {FL.map(f => {
               if (f.start > elapsed!) return null
               const fx = xT(f.start + f.dur / 2)
               return (
@@ -632,9 +715,9 @@ function PriceGraph({ marks, liveFut, diffMarks, liveDiff, liveParity, calSpread
               </g>
             )}
             {/* news flags — revealed only once the market reaches them */}
-            {LIVE_SCRIPT.map((r, ri) => {
-              if (ROUND_STARTS[ri] > elapsed!) return null
-              const bx = xM(ROUND_MONTHS[ri])
+            {SCRIPT.map((r, ri) => {
+              if (RSTARTS[ri] > elapsed!) return null
+              const bx = xM(RMONTHS[ri])
               const fy2 = mt + 2 + (ri % 2) * 10
               return (
                 <g key={`news-${r.label}`}>
@@ -2163,7 +2246,7 @@ export function buildFuturesReport(execs: FutExec[], s: {
   L.push(`Generated: ${new Date().toISOString()}`)
   L.push('')
   execs.forEach((e, i) => {
-    L.push(`${i + 1}. ${e.side === 'buy' ? 'BUY ' : 'SELL'} ${e.lots} lots @ ${fmtUsd(e.px)} · ${LIVE_SCRIPT[e.round].label} · t=${e.t}s${e.flash ? ' · DURING A FLASH WINDOW' : ''}`)
+    L.push(`${i + 1}. ${e.side === 'buy' ? 'BUY ' : 'SELL'} ${e.lots} lots @ ${fmtUsd(e.px)} · ${M1_SCRIPT[e.round].label} · t=${e.t}s${e.flash ? ' · DURING A FLASH WINDOW' : ''}`)
   })
   const flashCount = execs.filter(e => e.flash).length
   L.push('')
@@ -2196,7 +2279,7 @@ export function FuturesOnlySim() {
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
   const pausedAtRef = useRef(0)
-  const liveRound = roundAt(elapsed)
+  const liveRound = m1RoundAt(elapsed)
   const sessionOver = live && elapsed >= SESSION_SECONDS
 
   useEffect(() => {
@@ -2207,8 +2290,8 @@ export function FuturesOnlySim() {
 
   useEffect(() => {
     if (!live) return
-    setFut(feedAt(elapsed, 'fut'))
-    setSpreadQ(feedAt(elapsed, 'spread'))
+    setFut(m1FeedAt(elapsed, 'fut'))
+    setSpreadQ(m1FeedAt(elapsed, 'spread'))
   }, [live, elapsed])
 
   // Lock slide navigation while live — same event the big simulator uses
@@ -2263,7 +2346,7 @@ export function FuturesOnlySim() {
     const dir = side === 'buy' ? 1 : -1
     const q = lotsIn
     // Executions taken inside a flash window are stamped — the debrief will ask
-    const inFlash = live && FLASHES.some(f => elapsed >= f.start && elapsed < f.start + f.dur)
+    const inFlash = live && M1_FLASHES.some(f => elapsed >= f.start && elapsed < f.start + f.dur)
     setExecs(e => [...e, { side, px: fut, lots: q, t: elapsed, round: liveRound, flash: inFlash }])
     if (pos === 0 || Math.sign(pos) === dir) {
       setAvg((Math.abs(pos) * avg + q * fut) / (Math.abs(pos) + q))
@@ -2362,16 +2445,20 @@ export function FuturesOnlySim() {
           order={execs.map(e => (e.side === 'buy' ? 1 : 2))}
           stamps={live || execs.some(e => e.t > 0) ? execs.map(e => e.round) : undefined}
           stampTimes={execs.map(e => e.t)}
-          liveLabel={live ? LIVE_SCRIPT[liveRound].label : 'now'}
+          liveLabel={live ? M1_SCRIPT[liveRound].label : 'now'}
           elapsed={live ? elapsed : undefined}
           pins={[]}
           futOnly
+          futFeed={tt => m1FeedAt(tt, 'fut')}
+          script={M1_SCRIPT}
+          roundMonths={M1_ROUND_MONTHS}
+          flashes={M1_FLASHES}
         />
 
         <div className="space-y-1.5 self-start">
           {/* FLASH siren + news tile — identical machinery to the full floor */}
           {live && (() => {
-            const f = FLASHES.find(fl => elapsed >= fl.start && elapsed < fl.start + fl.dur)
+            const f = M1_FLASHES.find(fl => elapsed >= fl.start && elapsed < fl.start + fl.dur)
             return f ? (
               <div className="animate-pulse rounded-xl border border-rose-500 bg-rose-500/[0.15] p-2 font-mono text-[11px] font-bold text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.5)]">
                 ⚡ FLASH — {f.label}
@@ -2379,16 +2466,16 @@ export function FuturesOnlySim() {
             ) : null
           })()}
           <div className={`rounded-xl border p-2.5 transition-all duration-500 ${
-            live && elapsed - ROUND_STARTS[liveRound] < 5
+            live && elapsed - M1_ROUND_STARTS[liveRound] < 5
               ? 'animate-pulse border-brand-cyan bg-brand-cyan/[0.12] shadow-[0_0_24px_rgba(34,211,238,0.45)]'
               : 'border-brand-cyan/25 bg-brand-cyan/[0.04]'
           }`}>
             <div className="flex items-center gap-2">
-              <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS{live ? ` · ${LIVE_SCRIPT[liveRound].label}` : ''}</span>
-              {live && <span className="truncate font-mono text-[10px] font-bold text-cyan-200">{LIVE_SCRIPT[liveRound].headline}</span>}
+              <span className="chip !py-0.5 shrink-0 border-brand-cyan/50 bg-brand-cyan/15 font-mono text-[10px] font-bold text-brand-cyan">NEWS{live ? ` · ${M1_SCRIPT[liveRound].label}` : ''}</span>
+              {live && <span className="truncate font-mono text-[10px] font-bold text-cyan-200">{M1_SCRIPT[liveRound].headline}</span>}
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-              {live ? LIVE_SCRIPT[liveRound].news : 'The news feed wakes with the live market.'}
+              {live ? M1_SCRIPT[liveRound].news : 'The news feed wakes with the live market.'}
             </p>
           </div>
 
@@ -2440,7 +2527,7 @@ export function FuturesOnlySim() {
                 {execs.map((e, i) => (
                   <span key={i} className={`rounded px-1 py-px font-mono text-[9px] font-bold ${e.side === 'buy' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}
                     title={e.flash ? 'Executed during a FLASH window — the debrief will ask about this one' : undefined}>
-                    {e.side === 'buy' ? 'B' : 'S'} {e.lots} @ {fmtUsd(e.px)}{live || e.t > 0 ? ` · ${LIVE_SCRIPT[e.round].label}` : ''}{e.flash ? ' ⚡' : ''}
+                    {e.side === 'buy' ? 'B' : 'S'} {e.lots} @ {fmtUsd(e.px)}{live || e.t > 0 ? ` · ${M1_SCRIPT[e.round].label}` : ''}{e.flash ? ' ⚡' : ''}
                   </span>
                 ))}
               </div>
