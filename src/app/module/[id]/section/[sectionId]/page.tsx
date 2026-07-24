@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { modules } from '@/content'
 import SectionReader from '@/components/SectionReader'
+import ModuleGate from '@/components/ModuleGate'
 
 type Props = { params: { id: string; sectionId: string } }
 
@@ -13,11 +14,13 @@ export default function SectionPage({ params }: Props) {
   if (!topic || !topic.sections || topic.sections.length === 0) notFound()
 
   return (
-    <SectionReader
-      sections={topic.sections}
-      moduleId={moduleId}
-      topicTitle={topic.title}
-      topicId={topic.id}
-    />
+    <ModuleGate moduleId={moduleId} returnTo={`/module/${moduleId}/section/${topic.id}`}>
+      <SectionReader
+        sections={topic.sections}
+        moduleId={moduleId}
+        topicTitle={topic.title}
+        topicId={topic.id}
+      />
+    </ModuleGate>
   )
 }

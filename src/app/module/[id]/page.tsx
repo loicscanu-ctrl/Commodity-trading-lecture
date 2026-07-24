@@ -3,6 +3,7 @@ import { modules } from '@/content'
 import ModuleTabs from '@/components/ModuleTabs'
 import TopicCard from '@/components/TopicCard'
 import SiteHeader from '@/components/SiteHeader'
+import ModuleGate from '@/components/ModuleGate'
 
 type Props = { params: { id: string } }
 
@@ -22,6 +23,7 @@ export default function ModulePage({ params }: Props) {
       <SiteHeader />
       <ModuleTabs activeId={moduleId} />
 
+      <ModuleGate moduleId={moduleId} returnTo={`/module/${moduleId}`}>
       <main className="mx-auto max-w-7xl px-5 pb-20 pt-10 sm:px-6">
         {/* Hero */}
         <section className="animate-fade-up">
@@ -72,6 +74,7 @@ export default function ModulePage({ params }: Props) {
           </div>
         </section>
       </main>
+      </ModuleGate>
     </div>
   )
 }

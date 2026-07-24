@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { modules } from '@/content'
 import QuizRunner from './QuizRunner'
+import ModuleGate from '@/components/ModuleGate'
 
 type Props = { params: { id: string; quizId: string } }
 
@@ -13,11 +14,13 @@ export default function QuizPage({ params }: Props) {
   if (!topic || !topic.quiz || topic.quiz.questions.length === 0) notFound()
 
   return (
-    <QuizRunner
-      questions={topic.quiz.questions}
-      moduleId={moduleId}
-      topicTitle={topic.title}
-      topicId={topic.id}
-    />
+    <ModuleGate moduleId={moduleId} returnTo={`/module/${moduleId}/quiz/${topic.id}`}>
+      <QuizRunner
+        questions={topic.quiz.questions}
+        moduleId={moduleId}
+        topicTitle={topic.title}
+        topicId={topic.id}
+      />
+    </ModuleGate>
   )
 }
