@@ -6,11 +6,12 @@ import { useState } from 'react'
 // PTBF plus its 20-lot hedge — travels through the house. Step through it
 // and watch which office touches it, in what order, and why each touch is
 // a CONTROL, not bureaucracy.
-type LaneKey = 'exchange' | 'front' | 'middle' | 'back' | 'treasury'
+type LaneKey = 'exchange' | 'front' | 'ops' | 'middle' | 'back' | 'treasury'
 
 const LANES: { key: LaneKey; label: string; color: string }[] = [
   { key: 'exchange', label: 'BROKER / EXCHANGE', color: '#8b5cf6' },
   { key: 'front', label: 'FRONT OFFICE', color: '#22d3ee' },
+  { key: 'ops', label: 'OPERATIONS / LOGISTICS', color: '#3b82f6' },
   { key: 'middle', label: 'MIDDLE OFFICE', color: '#f59e0b' },
   { key: 'back', label: 'BACK OFFICE', color: '#34d399' },
   { key: 'treasury', label: 'TREASURY', color: '#f43f5e' },
@@ -38,8 +39,12 @@ const STEPS: { lane: LaneKey; also?: LaneKey; title: string; desc: string }[] = 
     desc: 'Initial margin is wired to the clearing member, the variation-margin line is reserved, and the physical purchase is financed. No cash, no trade — treasury keeps the hedge alive.',
   },
   {
+    lane: 'ops', title: 'Physical execution',
+    desc: 'The execution & logistics desk turns the contract into a moving cargo: trucking from Dak Lak, container stuffing, vessel space HCM → Antwerp, the warehouse slot. This is the classic graduate entry point — and the desk trusts traders who have done it.',
+  },
+  {
     lane: 'back', title: 'Contracts & documents',
-    desc: 'Shipping instructions, quality and phytosanitary certificates, the bill of lading, the invoice — the paper that actually moves the beans and gets the desk paid.',
+    desc: 'From what operations executed, back office cuts the paper: shipping instructions, quality and phytosanitary certificates, the bill of lading, the invoice — the documents that get the desk paid.',
   },
   {
     lane: 'middle', also: 'front', title: 'EOD: P&L & position report',
@@ -50,7 +55,7 @@ const STEPS: { lane: LaneKey; also?: LaneKey; title: string; desc: string }[] = 
 export default function TradeWorkflow() {
   const [step, setStep] = useState(0)
 
-  const W = 560, H = 250, ml = 128, mr = 14, mt = 24
+  const W = 560, H = 292, ml = 128, mr = 14, mt = 24
   const pw = W - ml - mr
   const laneY = (k: LaneKey) => mt + LANES.findIndex(l => l.key === k) * 44
   const stepX = (i: number) => ml + ((i + 0.5) / STEPS.length) * pw
@@ -138,9 +143,10 @@ export default function TradeWorkflow() {
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-slate-400">
-        Seven touches, four departments, one trade — and only ONE of the seven is the part outsiders call &ldquo;trading.&rdquo;
+        Eight touches, five departments, one trade — and only ONE of the eight is the part outsiders call &ldquo;trading.&rdquo;
         Every other touch is a paid role, an entry point, and a control: the desk head signs a P&L that middle office
-        marked, against confirmations back office matched, funded by cash treasury moved.
+        marked, on a cargo operations physically moved, against confirmations back office matched, funded by cash
+        treasury moved.
       </p>
     </div>
   )
