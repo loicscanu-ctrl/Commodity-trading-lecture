@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '06-futures-first',
   title: 'Trade the News: Your First Futures Screen',
   type: 'case-study',
-  estimatedMinutes: 25,
+  estimatedMinutes: 20,
   sections: [
     {
       id: 'futures-first-brief',

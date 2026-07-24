@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '01-panorama',
   title: 'Why We Need a Market: From Chaos to the Exchange',
   type: 'lecture',
-  estimatedMinutes: 25,
+  estimatedMinutes: 20,
   sections: [
     {
       id: 'no-market',

@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '04-supply-demand',
   title: 'Reading Supply & Demand',
   type: 'lecture',
-  estimatedMinutes: 30,
+  estimatedMinutes: 20,
   sections: [
     {
       id: 'supply-side',

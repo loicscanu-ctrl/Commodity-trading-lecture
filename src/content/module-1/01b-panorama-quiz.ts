@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '01b-panorama-quiz',
   title: 'Quiz: Commodities, Traders & Market Structure',
   type: 'quiz',
-  estimatedMinutes: 10,
+  estimatedMinutes: 8,
   quiz: {
     questions: [
       {

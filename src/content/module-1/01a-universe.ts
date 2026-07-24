@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '01a-universe',
   title: 'The Commodity Universe & the Players',
   type: 'lecture',
-  estimatedMinutes: 30,
+  estimatedMinutes: 22,
   sections: [
     {
       id: 'classification',

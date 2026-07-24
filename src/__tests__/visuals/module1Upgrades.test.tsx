@@ -3,6 +3,8 @@ import NetworkExplosion from '@/visuals/NetworkExplosion'
 import UnhedgeableMarkets from '@/visuals/UnhedgeableMarkets'
 import CbotTimeline from '@/visuals/CbotTimeline'
 import VolumeOiFlow from '@/visuals/VolumeOiFlow'
+import TradeWorkflow from '@/visuals/TradeWorkflow'
+import PhysicalFlow from '@/visuals/PhysicalFlow'
 import RollingOiWave, { oiAt, priceAt, rolledLongAt } from '@/visuals/RollingOiWave'
 
 test('RollingOiWave: real-year replay — the OI wave rolls and prices pull to the front', () => {
@@ -238,4 +240,46 @@ test('CropCalendar and WarrantLifecycle render their content', () => {
   const wl = render(<WarrantLifecycle />)
   expect(wl.container.textContent).toContain('Warrant')
   expect(wl.container.textContent).toContain('fungible')
+})
+
+test('TradeWorkflow: one trade travels through all four departments in order', () => {
+  const { container } = render(<TradeWorkflow />)
+  // The swimlanes
+  ;['FRONT OFFICE', 'MIDDLE OFFICE', 'BACK OFFICE', 'TREASURY', 'BROKER / EXCHANGE'].forEach(l =>
+    expect(container.textContent).toContain(l))
+  // Step 1: the deal is done at the word, on the front-office lane
+  expect(container.textContent).toContain('Deal done')
+  expect(container.textContent).toContain('step 1/7')
+  // Walk to deal capture (step 3): middle office + limits
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  expect(container.textContent).toContain('Deal capture & limits')
+  expect(container.textContent).toContain('unbooked trade is invisible risk')
+  // Jump to treasury (step 5): margin & financing
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  expect(container.textContent).toContain('Margin & financing')
+  // …and to the end: the P&L report, with the controls takeaway
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  expect(container.textContent).toContain('P&L & position report')
+  expect(screen.getByRole('button', { name: 'Next →' })).toBeDisabled()
+})
+
+test('PhysicalFlow: goods forward, documents forward, money back — with owners', () => {
+  const { container } = render(<PhysicalFlow />)
+  // The four parties, supplier to customer
+  ;['SUPPLIER', 'TRADING HOUSE', 'WAREHOUSE', 'CUSTOMER'].forEach(n =>
+    expect(container.textContent).toContain(n))
+  expect(container.textContent).toContain('Dak Lak')
+  expect(container.textContent).toContain('Roaster · Hamburg')
+  // The three flows with their cargo
+  expect(container.textContent).toContain('container · vessel HCM → Antwerp')
+  expect(container.textContent).toContain('B/L · quality & phyto certificates')
+  expect(container.textContent).toContain('against documents (LC or CAD)')
+  // Focusing a flow names the office that owns it
+  fireEvent.click(screen.getByRole('button', { name: 'Show cash flow' }))
+  expect(container.textContent).toContain('moved by TREASURY')
+  fireEvent.click(screen.getByRole('button', { name: 'Show docs flow' }))
+  expect(container.textContent).toContain('the paper IS the trade')
 })

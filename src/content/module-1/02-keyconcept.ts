@@ -4,7 +4,7 @@ const topic: Topic = {
   id: '02-keyconcept',
   title: 'Key Instruments: Futures, Swaps, EFP/EFS',
   type: 'lecture',
-  estimatedMinutes: 30,
+  estimatedMinutes: 25,
   sections: [
     {
       id: 'futures',
