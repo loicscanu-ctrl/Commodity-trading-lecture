@@ -68,6 +68,8 @@ import ParcelJourney from './ParcelJourney'
 import MarketBenefits from './MarketBenefits'
 import FuturesContractDoc, { textDef as futuresContractDocText } from './FuturesContractDoc'
 import DeskOrganisation from './DeskOrganisation'
+import TradeWorkflow from './TradeWorkflow'
+import PhysicalFlow from './PhysicalFlow'
 
 export const visualRegistry: Record<string, ComponentType> = {
   'three-laws': ThreeLaws,
@@ -139,6 +141,8 @@ export const visualRegistry: Record<string, ComponentType> = {
   'market-benefits': MarketBenefits,
   'futures-contract-doc': FuturesContractDoc,
   'desk-organisation': DeskOrganisation,
+  'trade-workflow': TradeWorkflow,
+  'physical-flow': PhysicalFlow,
 }
 
 // Visuals whose text is editable expose a VisualTextDef schema here.
