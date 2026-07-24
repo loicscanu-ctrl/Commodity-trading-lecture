@@ -32,7 +32,7 @@ const HOPS: Record<Flow, { dir: 'fwd' | 'back'; labels: [string, string, string]
 }
 
 const FLOW_META: Record<Flow, { label: string; color: string; office: string }> = {
-  goods: { label: 'GOODS →', color: '#34d399', office: 'moved by OPERATIONS (back office): trucks, stuffing, vessel bookings, instore handling' },
+  goods: { label: 'GOODS →', color: '#34d399', office: 'moved by OPERATIONS / LOGISTICS — the execution desk: trucks, stuffing, vessel bookings, instore handling' },
   docs: { label: 'DOCUMENTS →', color: '#22d3ee', office: 'issued & matched by BACK OFFICE: no clean documents, no payment — the paper IS the trade' },
   cash: { label: '← MONEY', color: '#f59e0b', office: 'moved by TREASURY: the customer pays against documents; the desk paid the farmer months earlier — financing bridges the gap' },
 }

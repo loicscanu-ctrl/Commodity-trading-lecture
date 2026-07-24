@@ -244,12 +244,12 @@ test('CropCalendar and WarrantLifecycle render their content', () => {
 
 test('TradeWorkflow: one trade travels through all four departments in order', () => {
   const { container } = render(<TradeWorkflow />)
-  // The swimlanes
-  ;['FRONT OFFICE', 'MIDDLE OFFICE', 'BACK OFFICE', 'TREASURY', 'BROKER / EXCHANGE'].forEach(l =>
+  // The swimlanes — including the execution/logistics desk
+  ;['FRONT OFFICE', 'OPERATIONS / LOGISTICS', 'MIDDLE OFFICE', 'BACK OFFICE', 'TREASURY', 'BROKER / EXCHANGE'].forEach(l =>
     expect(container.textContent).toContain(l))
   // Step 1: the deal is done at the word, on the front-office lane
   expect(container.textContent).toContain('Deal done')
-  expect(container.textContent).toContain('step 1/7')
+  expect(container.textContent).toContain('step 1/8')
   // Walk to deal capture (step 3): middle office + limits
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
@@ -259,6 +259,10 @@ test('TradeWorkflow: one trade travels through all four departments in order', (
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
   expect(container.textContent).toContain('Margin & financing')
+  // Step 6: operations turns the contract into a moving cargo
+  fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
+  expect(container.textContent).toContain('Physical execution')
+  expect(container.textContent).toContain('vessel space HCM → Antwerp')
   // …and to the end: the P&L report, with the controls takeaway
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next →' }))
