@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { modules } from '@/content'
 import { toolRegistry } from '@/tools'
 import Breadcrumb from '@/components/Breadcrumb'
+import ModuleGate from '@/components/ModuleGate'
 
 type Props = { params: { id: string; toolId: string } }
 
@@ -17,9 +18,11 @@ export default function ToolPage({ params }: Props) {
   if (!Tool) notFound()
 
   return (
-    <div className="min-h-screen text-white">
-      <Breadcrumb moduleId={moduleId} topicTitle={topic.title} />
-      <Tool />
-    </div>
+    <ModuleGate moduleId={moduleId} returnTo={`/module/${moduleId}/tool/${topic.id}`}>
+      <div className="min-h-screen text-white">
+        <Breadcrumb moduleId={moduleId} topicTitle={topic.title} />
+        <Tool />
+      </div>
+    </ModuleGate>
   )
 }
